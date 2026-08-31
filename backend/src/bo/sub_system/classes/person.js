@@ -12,7 +12,7 @@ export class Person {
   }
 
   createPerson = async (data = {}) => {
-    const { ci, name, lastname, phone = null, address = null } = data;
+    const { ci, name, lastname, phone = null, address = null, degree = null, department = null } = data;
 
     if (!ci || !name || !lastname) {
       throw new Error(
@@ -28,7 +28,7 @@ export class Person {
     try {
       const result = await this.dbms.executeNamedQuery({
         nameQuery: 'createPerson',
-        params: { ci, name, lastname, phone, address },
+        params: { ci, name, lastname, phone, address, degree, department },
       });
       return result.rows[0];
     } catch (error) {
@@ -45,6 +45,92 @@ export class Person {
 
       throw error;
     }
+  };
+
+  getAllPersons = async () => {
+    await this.dbmsReady;
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'getAllPersons',
+      params: {},
+    });
+    return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
+  };
+
+  getPersonById = async ({ id }) => {
+    await this.dbmsReady;
+
+    if (!id) {
+      throw new Error(
+        JSON.stringify({ message: "Campo requerido: 'id'", statusCode: STATUS_CODES.BAD_REQUEST }),
+      );
+    }
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'getPersonById',
+      params: { id },
+    });
+
+    const person = result?.rows?.[0];
+    if (!person) {
+      throw new Error(
+        JSON.stringify({ message: `Persona con id ${id} no encontrada`, statusCode: STATUS_CODES.NOT_FOUND }),
+      );
+    }
+
+    return { statusCode: STATUS_CODES.OK, data: person };
+  };
+
+  updatePerson = async (data = {}) => {
+    const { id, name, lastname, degree = null, department = null } = data;
+
+    if (!id || !name || !lastname) {
+      throw new Error(
+        JSON.stringify({
+          message: "Campos requeridos: 'id', 'name', 'lastname'",
+          statusCode: STATUS_CODES.BAD_REQUEST,
+        }),
+      );
+    }
+
+    await this.dbmsReady;
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'updatePerson',
+      params: { id, first_name: name, last_name: lastname, degree, department },
+    });
+
+    const person = result?.rows?.[0];
+    if (!person) {
+      throw new Error(
+        JSON.stringify({ message: `Persona con id ${id} no encontrada`, statusCode: STATUS_CODES.NOT_FOUND }),
+      );
+    }
+
+    return { statusCode: STATUS_CODES.OK, data: person, message: 'Persona actualizada' };
+  };
+
+  deletePerson = async ({ id }) => {
+    await this.dbmsReady;
+
+    if (!id) {
+      throw new Error(
+        JSON.stringify({ message: "Campo requerido: 'id'", statusCode: STATUS_CODES.BAD_REQUEST }),
+      );
+    }
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'deletePerson',
+      params: { id },
+    });
+
+    const person = result?.rows?.[0];
+    if (!person) {
+      throw new Error(
+        JSON.stringify({ message: `Persona con id ${id} no encontrada`, statusCode: STATUS_CODES.NOT_FOUND }),
+      );
+    }
+
+    return { statusCode: STATUS_CODES.OK, message: 'Persona eliminada' };
   };
 }
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SecurityRules } from "@/service/securityService";
+import { SecurityRules } from "@/lib/clientValidation";
 
 export const loginSchema = z.object({
   username: z

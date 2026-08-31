@@ -1,15 +1,19 @@
 import express from 'express';
 import session from 'express-session';
+import pgSession from 'connect-pg-simple';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import Config from '../../config/config.js';
 import dotenv from 'dotenv';
+import pool from '../../config/db.js';
 import userRouter from '../session/sessionRoutes.js';
 import Security from '../security/security.js';
 import dispatcherRouter from '../dispatcher/dispatcherRoutes.js';
 import authMiddleware from '../auth/authMiddleware.js';
 
 dotenv.config();
+
+const PgSessionStore = pgSession(session);
 
 class Server {
   constructor() {
@@ -40,13 +44,19 @@ class Server {
     this.app.use(express.urlencoded({ extended: true }));
     this.app.use(
       session({
+        store: new PgSessionStore({
+          pool,
+          tableName: 'session',
+          createTableIfMissing: true,
+        }),
         secret: process.env.SECRET,
         resave: false,
-        saveUninitialized: true,
+        saveUninitialized: false,
         cookie: {
-          secure: false,
+          secure: process.env.COOKIE_SECURE === 'true',
           httpOnly: true,
-          maxAge: 5 * 60 * 1000,
+          sameSite: 'lax',
+          maxAge: 2 * 60 * 60 * 1000,
         },
       }),
     );

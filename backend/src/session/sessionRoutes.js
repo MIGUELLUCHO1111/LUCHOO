@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 const router = express.Router();
 import Session from './session.js';
 const session = new Session();
@@ -16,8 +17,17 @@ import Mailer from '../mailer/mailer.js';
 const tokenizer = new Tokenizer();
 const mailer = new Mailer();
 
+// Limita intentos en rutas sensibles (login/registro/recuperación de contraseña)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos, intente de nuevo más tarde' },
+});
+
 // Registro de usuario
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   try {
     // Schema de validación para registro
     const registerSchema = {
@@ -63,7 +73,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     // Schema de validación para login
     const loginSchema = {
@@ -144,7 +154,7 @@ router.get('/me', async (req, res) => {
 });
 
 // Recuperacion de contrasena
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', authLimiter, async (req, res) => {
   const { email } = req.body || {};
 
   await sessionWrapper.destroySession(req);
@@ -193,7 +203,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', authLimiter, async (req, res) => {
   const { token, password, confirmPassword } = req.body || {};
 
   // Terminar la sesion si existe

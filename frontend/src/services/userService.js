@@ -1,9 +1,14 @@
 import { executeTransaction } from "./api";
 
+// El dispatcher envuelve una vez ({statusCode,data,message}) y el BO devuelve
+// ese mismo envoltorio de nuevo. Bajamos un nivel más solo cuando hace falta.
 const unwrap = (res) => {
   const d = res?.data;
-  const payload = d?.data !== undefined ? d.data : d;
-  return payload;
+  const inner = d?.data;
+  if (inner && typeof inner === "object" && !Array.isArray(inner) && inner.data !== undefined) {
+    return inner.data;
+  }
+  return inner;
 };
 
 /**
@@ -21,7 +26,7 @@ const generateUsername = (first_name, last_name) =>
  * A user has: first name, last name, business email and role (profile).
  * The admin types the password on registration; the backend hashes it.
  *
- * Transactions (present in permission.csv, BO pending):
+ * Transactions (Security/User, todas activas):
  * create 31 / getById 32 / getByEmail 33 / getAll 34 / update 35 / delete 36
  */
 const userService = {

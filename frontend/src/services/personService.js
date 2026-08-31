@@ -1,9 +1,15 @@
 import { executeTransaction } from "./api";
 
+// El dispatcher envuelve una vez ({statusCode,data,message}) y algunos BO
+// devuelven ese mismo envoltorio de nuevo (otros, como createPerson, la fila
+// cruda). Bajamos un nivel más solo cuando hace falta.
 const unwrap = (res) => {
   const d = res?.data;
-  const payload = d?.data !== undefined ? d.data : d;
-  return payload;
+  const inner = d?.data;
+  if (inner && typeof inner === "object" && !Array.isArray(inner) && inner.data !== undefined) {
+    return inner.data;
+  }
+  return inner;
 };
 
 /** Generates an internal document_id (the user does not type a DNI). */
@@ -15,12 +21,8 @@ const generateDocumentId = () =>
  * A person has: first name, last name, job title (degree) and department.
  * The document_id is auto-generated (the DB requires it NOT NULL).
  *
- * Transactions:
- * - create:   1  `Security/Person/createPerson`   (live in backend)
- * - getAll:  91  `Security/Persona/getAllPersonas` (pending)
- * - getById: 92  `Security/Persona/getPersonaById` (pending)
- * - update:  93  `Security/Persona/updatePersona`  (pending)
- * - delete:  94  `Security/Persona/deletePersona`  (pending)
+ * Transactions (Security/Person, todas activas):
+ * create: 1 / getAll: 91 / getById: 92 / update: 93 / delete: 94
  */
 const personService = {
   create({ first_name, last_name, degree, department }) {

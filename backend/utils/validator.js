@@ -204,12 +204,16 @@ class Validator {
   }
 
   /**
-   * Validaciones de seguridad
+   * Validaciones de seguridad.
+   * Solo filtra XSS (tags/atributos de evento/protocolo javascript:). No se
+   * bloquean palabras clave SQL ni signos de puntuación: las queries ya están
+   * parametrizadas, así que ese filtro no aportaba seguridad real y sí
+   * generaba falsos positivos (apellidos con apóstrofe, cargos como "Selector
+   * de calidad", direcciones con comas, etc.).
    */
   validateSecurity(value, category) {
     const stringValue = value.toString();
 
-    // Prevención de XSS
     const xssPatterns = [
       /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
       /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
@@ -223,21 +227,6 @@ class Validator {
         return {
           isValid: false,
           message: `El campo ${category} contiene caracteres no permitidos por seguridad`,
-        };
-      }
-    }
-
-    // Prevención básica de SQL Injection
-    const sqlPatterns = [
-      /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)\b)/gi,
-      /(--|\*|;|'|")/g,
-    ];
-
-    for (const pattern of sqlPatterns) {
-      if (pattern.test(stringValue)) {
-        return {
-          isValid: false,
-          message: `El campo ${category} contiene caracteres sospechosos`,
         };
       }
     }

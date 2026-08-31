@@ -89,3 +89,13 @@ id;sub_system;class;method;profile
 88;Fuel;Carga;updateCarga;admin
 89;Fuel;Carga;deleteCarga;admin
 90;Fuel;Vehiculo;deleteVehiculo;admin
+91;Security;Person;getAllPersons;admin
+92;Security;Person;getPersonById;admin
+93;Security;Person;updatePerson;admin
+94;Security;Person;deletePerson;admin
+95;Security;Profile;getAllProfiles;admin
+96;Security;Profile;getProfileById;admin
+97;Security;Profile;updateProfile;admin
+98;Security;Profile;deleteProfile;admin
+99;Security;Profile;removeProfileFromUser;admin
+100;Security;Profile;getProfilesByUser;admin

@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ShieldCheck,
   BarChart3,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -234,14 +233,6 @@ export const Sidebar = () => {
 
       <div className="flex flex-col gap-2 w-full mb-2">
         <div className="h-[1px] bg-slate-200 dark:bg-white/5 w-full mb-2" />
-        <SidebarItem
-          icon={Settings}
-          label="Configuración"
-          url="/settings"
-          isExpanded={isExpanded}
-          setExpanded={setIsExpanded}
-          onClick={(url) => navigate(url)}
-        />
         <SidebarItem
           icon={LogOut}
           label="Cerrar Sesión"

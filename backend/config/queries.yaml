@@ -145,9 +145,29 @@
     orderArray: ['ci', 'name', 'lastname', 'email', 'phone']
   },
   'createPerson': {
-    query: 'INSERT INTO public.person (document_id, first_name, last_name, phone, address) VALUES ($1, $2, $3, $4, $5) RETURNING id AS person_id, document_id AS ci, first_name AS name, last_name AS lastname;',
-    structure_params: { ci: 'string', name: 'string', lastname: 'string', phone: 'string|null', address: 'string|null' },
-    orderArray: ['ci', 'name', 'lastname', 'phone', 'address']
+    query: 'INSERT INTO public.person (document_id, first_name, last_name, phone, address, degree, department) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id AS person_id, document_id AS ci, first_name AS name, last_name AS lastname, degree, department;',
+    structure_params: { ci: 'string', name: 'string', lastname: 'string', phone: 'string|null', address: 'string|null', degree: 'string|null', department: 'string|null' },
+    orderArray: ['ci', 'name', 'lastname', 'phone', 'address', 'degree', 'department']
+  },
+  'getAllPersons': {
+    query: 'SELECT id AS person_id, document_id AS ci, first_name, last_name, degree, department FROM public.person WHERE deleted_at IS NULL ORDER BY first_name, last_name;',
+    structure_params: {},
+    orderArray: []
+  },
+  'getPersonById': {
+    query: 'SELECT id AS person_id, document_id AS ci, first_name, last_name, degree, department FROM public.person WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'updatePerson': {
+    query: 'UPDATE public.person SET first_name = $2, last_name = $3, degree = $4, department = $5, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS person_id, document_id AS ci, first_name, last_name, degree, department;',
+    structure_params: { id: 'int', first_name: 'string', last_name: 'string', degree: 'string|null', department: 'string|null' },
+    orderArray: ['id', 'first_name', 'last_name', 'degree', 'department']
+  },
+  'deletePerson': {
+    query: 'UPDATE public.person SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS person_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
   },
   'insertUserProfile': {
     query: 'INSERT INTO public.user_profile (user_id, profile_id) VALUES ($1, $2) RETURNING id AS user_profile_id;',
@@ -160,9 +180,44 @@
     orderArray: ['profile_name']
   },
   'insertProfile': {
-    query: 'INSERT INTO public.profile (name) VALUES ($1) RETURNING id AS profile_id, name AS profile_de;',
-    structure_params: { profile_name: 'string' },
-    orderArray: ['profile_name']
+    query: 'INSERT INTO public.profile (name, description) VALUES ($1, $2) RETURNING id AS profile_id, name, description, is_active;',
+    structure_params: { profile_name: 'string', description: 'string|null' },
+    orderArray: ['profile_name', 'description']
+  },
+  'getAllProfiles': {
+    query: 'SELECT id AS profile_id, name, description, is_active FROM public.profile ORDER BY name;',
+    structure_params: {},
+    orderArray: []
+  },
+  'getProfileById': {
+    query: 'SELECT id AS profile_id, name, description, is_active FROM public.profile WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'updateProfile': {
+    query: 'UPDATE public.profile SET name = $2, description = $3, is_active = $4 WHERE id = $1 RETURNING id AS profile_id, name, description, is_active;',
+    structure_params: { id: 'int', name: 'string', description: 'string|null', is_active: 'boolean' },
+    orderArray: ['id', 'name', 'description', 'is_active']
+  },
+  'deactivateProfile': {
+    query: 'UPDATE public.profile SET is_active = FALSE WHERE id = $1 RETURNING id AS profile_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'deleteUserProfileByIds': {
+    query: 'DELETE FROM public.user_profile WHERE user_id = $1 AND profile_id = $2;',
+    structure_params: { user_id: 'int', profile_id: 'int' },
+    orderArray: ['user_id', 'profile_id']
+  },
+  'deleteUserProfilesByUser': {
+    query: 'DELETE FROM public.user_profile WHERE user_id = $1;',
+    structure_params: { user_id: 'int' },
+    orderArray: ['user_id']
+  },
+  'getProfilesByUserId': {
+    query: 'SELECT p.id AS profile_id, p.name, p.description, p.is_active FROM public.user_profile up JOIN public.profile p ON p.id = up.profile_id WHERE up.user_id = $1;',
+    structure_params: { user_id: 'int' },
+    orderArray: ['user_id']
   },
   'getPermissions': {
     query: 'SELECT DISTINCT s.name AS sub_system, c.name AS class_name, m.name AS method_name, p.name AS profile_name FROM public.method_profile mp JOIN public.method m ON m.id = mp.method_id JOIN public.class_method cm ON cm.method_id = m.id JOIN public."class" c ON c.id = cm.class_id JOIN public.subsystem_class sc ON sc.class_id = c.id JOIN public.subsystem s ON s.id = sc.subsystem_id JOIN public.profile p ON p.id = mp.profile_id ORDER BY s.name, c.name, m.name, p.name;',
@@ -325,32 +380,32 @@
     orderArray: [],
   },
   'insertUsuario': {
-    query: 'INSERT INTO public."user" (name, email, password_hash, is_solvency, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING id AS usuario_id;',
-    structure_params: { nombre: 'string', email: 'string', password_hash: 'string', is_solvency: 'boolean', is_active: 'boolean' },
-    orderArray: ['nombre', 'email', 'password_hash', 'is_solvency', 'is_active']
+    query: 'INSERT INTO public."user" (name, email, password_hash, first_name, last_name, is_solvency, is_active) VALUES ($1, $2, $3, $4, $5, TRUE, $6) RETURNING id AS usuario_id;',
+    structure_params: { nombre: 'string', email: 'string', password_hash: 'string', first_name: 'string', last_name: 'string', is_active: 'boolean' },
+    orderArray: ['nombre', 'email', 'password_hash', 'first_name', 'last_name', 'is_active']
   },
   'getUsuarioById': {
-    query: 'SELECT u.id AS usuario_id, u.name AS nombre, u.email, u.is_solvency AS tiene_solvencia, u.is_active AS esta_activo, u.person_id, p.first_name || '' || p.last_name AS nombre_completo, p.document_number AS documento, u.created_at, u.updated_at FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.id = $1 AND u.deleted_at IS NULL;',
+    query: 'SELECT u.id, u.name AS username, u.email, u.first_name, u.last_name, u.is_active, u.created_at, u.updated_at, up.profile_id, up.profile_name FROM public."user" u LEFT JOIN LATERAL (SELECT p.id AS profile_id, p.name AS profile_name FROM public.user_profile x JOIN public.profile p ON p.id = x.profile_id WHERE x.user_id = u.id ORDER BY x.id ASC LIMIT 1) up ON TRUE WHERE u.id = $1 AND u.deleted_at IS NULL;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
   'getUsuarioByEmail': {
-    query: 'SELECT u.id AS usuario_id, u.name AS nombre, u.email, u.is_solvency AS tiene_solvencia, u.is_active AS esta_activo, u.person_id, p.first_name || '' || p.last_name AS nombre_completo, p.document_number AS documento, u.created_at, u.updated_at FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.email = $1 AND u.deleted_at IS NULL;',
+    query: 'SELECT u.id, u.name AS username, u.email, u.first_name, u.last_name, u.is_active, u.created_at, u.updated_at, up.profile_id, up.profile_name FROM public."user" u LEFT JOIN LATERAL (SELECT p.id AS profile_id, p.name AS profile_name FROM public.user_profile x JOIN public.profile p ON p.id = x.profile_id WHERE x.user_id = u.id ORDER BY x.id ASC LIMIT 1) up ON TRUE WHERE u.email = $1 AND u.deleted_at IS NULL;',
     structure_params: { email: 'string' },
     orderArray: ['email']
   },
   'getAllUsuarios': {
-    query: 'SELECT u.id AS usuario_id, u.name AS nombre, u.email, u.is_solvency AS tiene_solvencia, u.is_active AS esta_activo, u.person_id, p.first_name || '''' || p.last_name AS nombre_completo, p.document_number AS documento, u.created_at, u.updated_at FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.deleted_at IS NULL ORDER BY u.name ASC;',
+    query: 'SELECT u.id, u.name AS username, u.email, u.first_name, u.last_name, u.is_active, u.created_at, u.updated_at, up.profile_id, up.profile_name FROM public."user" u LEFT JOIN LATERAL (SELECT p.id AS profile_id, p.name AS profile_name FROM public.user_profile x JOIN public.profile p ON p.id = x.profile_id WHERE x.user_id = u.id ORDER BY x.id ASC LIMIT 1) up ON TRUE WHERE u.deleted_at IS NULL ORDER BY u.first_name, u.last_name;',
     structure_params: {},
     orderArray: []
   },
   'updateUsuario': {
-    query: 'UPDATE public."user" SET name = $2, email = $3, is_solvency = $4, is_active = $5, person_id = $6, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS usuario_id;',
-    structure_params: { id: 'int', nombre: 'string', email: 'string', is_solvency: 'boolean', is_active: 'boolean', person_id: 'number' },
-    orderArray: ['id', 'nombre', 'email', 'is_solvency', 'is_active', 'person_id']
+    query: 'UPDATE public."user" SET first_name = $2, last_name = $3, email = $4, is_active = $5, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS usuario_id;',
+    structure_params: { id: 'int', first_name: 'string', last_name: 'string', email: 'string', is_active: 'boolean' },
+    orderArray: ['id', 'first_name', 'last_name', 'email', 'is_active']
   },
   'deleteUsuario': {
-    query: 'UPDATE public."user" SET deleted_at = NOW() WHERE id = $1 RETURNING id AS usuario_id;',
+    query: 'UPDATE public."user" SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS usuario_id;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },

@@ -134,7 +134,11 @@ const Profiles = () => {
     try {
       if (editingId) {
         try {
-          await profileService.update(editingId, { name: row.name, description: row.description });
+          await profileService.update(editingId, {
+            name: row.name,
+            description: row.description,
+            is_active: row.is_active,
+          });
         } catch (err) {
           if (!isPendingTransaction(err)) throw err;
         }

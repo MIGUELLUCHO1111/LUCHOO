@@ -57,7 +57,10 @@ const Users = () => {
   const loadProfiles = async () => {
     try {
       const res = await profileService.getAll();
-      const list = Array.isArray(res) ? res : res?.rows || [];
+      const list = (Array.isArray(res) ? res : res?.rows || []).map((p) => ({
+        ...p,
+        id: p.id ?? p.profile_id,
+      }));
       if (list.length) {
         writeJSON(PROFILES_STORAGE_KEY, list);
         setProfiles(list);
@@ -81,6 +84,8 @@ const Users = () => {
       }
     } catch (_) {
       /* backend pendiente */
+    } finally {
+      setLoading(false);
     }
     setUsers(readJSON(USERS_STORAGE_KEY).map(normalize));
     setBanner(

@@ -1,16 +1,19 @@
 # MODELO DE DATOS — Fullpetro
 
-> **Actualizado:** 27/08/2026
+> **Actualizado:** 31/08/2026
 > Este documento describe el estado actual de la base de datos (PostgreSQL)
 > y lo que está **planificado** para la fase backend de Combustible.
 > Fuente de verdad de los DDL: `db/schema.sql`, `db/seed.sql`, `db/migrations/002_fuel.sql`,
-> `db/migrations/003_fuel_english.sql`.
+> `db/migrations/003_fuel_english.sql`, `db/migrations/004_security_completion.sql`.
 >
-> **Decisión 27/08/2026 (aplicada):** los identificadores de BD del dominio Combustible
-> pasan a **inglés** (mismo criterio que el código del frontend). La migración `003`
-> renombra columnas y crea `fuel_pesada`; es **coordinada** con la fase backend
+> **Corrección 31/08/2026:** la nota anterior decía que la decisión de mover Combustible
+> a inglés (migración `003`) estaba "aplicada". **No lo está** — se verificó directamente
+> contra la base de datos (`\dt public.*`) y las tablas siguen en el esquema español de
+> `002_fuel.sql` (`vehicle.codigo/nombre/placa`, `fuel_carga.fecha/litros`, etc.), sin
+> `fuel_pesada`. La migración `003` es un **diseño listo para aplicar**, pospuesto por
+> decisión explícita, no un hecho consumado. Es **coordinada** con la fase backend
 > (`queries.yaml` + BOs) y el frontend (`fuelService.js` + páginas fuel): **no aplicar
-> por separado**.
+> por separado** — aplicarla con el backend/frontend actuales rompe tx 81-90.
 > En flota pesada **no hay odómetro** (algunas unidades se miden por horas): la medida es
 > un **único par valor+tipo** (`measurement_value` / `measurement_type`), no columnas
 > separadas `kilometros` / `horas`.
@@ -26,7 +29,8 @@ al arrancar. Las tablas se aplican manualmente con `psql` en este orden:
 psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/schema.sql          # 1. Seguridad/perfiles
 psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/seed.sql            # 2. Datos iniciales (admin)
 psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/002_fuel.sql  # 3. Combustible
-psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/003_fuel_english.sql  # 4. Modelo en inglés + fuel_pesada (COORDINADA con backend/front, ver §0 nota)
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/004_security_completion.sql  # 4. person.department + user.first_name/last_name/email UNIQUE (independiente de la 003, YA APLICADA)
+# psql ... db/migrations/003_fuel_english.sql   # 5. Modelo en inglés + fuel_pesada — POSPUESTA, no aplicar sola (ver nota arriba)
 ```
 
 > ⚠️ **003_fuel_english.sql** renombra columnas de `vehicle`, `fuel_carga` y `fuel_foto`.
@@ -114,14 +118,13 @@ Uso actual: responsable de combustible (flota liviana). Futuro: cualquier otra s
 | `degree` | VARCHAR(150) | cargo (colonias: Cargo en el front) |
 | `address` | TEXT | NULL |
 | `birth_date` | DATE | NULL |
+| `department` | VARCHAR(150) | NULL — departamento (catálogo precargado en el front: `src/lib/catalogs.js`). Agregada por `004_security_completion.sql` (independiente de la 003, que sigue pospuesta) |
 | `created_at` / `updated_at` | TIMESTAMPTZ | DEFAULT NOW() |
 | `deleted_at` | TIMESTAMPTZ | soft-delete |
 
 Restricciones: `uq_person_document_id`, `ck_person_first_name_not_blank`, `ck_person_last_name_not_blank`.
 
-**Planificado (fase backend):**
-- ➕ `department VARCHAR(150)` — departamento (catálogo precargado actualmente en el front: `src/lib/catalogs.js`). La columna queda **creada por `003_fuel_english.sql`**.
-- El CRUD completo usa tx 91-94 (`Security/Persona/*`).
+CRUD completo (`Security/Person`, clase `backend/src/bo/sub_system/classes/person.js`) **funcional end-to-end**: create (tx 1), getAll/getById/update/delete (tx 91-94).
 
 ### 3.2 `user` — Usuarios del sistema
 Sesión con correo (empresarial) y contraseña; acceso limitado por rol.
@@ -129,21 +132,19 @@ Sesión con correo (empresarial) y contraseña; acceso limitado por rol.
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | BIGINT PK | identidad |
-| `name` | VARCHAR(60) | NOT NULL — **identificador de login hoy** (username) |
-| `email` | email_address | NULL — correo empresarial |
+| `name` | VARCHAR(60) | NOT NULL — **identificador de login hoy** (username, autogenerado por el front a partir de nombre+apellido) |
+| `email` | email_address | NULL — correo empresarial. `UNIQUE` desde `004_security_completion.sql` |
 | `password_hash` | TEXT | NOT NULL — bcrypt |
+| `first_name` / `last_name` | VARCHAR(100) | NULL — agregadas por `004_security_completion.sql`. Nombre propio de la cuenta, **no** vinculado a `person` (ese vínculo vía `person_id` sigue siendo para el flujo de auto-registro en `/user/register`) |
 | `is_solvency` | BOOLEAN | DEFAULT TRUE |
 | `is_active` | BOOLEAN | DEFAULT TRUE |
 | `person_id` | BIGINT FK → `person(id)` | ON DELETE SET NULL |
 | `created_at` / `updated_at` | TIMESTAMPTZ | DEFAULT NOW() |
 | `deleted_at` | TIMESTAMPTZ | soft-delete |
 
-Restricciones: `ck_user_name_not_blank`, `ck_user_password_hash_not_blank`.
+Restricciones: `ck_user_name_not_blank`, `ck_user_password_hash_not_blank`, `uq_user_email`.
 
-**Planificado (fase backend):**
-- ➕ `first_name` / `last_name` (hoy el front guarda `name` = nombre+apellido concatenados y autogenera el username).
-- Decidir: migrar el **login por `email`** (el flujo actual autentica por `name`).
-- El CRUD usa tx 31-36 (`Users/Usuario/*`).
+CRUD completo **funcional end-to-end**: tx 31-36, subsistema `Users` (clase `Usuario`, `backend/src/bo/sub_system/Users.js` + `classes/usuario.js`) — nombrado así (no `Security/User`) porque esa combinación subsistema+clase ya existía en la tabla `transaction` con esos ids exactos; cambiarla habría hecho que Postgres asignara ids nuevos (ver nota de la sección 8).
 
 ### 3.3 `profile` — Roles
 | Campo | Tipo | Notas |
@@ -350,7 +351,9 @@ user  ──────created_by──> fuel_carga / fuel_pesada (auditoría)
 | Perfil | `admin` — Administrador del sistema |
 | Vinculación | `user_profile` admin01 ↔ admin |
 
-> El perfil `admin` se **re-sincroniza** con `backend/config/permission.csv` al arrancar el backend (cada fila del CSV crea/actualiza la cadena subsystem→class→method→method_profile→transaction). Los `id` 1-105 del CSV son los `transaction_id` que usa el frontend.
+> El perfil `admin` se **re-sincroniza** con `backend/config/permission.csv` al arrancar el backend (cada fila del CSV crea/actualiza la cadena subsystem→class→method→method_profile→transaction).
+>
+> **Importante (corregido 31/08/2026):** la columna `id` del CSV es solo un identificador de lectura para humanos — **no** determina el `transaction_id` real. El id real lo asigna Postgres por autoincremento (`transaction.id GENERATED ... AS IDENTITY`) en el momento en que `syncPermissions()` inserta esa combinación `subsystem+class+method` por primera vez (orden de aparición en el archivo, no el número escrito). Los rangos 1-90 coinciden con el CSV porque así se insertaron originalmente en una BD nueva; para cualquier fila **nueva** hay que verificar el id real después de sincronizar (`SELECT id, sub_system, class_name, method_name FROM transaction ...`) antes de asumir que coincide con lo escrito en el CSV.
 
 ---
 
@@ -358,10 +361,11 @@ user  ──────created_by──> fuel_carga / fuel_pesada (auditoría)
 
 | Rango | Subsistema | Uso |
 |---|---|---|
-| 1-4 | Security (Person, Profile) | persona crear, crear perfil, asignar perfil, obtener perfil |
+| 1 | Security/Person | crear persona |
+| 2-4 | Security/Profile | crear perfil, asignar perfil, obtener perfil por nombre |
 | 5-22, 23-30, 37-80 | Otros módulos (Inventario, Préstamos, etc.) | legado, sin BO implementado |
-| 31-36 | Users/Usuario | CRUD usuarios (frontend listo, **BO pendiente**) |
+| 31-36 | Users/Usuario | CRUD de usuarios del sistema — **funcional end-to-end** (`backend/src/bo/sub_system/Users.js`, clase `Usuario`) |
 | 81-90 | Fuel (Vehiculo 81-84/90, Carga 85-89) | **funcional end-to-end** |
-| 91-95 | Security/Persona + Fuel/Carga/getCargaById | personas listar/obtener/actualizar/eliminar; detalle de carga (**BO pendiente**) |
-| 96-100 | Fuel/Pesada | CRUD pesada (**BO pendiente**) |
-| 101-105 | Security/Profile | listar/actualizar/eliminar rol; quitar rol; roles por usuario (**BO pendiente**) |
+| 91-94 | Security/Person | listar/obtener/actualizar/eliminar persona — **funcional end-to-end** |
+| 95-100 | Security/Profile | listar/obtener/actualizar/eliminar perfil, quitar perfil de usuario, perfiles por usuario — **funcional end-to-end** (ids reales verificados en BD; no coinciden con los 101-105 que se habían anticipado en este documento) |
+| 96-100 (frontend, aún no sincronizado en permission.csv) | Fuel/Pesada | CRUD pesada — **pendiente** (pospuesto; al implementarlo, verificar los ids reales que asigne Postgres, que ya no serán 96-100 porque esos quedaron ocupados por Profile) |
