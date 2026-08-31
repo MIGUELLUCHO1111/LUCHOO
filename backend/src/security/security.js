@@ -237,7 +237,10 @@ export default class Security {
 
     } catch (error) {
       console.error(`Error en executeAuthorized:`, error);
-      throw error;
+      return this.utils.handleError({
+        message: 'Error interno al ejecutar la transacción',
+        statusCode: 500
+      });
     }
   }
 }

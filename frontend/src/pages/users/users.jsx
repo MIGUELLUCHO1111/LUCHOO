@@ -16,6 +16,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { useConfirm } from "@/context";
 import { readJSON, writeJSON, isPendingTransaction } from "@/lib/storage";
 
 const USERS_STORAGE_KEY = "fullpetro_users_local";
@@ -43,6 +44,7 @@ const normalize = (u) => ({
 });
 
 const Users = () => {
+  const confirm = useConfirm();
   const [users, setUsers] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -192,7 +194,10 @@ const Users = () => {
   };
 
   const handleDelete = async (u) => {
-    if (!confirm(`¿Eliminar al usuario ${u.first_name} ${u.last_name}?`)) return;
+    const ok = await confirm(`¿Eliminar al usuario ${u.first_name} ${u.last_name}?`, {
+      title: "Eliminar usuario",
+    });
+    if (!ok) return;
     try {
       try {
         await userService.delete(u.id);

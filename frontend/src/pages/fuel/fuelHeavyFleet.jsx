@@ -12,7 +12,7 @@ import {
   Gauge,
   Fuel,
 } from "lucide-react";
-import { useAuth } from "@/context";
+import { useAuth, useConfirm } from "@/context";
 import { fuelService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,6 +55,7 @@ const writeLocal = (rows) => writeJSON(FILL_UPS_STORAGE_KEY, rows);
 
 const FuelHeavyFleet = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [heavyVehicles, setHeavyVehicles] = useState([]);
   const [fillUps, setFillUps] = useState([]);
   const [localMode, setLocalMode] = useState(false);
@@ -228,8 +229,11 @@ const FuelHeavyFleet = () => {
   };
 
   const handleDelete = async (r) => {
-    if (!confirm(`¿Eliminar la carga de la unidad ${r.vehiculo_codigo || r.vehicle_id}?`))
-      return;
+    const ok = await confirm(
+      `¿Eliminar la carga de la unidad ${r.vehiculo_codigo || r.vehicle_id}?`,
+      { title: "Eliminar carga" },
+    );
+    if (!ok) return;
     try {
       await fuelService.deleteHeavyRefuel(r.id);
       setBanner(null);

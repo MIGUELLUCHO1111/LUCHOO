@@ -16,6 +16,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { useConfirm } from "@/context";
 import { DEPARTMENTS } from "@/lib/catalogs";
 import { readJSON, writeJSON, isPendingTransaction } from "@/lib/storage";
 
@@ -38,6 +39,7 @@ const normalize = (p) => ({
 });
 
 const Persons = () => {
+  const confirm = useConfirm();
   const [persons, setPersons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState(null);
@@ -142,7 +144,10 @@ const Persons = () => {
   };
 
   const handleDelete = async (p) => {
-    if (!confirm(`¿Eliminar a ${p.first_name} ${p.last_name}?`)) return;
+    const ok = await confirm(`¿Eliminar a ${p.first_name} ${p.last_name}?`, {
+      title: "Eliminar persona",
+    });
+    if (!ok) return;
     try {
       try {
         await personService.delete(p.id);

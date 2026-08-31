@@ -20,7 +20,7 @@ export default class Tokenizer {
    * @param {string} expiresIn - Duración (default '5min'; login usa AUTH_TOKEN_EXPIRES)
    * @returns {string} Token JWT firmado
    */
-  generateToken(userData, expiresIn = process.env.AUTH_TOKEN_EXPIRES || '5min') {
+  generateToken(userData, expiresIn = process.env.AUTH_TOKEN_EXPIRES || '2h') {
     return jwt.sign(userData, this.secret, { expiresIn });
   }
 

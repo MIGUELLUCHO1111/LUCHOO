@@ -15,6 +15,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { useConfirm } from "@/context";
 import { readJSON, writeJSON } from "@/lib/storage";
 
 const FLEET_STORAGE_KEY = "fullpetro_vehicle_fleet";
@@ -24,6 +25,7 @@ const readFleet = () => readJSON(FLEET_STORAGE_KEY, {});
 const writeFleet = (map) => writeJSON(FLEET_STORAGE_KEY, map);
 
 const Vehicles = () => {
+  const confirm = useConfirm();
   const [vehicles, setVehicles] = useState([]);
   const [fleet, setFleet] = useState(readFleet());
   const [loading, setLoading] = useState(true);
@@ -129,7 +131,10 @@ const Vehicles = () => {
   };
 
   const handleDelete = async (id, codigo) => {
-    if (!confirm(`¿Eliminar vehículo ${codigo}?`)) return;
+    const ok = await confirm(`¿Eliminar vehículo ${codigo}?`, {
+      title: "Eliminar vehículo",
+    });
+    if (!ok) return;
 
     try {
       await fuelService.deleteVehicle(id);

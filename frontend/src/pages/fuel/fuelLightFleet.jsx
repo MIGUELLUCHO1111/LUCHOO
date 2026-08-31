@@ -12,7 +12,7 @@ import {
   FileUp,
   Filter,
 } from "lucide-react";
-import { useAuth } from "@/context";
+import { useAuth, useConfirm } from "@/context";
 import { fuelService, personService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,6 +56,7 @@ const emptyForm = {
 
 const FuelLightFleet = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
 
   const [vehicles, setVehicles] = useState([]);
   const [refuels, setRefuels] = useState([]);
@@ -290,7 +291,10 @@ const FuelLightFleet = () => {
   };
 
   const handleDelete = async (id, codigo) => {
-    if (!confirm(`¿Eliminar la carga de la unidad ${codigo}?`)) return;
+    const ok = await confirm(`¿Eliminar la carga de la unidad ${codigo}?`, {
+      title: "Eliminar carga",
+    });
+    if (!ok) return;
     try {
       await fuelService.deleteRefuel(id);
       setExtraData((prev) => {

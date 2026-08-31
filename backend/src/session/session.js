@@ -10,7 +10,7 @@ class Session {
   // Registro de usuario
   async register({ username, password, person_id }) {
     await this.dbmsReady;
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
     try {
       const res = await this.dbms.executeNamedQuery({
         nameQuery: 'registerUser',
@@ -75,7 +75,7 @@ class Session {
   // Actualizar contraseña por ID
   async updatePasswordById({ userId, password }) {
     await this.dbmsReady;
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
     try {
       const res = await this.dbms.executeNamedQuery({
         nameQuery: 'updateUserPassword',
@@ -90,7 +90,7 @@ class Session {
   // Recuperar contraseña por usuario
   async resetPasswordByUsername({ username, password }) {
     await this.dbmsReady;
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
     try {
       const res = await this.dbms.executeNamedQuery({
         nameQuery: 'updateUserPasswordByUsername',

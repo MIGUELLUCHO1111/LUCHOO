@@ -16,6 +16,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
+import { useConfirm } from "@/context";
 import { readJSON, writeJSON, isPendingTransaction } from "@/lib/storage";
 
 const PROFILES_STORAGE_KEY = "fullpetro_profiles_local";
@@ -52,6 +53,7 @@ const normalizeUser = (u) => ({
 });
 
 const Profiles = () => {
+  const confirm = useConfirm();
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
   const [assignment, setAssignment] = useState({});
@@ -173,7 +175,10 @@ const Profiles = () => {
   };
 
   const handleDelete = async (r) => {
-    if (!confirm(`¿Eliminar el rol "${r.name}"?`)) return;
+    const ok = await confirm(`¿Eliminar el rol "${r.name}"?`, {
+      title: "Eliminar rol",
+    });
+    if (!ok) return;
     try {
       try {
         await profileService.delete(r.id);
