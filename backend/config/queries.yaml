@@ -199,8 +199,8 @@
     structure_params: { id: 'int', name: 'string', description: 'string|null', is_active: 'boolean' },
     orderArray: ['id', 'name', 'description', 'is_active']
   },
-  'deactivateProfile': {
-    query: 'UPDATE public.profile SET is_active = FALSE WHERE id = $1 RETURNING id AS profile_id;',
+  'deleteProfileCascade': {
+    query: 'WITH del_assignments AS (DELETE FROM public.user_profile WHERE profile_id = $1) DELETE FROM public.profile WHERE id = $1 RETURNING id AS profile_id;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },

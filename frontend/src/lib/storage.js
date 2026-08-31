@@ -23,6 +23,12 @@ export const writeJSON = (key, value) => {
   }
 };
 
-/** Does the error mean the backend transaction does not exist yet? */
-export const isPendingTransaction = (err) =>
-  !err?.response || err.response?.status === 404;
+/**
+ * Does the error mean the backend transaction does not exist yet?
+ * Only a real 404 from the dispatcher ("Transacción no encontrada") means
+ * that — NOT the absence of `err.response`. That absence means a network
+ * failure, a CORS block, or the backend being down, and swallowing those as
+ * "pending" makes the UI silently pretend an action succeeded (removes the
+ * row locally) when nothing was actually persisted.
+ */
+export const isPendingTransaction = (err) => err?.response?.status === 404;

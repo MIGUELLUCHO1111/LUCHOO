@@ -75,6 +75,9 @@ const Profiles = () => {
       const res = await profileService.getAll();
       const list = Array.isArray(res) ? res : res?.rows || [];
       if (list.length) {
+        // El switch "Activo" del formulario solo cambia is_active (el rol
+        // sigue en la lista, marcado Inactivo). "Eliminar" es aparte: borra
+        // la fila de verdad, así que no hace falta filtrar nada aquí.
         setRoles(list.map(normalizeRole));
         writeJSON(PROFILES_STORAGE_KEY, list);
         setBanner(null);
@@ -84,7 +87,7 @@ const Profiles = () => {
     } catch (_) {
       setRoles(readRoles());
       setBanner(
-        "Modo local: el CRUD de roles (tx 101-105) aún no existe en el backend; los datos se guardan temporalmente en el navegador.",
+        "Modo local: no se pudo contactar al backend; los datos se guardan temporalmente en el navegador.",
       );
     }
 

@@ -147,7 +147,7 @@ export class Profile {
     }
 
     const result = await this.dbms.executeNamedQuery({
-      nameQuery: 'deactivateProfile',
+      nameQuery: 'deleteProfileCascade',
       params: { id },
     });
 
@@ -156,7 +156,7 @@ export class Profile {
       throw new Error(JSON.stringify({ message: `Perfil con id ${id} no encontrado`, statusCode: STATUS_CODES.NOT_FOUND }));
     }
 
-    return { statusCode: STATUS_CODES.OK, message: 'Perfil desactivado' };
+    return { statusCode: STATUS_CODES.OK, message: 'Perfil eliminado' };
   };
 
   removeProfileFromUser = async (data = {}) => {
