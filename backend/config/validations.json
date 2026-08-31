@@ -1,0 +1,41 @@
+{
+  "user": {
+    "username": { "min": 3, "max": 30 },
+    "email": { "max": 100 },
+    "password": { "min": 8, "max": 80 }
+  },
+  "profile": {
+    "name": { "min": 3, "max": 30 },
+    "description": { "max": 300 }
+  },
+  "subsystem": {
+    "name": { "min": 3, "max": 50 },
+    "description": { "max": 300 }
+  },
+  "class": {
+    "name": { "min": 3, "max": 30 },
+    "description": { "max": 200 }
+  },
+  "method": {
+    "name": { "min": 3, "max": 30 },
+    "description": { "max": 200 }
+  },
+  "menu": {
+    "name": { "min": 3, "max": 50 },
+    "description": { "max": 200 }
+  },
+  "option": {
+    "name": { "min": 3, "max": 80 },
+    "description": { "max": 200 }
+  },
+  "transaction": {
+    "description": { "max": 200 }
+  },
+  "evento": {
+    "name": { "min": 3, "max": 50 },
+    "description": { "max": 300 },
+    "lugar": { "min": 3, "max": 50 },
+    "costo": { "min": 0, "max": 100000 },
+    "capacidad": { "min": 0, "max": 10000 }
+  }
+}

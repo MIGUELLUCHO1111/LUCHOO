@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+*.log
+boot.log
+boot.err.log
+_tmp_diag2.mjs

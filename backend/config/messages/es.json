@@ -1,0 +1,36 @@
+{
+  "login_success": "Inicio de sesión exitoso",
+  "login_error": "Error al iniciar sesión. Por favor, verifica tus credenciales e intenta nuevamente",
+
+  "logout_success": "Cierre de sesión exitoso",
+  "logout_error": "Error al cerrar sesión. Por favor, intenta nuevamente más tarde",
+
+  "session_closed_success": "Sesión cerrada exitosamente",
+  "session_closed_error": "Error al cerrar la sesión. Por favor, intenta nuevamente más tarde",
+
+  "db_connected_success": "Conexión a la base de datos exitosa",
+  "db_connected_error": "Error al conectar a la base de datos",
+
+  "session_expired": "Sesión expirada, por favor inicia sesión nuevamente",
+  "session_required": "Se requiere sesión para acceder a este recurso",
+
+  "registration_success": "Registro exitoso, ahora puedes iniciar sesión",
+  "registration_error": "Error al registrar el usuario. Por favor, intenta nuevamente más tarde",
+  "validation_error": "Error de validación. Por favor, verifica los campos e intenta nuevamente",
+
+  "unauthorized": "No autorizado, por favor inicia sesión para acceder a este recurso",
+  "forbidden": "Acceso prohibido, no tienes permisos para acceder a este recurso",
+  "not_found": "Recurso no encontrado",
+
+  "invalid_session": "Sesión inválida, por favor inicia sesión nuevamente",
+  "user_not_found": "Usuario no encontrado",
+
+  "server_running": "Servidor corriendo en:",
+  "server_error": "Ocurrió un error en el servidor, por favor intenta nuevamente más tarde",
+
+  "missing_required_fields": "Faltan campos requeridos",
+  "passwords_do_not_match": "Las contraseñas no coinciden",
+  "password_reset_success": "Contraseña actualizada correctamente",
+  "recovery_email_sent": "Si el correo existe, te enviamos un enlace para restablecer tu contraseña",
+  "invalid_or_expired_token": "Token inválido o expirado"
+}

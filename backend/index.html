@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>SDP - Test Frontend</title>
+</head>
+<body>
+  <h1>Prueba Backend SDP</h1>
+
+  <h2>Registrar usuario</h2>
+  <input type="text" id="reg-username" placeholder="Username">
+  <input type="email" id="reg-email" placeholder="Email">
+  <input type="password" id="reg-password" placeholder="Password">
+  <button onclick="registerUser()">Registrar</button>
+  <pre id="reg-result"></pre>
+
+  <h2>Login</h2>
+  <input type="text" id="login-username" placeholder="Username">
+  <input type="password" id="login-password" placeholder="Password">
+  <button onclick="loginUser()">Login</button>
+  <pre id="login-result"></pre>
+
+  <h2>Usuario actual</h2>
+  <button onclick="getMe()">Obtener usuario</button>
+  <pre id="me-result"></pre>
+
+  <h2>Logout</h2>
+  <button onclick="logoutUser()">Logout</button>
+  <pre id="logout-result"></pre>
+
+  <script>
+    const baseUrl = 'http://localhost:3000/users';
+
+    async function registerUser() {
+      const username = document.getElementById('reg-username').value;
+      const email = document.getElementById('reg-email').value;
+      const password = document.getElementById('reg-password').value;
+
+      const res = await fetch(`${baseUrl}/register`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password })
+      });
+
+      const data = await res.json();
+      document.getElementById('reg-result').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function loginUser() {
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+
+      const res = await fetch(`${baseUrl}/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await res.json();
+      document.getElementById('login-result').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function getMe() {
+      const res = await fetch(`${baseUrl}/me`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      document.getElementById('me-result').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function logoutUser() {
+      const res = await fetch(`${baseUrl}/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      const data = await res.json();
+      document.getElementById('logout-result').textContent = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+.auth-container {
+  background-color: var(--bg-container);
+  color: var(--text-primary);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color) !important;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 0 40px rgba(59, 130, 246, 0.05) !important;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    background-color 0.4s ease;
+}
+
+.dark .auth-container {
+  background-color: var(--popover);
+  box-shadow:
+    0 25px 50px -12px rgba(31, 30, 30, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+.auth-input {
+  background-color: var(--secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  z-index: 1 !important;
+  color-scheme: light dark !important; 
+}
+
+.auth-input:focus {
+  transform: translateY(-1px);
+  border-color: var(--accent-color) !important;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15) !important;
+}
+
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  
+  -webkit-box-shadow: 0 0 0 1000px var(--secondary) inset !important;
+  
+ 
+  -webkit-text-fill-color: var(--text-primary) !important;
+  
+ 
+  caret-color: var(--text-primary) !important;
+  
+ 
+  border: 1px solid var(--border-color) !important;
+  
+ 
+  transition: background-color 5000s ease-in-out 0s, color 5000s ease-in-out 0s;
+}
+
+
+:not(.dark) input:-webkit-autofill {
+  color-scheme: light !important;
+}
+
+.dark input:-webkit-autofill {
+  color-scheme: dark !important;
+}
+
+
+.auth-submit-btn {
+  background-color: var(--accent-color) !important;
+  transition: all 0.3s ease !important;
+}
+
+.auth-submit-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 15px 20px -5px rgba(37, 99, 235, 0.3) !important;
+}
+
+
+.relative > svg {
+  z-index: 10;
+  position: absolute;
+}
+
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+}

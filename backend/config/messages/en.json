@@ -1,0 +1,36 @@
+{
+  "login_success": "Login successful",
+  "login_error": "Error logging in. Please check your credentials and try again",
+
+  "logout_success": "Logout successful",
+  "logout_error": "Error logging out. Please try again later",
+
+  "session_closed_success": "Session closed successfully",
+  "session_closed_error": "Error closing the session. Please try again later",
+
+  "db_connected_success": "Database connection successful",
+  "db_connected_error": "Error connecting to the database",
+
+  "session_expired": "Session expired, please log in again",
+  "session_required": "Session required to access this resource",
+
+  "registration_success": "Registration successful, you can now log in",
+  "registration_error": "Error registering the user. Please try again later",
+  "validation_error": "Validation error. Please check the fields and try again",
+
+  "unauthorized": "Unauthorized, please log in to access this resource",
+  "forbidden": "Access forbidden, you do not have permission to access this resource",
+  "not_found": "Resource not found",
+
+  "invalid_session": "Invalid session, please log in again",
+  "user_not_found": "User not found",
+
+  "server_running": "Server running at:",
+  "server_error": "An error occurred on the server, please try again later",
+
+  "missing_required_fields": "Missing required fields",
+  "passwords_do_not_match": "Passwords do not match",
+  "password_reset_success": "Password updated successfully",
+  "recovery_email_sent": "If the email exists, we sent you a link to reset your password",
+  "invalid_or_expired_token": "Invalid or expired token"
+}

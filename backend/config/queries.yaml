@@ -1,0 +1,645 @@
+{
+  'getUserProfiles': {
+    query: 'SELECT u.id AS user_id, u.name AS username, p.id AS profile_id, p.name AS profile_name FROM public."user" u JOIN public."user_profile" up ON u.id = up.user_id JOIN public."profile" p ON up.profile_id = p.id WHERE u.name = $1;',
+    structure_params: { username: 'string' },
+    orderArray: ['username']
+  },
+  'getUsersProfiles': {
+    query: 'SELECT u.id AS user_id, u.name AS username, p.id AS profile_id, p.name AS profile_name FROM public."user" u JOIN public."user_profile" up ON u.id = up.user_id JOIN public."profile" p ON up.profile_id = p.id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'delUserProfile': {
+    query: 'DELETE FROM public."user_profile" WHERE user_id = (SELECT id FROM public."user" WHERE name = $1) AND profile_id = (SELECT id FROM public."profile" WHERE name = $2);',
+    structure_params: { username: 'string', profile_name: 'string' },
+    orderArray: ['username', 'profile_name']
+  },
+  'getProfileOptions': {
+    query: 'SELECT p.id AS profile_id, p.name AS profile_name, o.id AS option_id, o.name AS option_name FROM public."profile" p JOIN public."option_profile" op ON p.id = op.profile_id JOIN public."option" o ON op.option_id = o.id WHERE p.name = $1;',
+    structure_params: { profile_name: 'string' },
+    orderArray: ['profile_name']
+  },
+  'getProfilesOptions': {
+    query: 'SELECT p.id AS profile_id, p.name AS profile_name, o.id AS option_id, o.name AS option_name FROM public."profile" p JOIN public."option_profile" op ON p.id = op.profile_id JOIN public."option" o ON op.option_id = o.id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'delProfileOption': {
+    query: 'DELETE FROM public."option_profile" WHERE option_id = (SELECT id FROM public."option" WHERE name = $1) AND profile_id = (SELECT id FROM public."profile" WHERE name = $2);',
+    structure_params: { option_name: 'string', profile_name: 'string' },
+    orderArray: ['option_name', 'profile_name']
+  },
+  'getMenuOptions': {
+    query: 'SELECT m.id AS menu_id, m.name AS menu_name, o.id AS option_id, o.name AS option_name FROM public."menu" m JOIN public."option_menu" om ON m.id = om.menu_id JOIN public."option" o ON om.option_id = o.id WHERE m.name = $1;',
+    structure_params: { menu_name: 'string' },
+    orderArray: ['menu_name']
+  },
+  'getMenusOptions': {
+    query: 'SELECT m.id AS menu_id, m.name AS menu_name, o.id AS option_id, o.name AS option_name FROM public."menu" m JOIN public."option_menu" om ON m.id = om.menu_id JOIN public."option" o ON om.option_id = o.id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'delMenuOption': {
+    query: 'DELETE FROM public."option_menu" WHERE option_id = (SELECT id FROM public."option" WHERE name = $1) AND menu_id = (SELECT id FROM public."menu" WHERE name = $2);',
+    structure_params: { option_name: 'string', menu_name: 'string' },
+    orderArray: ['option_name', 'menu_name']
+  },
+  'getMenuOptionsProfile': {
+    query: 'SELECT NULL::BIGINT AS id_parent, m.id AS menu_id, m.name AS menu_name, NULL::TEXT AS tx, o.id AS option_id, o.name AS option_name, p.id AS profile_id, p.name AS profile_name FROM public."menu" m JOIN public."option_menu" om ON m.id = om.menu_id JOIN public."option" o ON om.option_id = o.id JOIN public."option_profile" op ON o.id = op.option_id JOIN public."profile" p ON op.profile_id = p.id WHERE m.name = $1 AND p.name = $2;',
+    structure_params: { menu_name: 'string', profile_name: 'string' },
+    orderArray: ['menu_name', 'profile_name']
+  },
+  'getMenusOptionsProfile': {
+    query: 'SELECT NULL::BIGINT AS id_parent, m.id AS menu_id, m.name AS menu_name, NULL::TEXT AS tx, o.id AS option_id, o.name AS option_name, o.description, p.id AS profile_id, p.name AS profile_name FROM public."menu" m JOIN public."option_menu" om ON m.id = om.menu_id JOIN public."option" o ON om.option_id = o.id JOIN public."option_profile" op ON o.id = op.option_id JOIN public."profile" p ON op.profile_id = p.id WHERE p.name = $1;',
+    structure_params: { profile_name: 'string' },
+    orderArray: ['profile_name']
+  },
+  'getMenusOptionsProfiles': {
+    query: 'SELECT NULL::BIGINT AS id_parent, m.id AS menu_id, m.name AS menu_name, NULL::TEXT AS tx, o.id AS option_id, o.name AS option_name, o.description, p.id AS profile_id, p.name AS profile_name FROM public."menu" m JOIN public."option_menu" om ON m.id = om.menu_id JOIN public."option" o ON om.option_id = o.id JOIN public."option_profile" op ON o.id = op.option_id JOIN public."profile" p ON op.profile_id = p.id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'getProfileMethods': {
+    query: 'SELECT p.id AS profile_id, p.name AS profile_name, m.id AS method_id, m.name AS method_name FROM public."profile" p JOIN public."method_profile" mp ON p.id = mp.profile_id JOIN public."method" m ON mp.method_id = m.id WHERE p.name = $1;',
+    structure_params: { profile_name: 'string' },
+    orderArray: ['profile_name']
+  },
+  'getProfilesMethods': {
+    query: 'SELECT p.id AS profile_id, p.name AS profile_name, m.id AS method_id, m.name AS method_name FROM public."profile" p JOIN public."method_profile" mp ON p.id = mp.profile_id JOIN public."method" m ON mp.method_id = m.id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'delProfileMethod': {
+    query: 'DELETE FROM public."method_profile" WHERE method_id = (SELECT id FROM public."method" WHERE name = $1) AND profile_id = (SELECT id FROM public."profile" WHERE name = $2);',
+    structure_params: { method_name: 'string', profile_name: 'string' },
+    orderArray: ['method_name', 'profile_name']
+  },
+  'getClassMethods': {
+    query: 'SELECT c.id AS class_id, c.name AS class_name, m.id AS method_id, m.name AS method_name FROM public."class" c JOIN public."class_method" cm ON c.id = cm.class_id JOIN public."method" m ON cm.method_id = m.id WHERE c.name = $1;',
+    structure_params: { class_name: 'string' },
+    orderArray: ['class_name']
+  },
+  'getClassesMethods': {
+    query: 'SELECT c.id AS class_id, c.name AS class_name, m.id AS method_id, m.name AS method_name FROM public."class" c JOIN public."class_method" cm ON c.id = cm.class_id JOIN public."method" m ON cm.method_id = m.id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'delClassMethod': {
+    query: 'DELETE FROM public."class_method" WHERE class_id = (SELECT id FROM public."class" WHERE name = $1) AND method_id = (SELECT id FROM public."method" WHERE name = $2);',
+    structure_params: { class_name: 'string', method_name: 'string' },
+    orderArray: ['class_name', 'method_name']
+  },
+  'getSubsystemClassesMethods': {
+    query: 'SELECT s.id AS subsystem_id, s.name AS subsystem_name, c.id AS class_id, c.name AS class_name, m.id AS method_id, m.name AS method_name FROM public."subsystem" s JOIN public."subsystem_class" sc ON s.id = sc.subsystem_id JOIN public."class" c ON sc.class_id = c.id JOIN public."class_method" cm ON c.id = cm.class_id JOIN public."method" m ON cm.method_id = m.id WHERE s.name = $1;',
+    structure_params: { subsystem_name: 'string' },
+    orderArray: ['subsystem_name']
+  },
+  'getSubsystemsClassesMethods': {
+    query: 'SELECT s.id AS subsystem_id, s.name AS subsystem_name, c.id AS class_id, c.name AS class_name, m.id AS method_id, m.name AS method_name FROM public."subsystem" s JOIN public."subsystem_class" sc ON s.id = sc.subsystem_id JOIN public."class" c ON sc.class_id = c.id JOIN public."class_method" cm ON c.id = cm.class_id JOIN public."method" m ON cm.method_id = m.id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'registerUser': {
+    query: 'INSERT INTO public."user" (name, email, password_hash, is_solvency, person_id) VALUES ($1, (SELECT NULLIF(TRIM(address), '''') FROM public.person WHERE id = $3), $2, TRUE, $3) RETURNING id, name AS username, person_id;',
+    structure_params: { username: 'string', password: 'string', person_id: 'int' },
+    orderArray: ['username', 'password', 'person_id']
+  },
+  'getUserById': {
+    query: 'SELECT u.id AS id, u.name AS username, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'updateUserPasswordByUsername': {
+    query: 'UPDATE public."user" SET password_hash = $1 WHERE name = $2 RETURNING id, name AS username;',
+    structure_params: { password: 'string', username: 'string' },
+    orderArray: ['password', 'username']
+  },
+  'countUserByEmail': {
+    query: 'SELECT COUNT(*) AS count FROM public."user" WHERE email = $1;',
+    structure_params: { email: 'string' },
+    orderArray: ['email']
+  },
+  'countUserByUsername': {
+    query: 'SELECT COUNT(*) AS count FROM public."user" WHERE name = $1;',
+    structure_params: { username: 'string' },
+    orderArray: ['username']
+  },
+  'getUser': {
+    query: 'SELECT u.id AS id, u.name AS username, u.password_hash AS password, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.name = $1;',
+    structure_params: { username: 'string' },
+    orderArray: ['username']
+  },
+  'getUserByEmail': {
+    query: 'SELECT u.id AS id, u.name AS username, u.password_hash AS password, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.email = $1;',
+    structure_params: { email: 'string' },
+    orderArray: ['email']
+  },
+  'updateUserPassword': {
+    query: 'UPDATE public."user" SET password_hash = $1 WHERE id = $2 RETURNING id, name AS username;',
+    structure_params: { password: 'string', userId: 'int' },
+    orderArray: ['password', 'userId']
+  },
+  'insertPerson': {
+    query: 'INSERT INTO public.person (document_id, first_name, last_name, phone, address) VALUES ($1, $2, $3, $5, $4) RETURNING id AS person_id;',
+    structure_params: { ci: 'string', name: 'string', lastname: 'string', email: 'string', phone: 'string' },
+    orderArray: ['ci', 'name', 'lastname', 'email', 'phone']
+  },
+  'createPerson': {
+    query: 'INSERT INTO public.person (document_id, first_name, last_name, phone, address) VALUES ($1, $2, $3, $4, $5) RETURNING id AS person_id, document_id AS ci, first_name AS name, last_name AS lastname;',
+    structure_params: { ci: 'string', name: 'string', lastname: 'string', phone: 'string|null', address: 'string|null' },
+    orderArray: ['ci', 'name', 'lastname', 'phone', 'address']
+  },
+  'insertUserProfile': {
+    query: 'INSERT INTO public.user_profile (user_id, profile_id) VALUES ($1, $2) RETURNING id AS user_profile_id;',
+    structure_params: { user_id: 'int', profile_id: 'int' },
+    orderArray: ['user_id', 'profile_id']
+  },
+  'getProfileByName': {
+    query: 'SELECT id AS profile_id, name AS profile_de FROM public.profile WHERE name = $1;',
+    structure_params: { profile_name: 'string' },
+    orderArray: ['profile_name']
+  },
+  'insertProfile': {
+    query: 'INSERT INTO public.profile (name) VALUES ($1) RETURNING id AS profile_id, name AS profile_de;',
+    structure_params: { profile_name: 'string' },
+    orderArray: ['profile_name']
+  },
+  'getPermissions': {
+    query: 'SELECT DISTINCT s.name AS sub_system, c.name AS class_name, m.name AS method_name, p.name AS profile_name FROM public.method_profile mp JOIN public.method m ON m.id = mp.method_id JOIN public.class_method cm ON cm.method_id = m.id JOIN public."class" c ON c.id = cm.class_id JOIN public.subsystem_class sc ON sc.class_id = c.id JOIN public.subsystem s ON s.id = sc.subsystem_id JOIN public.profile p ON p.id = mp.profile_id ORDER BY s.name, c.name, m.name, p.name;',
+    structure_params: {},
+    orderArray: []
+  },
+  'ensureTransactionSerial': {
+    query: 'SELECT 1;',
+    structure_params: {},
+    orderArray: []
+  },
+  'insertPermission': {
+    query: 'WITH ins_subsystem AS (INSERT INTO public.subsystem (name) SELECT $1::text WHERE NOT EXISTS (SELECT 1 FROM public.subsystem WHERE name = $1::text) RETURNING id), sel_subsystem AS (SELECT id FROM ins_subsystem UNION ALL SELECT id FROM public.subsystem WHERE name = $1::text ORDER BY id LIMIT 1), ins_class AS (INSERT INTO public."class" (name) SELECT $2::text WHERE NOT EXISTS (SELECT 1 FROM public."class" WHERE name = $2::text) RETURNING id), sel_class AS (SELECT id FROM ins_class UNION ALL SELECT id FROM public."class" WHERE name = $2::text ORDER BY id LIMIT 1), link_subsystem_class AS (INSERT INTO public.subsystem_class (subsystem_id, class_id) SELECT s.id, c.id FROM sel_subsystem s CROSS JOIN sel_class c ON CONFLICT (subsystem_id, class_id) DO NOTHING), ins_method AS (INSERT INTO public."method" (name) SELECT $3::text WHERE NOT EXISTS (SELECT 1 FROM public."method" WHERE name = $3::text) RETURNING id), sel_method AS (SELECT id FROM ins_method UNION ALL SELECT id FROM public."method" WHERE name = $3::text ORDER BY id LIMIT 1), link_class_method AS (INSERT INTO public.class_method (class_id, method_id) SELECT c.id, m.id FROM sel_class c CROSS JOIN sel_method m ON CONFLICT (class_id, method_id) DO NOTHING), ins_profile AS (INSERT INTO public.profile (name) SELECT $4::text WHERE NOT EXISTS (SELECT 1 FROM public.profile WHERE name = $4::text) RETURNING id), sel_profile AS (SELECT id FROM ins_profile UNION ALL SELECT id FROM public.profile WHERE name = $4::text ORDER BY id LIMIT 1), link_method_profile AS (INSERT INTO public.method_profile (method_id, profile_id) SELECT m.id, p.id FROM sel_method m CROSS JOIN sel_profile p ON CONFLICT (method_id, profile_id) DO NOTHING), ins_transaction AS (INSERT INTO public."transaction" (subsystem_id, class_id, method_id) SELECT s.id, c.id, m.id FROM sel_subsystem s CROSS JOIN sel_class c CROSS JOIN sel_method m WHERE NOT EXISTS (SELECT 1 FROM public."transaction" t WHERE t.method_id = m.id AND t.class_id = c.id AND t.subsystem_id = s.id)) SELECT s.id AS subsystem_id, c.id AS class_id, m.id AS method_id, p.id AS profile_id FROM sel_subsystem s CROSS JOIN sel_class c CROSS JOIN sel_method m CROSS JOIN sel_profile p;',
+    structure_params: { sub_system: 'string', class_name: 'string', method_name: 'string', profile_name: 'string' },
+    orderArray: ['sub_system', 'class_name', 'method_name', 'profile_name']
+  },
+  'createEvento': {
+    query: 'WITH ensure_user AS (INSERT INTO public."user" (name, password_hash, is_solvency, is_active) SELECT ''system_event_bot'', ''system_event_bot_hash'', TRUE, TRUE WHERE NOT EXISTS (SELECT 1 FROM public."user" WHERE name = ''system_event_bot'') RETURNING id), sel_user AS (SELECT id FROM ensure_user UNION ALL SELECT id FROM public."user" WHERE name = ''system_event_bot'' ORDER BY id LIMIT 1), sel_type AS (SELECT id FROM public.notification_type WHERE name = ''info'' ORDER BY id LIMIT 1) INSERT INTO public.notification (title, message, sent_at, is_read, user_id, type_id) SELECT $1, jsonb_build_object(''descripcion'', $2::text, ''fecha'', $3::text, ''hora'', $4::text, ''costo'', $5::numeric, ''capacidad'', $6::int, ''visibilidad'', $7::text, ''lugar'', $8::text)::text, (to_date($3::text, ''YYYY-MM-DD'') + ($4::text)::time)::timestamptz, FALSE, (SELECT id FROM sel_user LIMIT 1), (SELECT id FROM sel_type LIMIT 1) RETURNING id, title AS name, message AS descripcion, sent_at;',
+    structure_params: { name: 'string', descripcion: 'string', fecha: 'string', hora: 'string', costo: 'float', capacidad: 'int', visibilidad: 'string', lugar: 'string' },
+    orderArray: ['name', 'descripcion', 'fecha', 'hora', 'costo', 'capacidad', 'visibilidad', 'lugar']
+  },
+  'updateEvents': {
+    query: 'UPDATE public.notification SET title = $1, message = jsonb_build_object(''descripcion'', $2::text, ''fecha'', $3::text, ''hora'', $4::text, ''costo'', $5::numeric, ''capacidad'', $6::int, ''visibilidad'', $7::text, ''lugar'', $8::text)::text, sent_at = (to_date($3::text, ''YYYY-MM-DD'') + ($4::text)::time)::timestamptz WHERE id = $9 RETURNING id, title AS name, message AS descripcion, sent_at;',
+    structure_params: { name: 'string', descripcion: 'string', fecha: 'string', hora: 'string', costo: 'float', capacidad: 'int', visibilidad: 'string', lugar: 'string', id: 'int' },
+    orderArray: ['name', 'descripcion', 'fecha', 'hora', 'costo', 'capacidad', 'visibilidad', 'lugar', 'id']
+  },
+  'deleteEvent': {
+    query: 'DELETE FROM public.notification WHERE id = $1 RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'list_event': {
+    query: 'SELECT n.id, n.title AS name, n.message::jsonb ->> ''descripcion'' AS descripcion, n.message::jsonb ->> ''fecha'' AS fecha, n.message::jsonb ->> ''hora'' AS hora, (n.message::jsonb ->> ''costo'')::numeric AS costo, (n.message::jsonb ->> ''capacidad'')::int AS capacidad, n.message::jsonb ->> ''visibilidad'' AS visibilidad, n.message::jsonb ->> ''lugar'' AS lugar FROM public.notification n JOIN public."user" u ON u.id = n.user_id WHERE u.name = ''system_event_bot'' ORDER BY n.id DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'getTransactions': {
+    query: 'SELECT t.id, s.name AS sub_system, c.name AS class_name, m.name AS method_name FROM public."transaction" t JOIN public.subsystem s ON t.subsystem_id = s.id JOIN public."class" c ON t.class_id = c.id JOIN public."method" m ON t.method_id = m.id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'insertEquipo': {
+    query: 'INSERT INTO public.item (code, name, description, condition_status_id, cost, acquisition_date, category_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id AS equipo_id;',
+    structure_params: { codigo: 'string', nombre: 'string', descripcion: 'string', estado_id: 'number', costo: 'number', fecha_adquisicion: 'string', category_id: 'number' },
+    orderArray: ['codigo', 'nombre', 'descripcion', 'estado_id', 'costo', 'fecha_adquisicion', 'category_id']
+  },
+  'getEquipoById': {
+    query: 'SELECT i.id AS equipo_id, i.code AS codigo, i.name AS nombre, i.description, i.cost AS costo, i.acquisition_date AS fecha_adquisicion, c.name AS categoria, cs.name AS estado FROM public.item i LEFT JOIN public.category c ON i.category_id = c.id LEFT JOIN public.condition_status_type cs ON i.condition_status_id = cs.id WHERE i.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getEquipoByCodigo': {
+    query: 'SELECT i.id AS equipo_id, i.code AS codigo, i.name AS nombre, i.description, i.cost AS costo, i.acquisition_date AS fecha_adquisicion, c.name AS categoria, cs.name AS estado FROM public.item i LEFT JOIN public.category c ON i.category_id = c.id LEFT JOIN public.condition_status_type cs ON i.condition_status_id = cs.id WHERE i.code = $1;',
+    structure_params: { codigo: 'string' },
+    orderArray: ['codigo']
+  },
+  'getAllEquipos': {
+    query: 'SELECT i.id AS equipo_id, i.code AS codigo, i.name AS nombre, i.description, i.cost AS costo, i.acquisition_date AS fecha_adquisicion, c.name AS categoria, cs.name AS estado FROM public.item i LEFT JOIN public.category c ON i.category_id = c.id LEFT JOIN public.condition_status_type cs ON i.condition_status_id = cs.id ORDER BY i.code;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updateEquipo': {
+    query: 'UPDATE public.item SET name = $2, description = $3, condition_status_id = $4, cost = $5 WHERE id = $1 RETURNING id AS equipo_id;',
+    structure_params: { id: 'int', nombre: 'string', descripcion: 'string', estado_id: 'int', costo: 'float' },
+    orderArray: ['id', 'nombre', 'descripcion', 'estado_id', 'costo']
+  },
+  'deleteEquipo': {
+    query: 'UPDATE public.item SET deleted_at = NOW() WHERE id = $1 RETURNING id AS equipo_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertUbicacion': {
+    query: 'INSERT INTO public.location (name, description, parent_id, type_id) VALUES ($1, $2, $3, $4) RETURNING id AS ubicacion_id;',
+    structure_params: { nombre: 'string', descripcion: 'string', parent_id: 'number', type_id: 'number' },
+    orderArray: ['nombre', 'descripcion', 'parent_id', 'type_id']
+  },
+  'getUbicacionById': {
+    query: 'SELECT id AS ubicacion_id, name AS nombre, description, parent_id, type_id FROM public.location WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getUbicacionByNombre': {
+    query: 'SELECT id AS ubicacion_id, name AS nombre, description, parent_id, type_id FROM public.location WHERE name = $1;',
+    structure_params: { nombre: 'string' },
+    orderArray: ['nombre']
+  },
+  'getAllUbicaciones': {
+    query: 'SELECT id AS ubicacion_id, name AS nombre, description, parent_id, type_id FROM public.location ORDER BY name;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updateUbicacion': {
+    query: 'UPDATE public.location SET name = $2, description = $3, parent_id = $4, type_id = $5 WHERE id = $1 RETURNING id AS ubicacion_id;',
+    structure_params: { id: 'int', nombre: 'string', descripcion: 'string', parent_id: 'int', type_id: 'int' },
+    orderArray: ['id', 'nombre', 'descripcion', 'parent_id', 'type_id']
+  },
+  'deleteUbicacion': {
+    query: 'UPDATE public.location SET deleted_at = NOW() WHERE id = $1 RETURNING id AS ubicacion_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertEstadoEquipo': {
+    query: 'INSERT INTO public.condition_status_type (name, description) VALUES ($1, $2) RETURNING id AS estado_id;',
+    structure_params: { nombre: 'string', descripcion: 'string' },
+    orderArray: ['nombre', 'descripcion']
+  },
+  'getEstadoEquipoById': {
+    query: 'SELECT id AS estado_id, name AS nombre, description FROM public.condition_status_type WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getEstadoEquipoByNombre': {
+    query: 'SELECT id AS estado_id, name AS nombre, description FROM public.condition_status_type WHERE name = $1;',
+    structure_params: { nombre: 'string' },
+    orderArray: ['nombre']
+  },
+  'getAllEstadosEquipo': {
+    query: 'SELECT id AS estado_id, name AS nombre, description FROM public.condition_status_type ORDER BY name;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updateEstadoEquipo': {
+    query: 'UPDATE public.condition_status_type SET name = $2, description = $3 WHERE id = $1 RETURNING id AS estado_id;',
+    structure_params: { id: 'int', nombre: 'string', descripcion: 'string' },
+    orderArray: ['id', 'nombre', 'descripcion']
+  },
+  'deleteEstadoEquipo': {
+    query: 'DELETE FROM public.condition_status_type WHERE id = $1 RETURNING id AS estado_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertPrestamo': {
+    query: 'INSERT INTO public.movement (user_id, type_id, period_id, booking_date, reservation_expires_at, estimated_return_date, observations) VALUES ($1, (SELECT id FROM public.movement_type WHERE name = ''loan''), $2, $3, $4, $5, $6) RETURNING id AS prestamo_id;',
+    structure_params: { usuario_id: 'number', period_id: 'number', fecha_prestamo: 'string', reservation_expires_at: 'string', fecha_devolucion_esperada: 'string', observaciones: 'string' },
+    orderArray: ['usuario_id', 'period_id', 'fecha_prestamo', 'reservation_expires_at', 'fecha_devolucion_esperada', 'observaciones']
+  },
+  'getPrestamoById': {
+    query: 'SELECT m.id AS prestamo_id, m.user_id AS usuario_id, m.booking_date AS fecha_prestamo, m.estimated_return_date AS fecha_devolucion_esperada, m.actual_return_date AS fecha_devolucion_real, m.observations, u.first_name || '' || u.last_name AS usuario_nombre FROM public.movement m LEFT JOIN public."user" u ON m.user_id = u.id WHERE m.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getPrestamosByUsuario': {
+    query: 'SELECT m.id AS prestamo_id, m.user_id AS usuario_id, m.booking_date AS fecha_prestamo, m.estimated_return_date AS fecha_devolucion_esperada, m.actual_return_date AS fecha_devolucion_real, m.observations, u.first_name || '' || u.last_name AS usuario_nombre FROM public.movement m LEFT JOIN public."user" u ON m.user_id = u.id WHERE m.user_id = $1 ORDER BY m.booking_date DESC;',
+    structure_params: { usuario_id: 'int' },
+    orderArray: ['usuario_id']
+  },
+  'getPrestamosByEquipo': {
+    query: 'SELECT m.id AS prestamo_id, m.user_id AS usuario_id, m.booking_date AS fecha_prestamo, m.estimated_return_date AS fecha_devolucion_esperada, m.actual_return_date AS fecha_devolucion_real, m.observations, u.first_name || '' || u.last_name AS usuario_nombre FROM public.movement m LEFT JOIN public."user" u ON m.user_id = u.id JOIN public.movement_detail md ON m.id = md.movement_id JOIN public.inventory i ON md.inventory_id = i.id JOIN public.item it ON i.item_id = it.id WHERE it.id = $1 ORDER BY m.booking_date DESC;',
+    structure_params: { equipo_id: 'int' },
+    orderArray: ['equipo_id']
+  },
+  'getAllPrestamos': {
+    query: 'SELECT m.id AS prestamo_id, m.user_id AS usuario_id, m.booking_date AS fecha_prestamo, m.estimated_return_date AS fecha_devolucion_esperada, m.actual_return_date AS fecha_devolucion_real, m.observations, u.first_name || '' || u.last_name AS usuario_nombre FROM public.movement m LEFT JOIN public."user" u ON m.user_id = u.id ORDER BY m.booking_date DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'getPrestamosActivos': {
+    query: 'SELECT m.id AS prestamo_id, m.user_id AS usuario_id, m.booking_date AS fecha_prestamo, m.estimated_return_date AS fecha_devolucion_esperada, m.actual_return_date AS fecha_devolucion_real, m.observations, u.first_name || '' || u.last_name AS usuario_nombre FROM public.movement m LEFT JOIN public."user" u ON m.user_id = u.id WHERE m.actual_return_date IS NULL ORDER BY m.booking_date DESC;',
+    structure_params: {},
+    orderArray: [],
+  },
+  'insertUsuario': {
+    query: 'INSERT INTO public."user" (name, email, password_hash, is_solvency, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING id AS usuario_id;',
+    structure_params: { nombre: 'string', email: 'string', password_hash: 'string', is_solvency: 'boolean', is_active: 'boolean' },
+    orderArray: ['nombre', 'email', 'password_hash', 'is_solvency', 'is_active']
+  },
+  'getUsuarioById': {
+    query: 'SELECT u.id AS usuario_id, u.name AS nombre, u.email, u.is_solvency AS tiene_solvencia, u.is_active AS esta_activo, u.person_id, p.first_name || '' || p.last_name AS nombre_completo, p.document_number AS documento, u.created_at, u.updated_at FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.id = $1 AND u.deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getUsuarioByEmail': {
+    query: 'SELECT u.id AS usuario_id, u.name AS nombre, u.email, u.is_solvency AS tiene_solvencia, u.is_active AS esta_activo, u.person_id, p.first_name || '' || p.last_name AS nombre_completo, p.document_number AS documento, u.created_at, u.updated_at FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.email = $1 AND u.deleted_at IS NULL;',
+    structure_params: { email: 'string' },
+    orderArray: ['email']
+  },
+  'getAllUsuarios': {
+    query: 'SELECT u.id AS usuario_id, u.name AS nombre, u.email, u.is_solvency AS tiene_solvencia, u.is_active AS esta_activo, u.person_id, p.first_name || '''' || p.last_name AS nombre_completo, p.document_number AS documento, u.created_at, u.updated_at FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.deleted_at IS NULL ORDER BY u.name ASC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updateUsuario': {
+    query: 'UPDATE public."user" SET name = $2, email = $3, is_solvency = $4, is_active = $5, person_id = $6, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS usuario_id;',
+    structure_params: { id: 'int', nombre: 'string', email: 'string', is_solvency: 'boolean', is_active: 'boolean', person_id: 'number' },
+    orderArray: ['id', 'nombre', 'email', 'is_solvency', 'is_active', 'person_id']
+  },
+  'deleteUsuario': {
+    query: 'UPDATE public."user" SET deleted_at = NOW() WHERE id = $1 RETURNING id AS usuario_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  
+  'insertComponente': {
+    query: 'INSERT INTO public.item (code, name, description, condition_status_id, cost, acquisition_date, category_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id AS componente_id;',
+    structure_params: { codigo: 'string', nombre: 'string', descripcion: 'string', estado_id: 'number', costo: 'number', fecha_adquisicion: 'string', category_id: 'number' },
+    orderArray: ['codigo', 'nombre', 'descripcion', 'estado_id', 'costo', 'fecha_adquisicion', 'category_id']
+  },
+  'getComponenteById': {
+    query: 'SELECT i.id AS componente_id, i.code AS codigo, i.name AS nombre, i.description, i.cost AS costo, i.acquisition_date AS fecha_adquisicion, c.name AS categoria, cs.name AS estado FROM public.item i LEFT JOIN public.category c ON i.category_id = c.id LEFT JOIN public.condition_status_type cs ON i.condition_status_id = cs.id WHERE i.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getComponenteByCodigo': {
+    query: 'SELECT i.id AS componente_id, i.code AS codigo, i.name AS nombre, i.description, i.cost AS costo, i.acquisition_date AS fecha_adquisicion, c.name AS categoria, cs.name AS estado FROM public.item i LEFT JOIN public.category c ON i.category_id = c.id LEFT JOIN public.condition_status_type cs ON i.condition_status_id = cs.id WHERE i.code = $1;',
+    structure_params: { codigo: 'string' },
+    orderArray: ['codigo']
+  },
+  'getAllComponentes': {
+    query: 'SELECT i.id AS componente_id, i.code AS codigo, i.name AS nombre, i.description, i.cost AS costo, i.acquisition_date AS fecha_adquisicion, c.name AS categoria, cs.name AS estado FROM public.item i LEFT JOIN public.category c ON i.category_id = c.id LEFT JOIN public.condition_status_type cs ON i.condition_status_id = cs.id WHERE c.name ILIKE ''%component%'' OR c.name ILIKE ''%part%'' ORDER BY i.code;',
+    structure_params: {},
+    orderArray: []
+  },
+  'getComponentesByCategoria': {
+    query: 'SELECT i.id AS componente_id, i.code AS codigo, i.name AS nombre, i.description, i.cost AS costo, i.acquisition_date AS fecha_adquisicion, c.name AS categoria, cs.name AS estado FROM public.item i LEFT JOIN public.category c ON i.category_id = c.id LEFT JOIN public.condition_status_type cs ON i.condition_status_id = cs.id WHERE i.category_id = $1 ORDER BY i.code;',
+    structure_params: { category_id: 'int' },
+    orderArray: ['category_id']
+  },
+  'updateComponente': {
+    query: 'UPDATE public.item SET name = $2, description = $3, condition_status_id = $4, cost = $5 WHERE id = $1 RETURNING id AS componente_id;',
+    structure_params: { id: 'int', nombre: 'string', descripcion: 'string', estado_id: 'int', costo: 'float' },
+    orderArray: ['id', 'nombre', 'descripcion', 'estado_id', 'costo']
+  },
+  'deleteComponente': {
+    query: 'UPDATE public.item SET deleted_at = NOW() WHERE id = $1 RETURNING id AS componente_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertDevolucion': {
+    query: 'INSERT INTO public.movement (user_id, type_id, period_id, booking_date, reservation_expires_at, actual_return_date, observations) VALUES ($1, (SELECT id FROM public.movement_type WHERE name = ''return''), $2, $3, $4, $5, $6) RETURNING id AS devolucion_id;',
+    structure_params: { usuario_id: 'number', period_id: 'number', booking_date: 'string', reservation_expires_at: 'string', actual_return_date: 'string', observaciones: 'string' },
+    orderArray: ['usuario_id', 'period_id', 'booking_date', 'reservation_expires_at', 'actual_return_date', 'observaciones']
+  },
+  'getDevolucionById': {
+    query: 'SELECT m.id AS devolucion_id, m.user_id AS usuario_id, m.booking_date AS fecha_devolucion, m.actual_return_date AS fecha_registro, m.observations, u.first_name || '' || u.last_name AS usuario_nombre FROM public.movement m LEFT JOIN public."user" u ON m.user_id = u.id WHERE m.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getDevolucionesByUsuario': {
+    query: 'SELECT m.id AS devolucion_id, m.user_id AS usuario_id, m.booking_date AS fecha_devolucion, m.actual_return_date AS fecha_registro, m.observations, u.first_name || '' || u.last_name AS usuario_nombre FROM public.movement m LEFT JOIN public."user" u ON m.user_id = u.id WHERE m.user_id = $1 AND m.type_id = (SELECT id FROM public.movement_type WHERE name = ''return'') ORDER BY m.booking_date DESC;',
+    structure_params: { usuario_id: 'int' },
+    orderArray: ['usuario_id']
+  },
+  'getAllDevoluciones': {
+    query: 'SELECT m.id AS devolucion_id, m.user_id AS usuario_id, m.booking_date AS fecha_devolucion, m.actual_return_date AS fecha_registro, m.observations, u.name AS usuario_nombre FROM public.movement m LEFT JOIN public."user" u ON m.user_id = u.id WHERE m.type_id = (SELECT id FROM public.movement_type WHERE name = ''return'') ORDER BY m.booking_date DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updateDevolucion': {
+    query: 'UPDATE public.movement SET observations = $2 WHERE id = $1 RETURNING id AS devolucion_id;',
+    structure_params: { id: 'int', observaciones: 'string' },
+    orderArray: ['id', 'observaciones']
+  },
+  'deleteDevolucion': {
+    query: 'DELETE FROM public.movement WHERE id = $1 RETURNING id AS devolucion_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertInventario': {
+    query: 'INSERT INTO public.inventory (amount, location_id, item_id) VALUES ($1, $2, $3) RETURNING id AS inventario_id;',
+    structure_params: { cantidad: 'number', ubicacion_id: 'number', item_id: 'number' },
+    orderArray: ['cantidad', 'ubicacion_id', 'item_id']
+  },
+  'getInventarioById': {
+    query: 'SELECT i.id AS inventario_id, i.amount AS cantidad, i.location_id AS ubicacion_id, l.name AS nombre_ubicacion, i.item_id, it.name AS nombre_item, it.code AS codigo_item FROM public.inventory i LEFT JOIN public.location l ON i.location_id = l.id LEFT JOIN public.item it ON i.item_id = it.id WHERE i.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getInventarioByUbicacion': {
+    query: 'SELECT i.id AS inventario_id, i.amount AS cantidad, i.location_id AS ubicacion_id, l.name AS nombre_ubicacion, i.item_id, it.name AS nombre_item, it.code AS codigo_item FROM public.inventory i LEFT JOIN public.location l ON i.location_id = l.id LEFT JOIN public.item it ON i.item_id = it.id WHERE i.location_id = $1 ORDER BY it.name;',
+    structure_params: { ubicacion_id: 'int' },
+    orderArray: ['ubicacion_id']
+  },
+  'getInventarioByItem': {
+    query: 'SELECT i.id AS inventario_id, i.amount AS cantidad, i.location_id AS ubicacion_id, l.name AS nombre_ubicacion, i.item_id, it.name AS nombre_item, it.code AS codigo_item FROM public.inventory i LEFT JOIN public.location l ON i.location_id = l.id LEFT JOIN public.item it ON i.item_id = it.id WHERE i.item_id = $1 ORDER BY l.name;',
+    structure_params: { item_id: 'int' },
+    orderArray: ['item_id']
+  },
+  'getAllInventario': {
+    query: 'SELECT i.id AS inventario_id, i.amount AS cantidad, i.location_id AS ubicacion_id, l.name AS nombre_ubicacion, i.item_id, it.name AS nombre_item, it.code AS codigo_item FROM public.inventory i LEFT JOIN public.location l ON i.location_id = l.id LEFT JOIN public.item it ON i.item_id = it.id ORDER BY l.name, it.name;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updateInventario': {
+    query: 'UPDATE public.inventory SET amount = $2, location_id = $3 WHERE id = $1 RETURNING id AS inventario_id;',
+    structure_params: { id: 'int', cantidad: 'number', ubicacion_id: 'number' },
+    orderArray: ['id', 'cantidad', 'ubicacion_id']
+  },
+  'deleteInventario': {
+    query: 'DELETE FROM public.inventory WHERE id = $1 RETURNING id AS inventario_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertCompensacion': {
+    query: 'INSERT INTO public.compensation (amount_paid, observations, processed_by_user_id, payment_date) VALUES ($1, $2, $3, NOW()) RETURNING id AS compensacion_id;',
+    structure_params: { monto: 'number', descripcion: 'string', usuario_id: 'number' },
+    orderArray: ['monto', 'descripcion', 'usuario_id']
+  },
+  'getCompensacionById': {
+    query: 'SELECT c.id AS compensacion_id, c.amount AS monto, c.description, c.user_id AS usuario_id, u.first_name || '' || u.last_name AS nombre_usuario, c.damage_id AS danio_id, c.created_at AS fecha_creacion FROM public.compensation c LEFT JOIN public."user" u ON c.user_id = u.id WHERE c.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getCompensacionesByUsuario': {
+    query: 'SELECT c.id AS compensacion_id, c.amount AS monto, c.description, c.user_id AS usuario_id, u.first_name || '' || u.last_name AS nombre_usuario, c.damage_id AS danio_id, c.created_at AS fecha_creacion FROM public.compensation c LEFT JOIN public."user" u ON c.user_id = u.id WHERE c.user_id = $1 ORDER BY c.created_at DESC;',
+    structure_params: { usuario_id: 'int' },
+    orderArray: ['usuario_id']
+  },
+  'getAllCompensaciones': {
+    query: 'SELECT c.id AS compensacion_id, c.amount AS monto, c.description, c.user_id AS usuario_id, u.first_name || '' || u.last_name AS nombre_usuario, c.damage_id AS danio_id, c.created_at AS fecha_creacion FROM public.compensation c LEFT JOIN public."user" u ON c.user_id = u.id ORDER BY c.created_at DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updateCompensacion': {
+    query: 'UPDATE public.compensation SET amount = $2, description = $3, user_id = $4, damage_id = $5 WHERE id = $1 RETURNING id AS compensacion_id;',
+    structure_params: { id: 'int', monto: 'number', descripcion: 'string', usuario_id: 'number', danio_id: 'number' },
+    orderArray: ['id', 'monto', 'descripcion', 'usuario_id', 'danio_id']
+  },
+  'deleteCompensacion': {
+    query: 'DELETE FROM public.compensation WHERE id = $1 RETURNING id AS compensacion_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertNotificacion': {
+    query: 'INSERT INTO public.notification (title, message, sent_at, is_read, user_id, type_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id AS notificacion_id;',
+    structure_params: { titulo: 'string', mensaje: 'string', sent_at: 'string', is_read: 'boolean', usuario_id: 'number', tipo_id: 'number' },
+    orderArray: ['titulo', 'mensaje', 'sent_at', 'is_read', 'usuario_id', 'tipo_id']
+  },
+  'getNotificacionById': {
+    query: 'SELECT n.id AS notificacion_id, n.title AS titulo, n.message AS mensaje, n.sent_at AS fecha_envio, n.is_read AS leida, n.user_id AS usuario_id, u.first_name || '' || u.last_name AS nombre_usuario, n.type_id AS tipo_id, nt.name AS nombre_tipo FROM public.notification n LEFT JOIN public."user" u ON n.user_id = u.id LEFT JOIN public.notification_type nt ON n.type_id = nt.id WHERE n.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getNotificacionesByUsuario': {
+    query: 'SELECT n.id AS notificacion_id, n.title AS titulo, n.message AS mensaje, n.sent_at AS fecha_envio, n.is_read AS leida, n.user_id AS usuario_id, u.first_name || '' || u.last_name AS nombre_usuario, n.type_id AS tipo_id, nt.name AS nombre_tipo FROM public.notification n LEFT JOIN public."user" u ON n.user_id = u.id LEFT JOIN public.notification_type nt ON n.type_id = nt.id WHERE n.user_id = $1 ORDER BY n.sent_at DESC;',
+    structure_params: { usuario_id: 'int' },
+    orderArray: ['usuario_id']
+  },
+  'getAllNotificaciones': {
+    query: 'SELECT n.id AS notificacion_id, n.title AS titulo, n.message AS mensaje, n.sent_at AS fecha_envio, n.is_read AS leida, n.user_id AS usuario_id, u.first_name || '' || u.last_name AS nombre_usuario, n.type_id AS tipo_id, nt.name AS nombre_tipo FROM public.notification n LEFT JOIN public."user" u ON n.user_id = u.id LEFT JOIN public.notification_type nt ON n.type_id = nt.id ORDER BY n.sent_at DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updateNotificacion': {
+    query: 'UPDATE public.notification SET title = $2, message = $3, is_read = $4, user_id = $5, type_id = $6 WHERE id = $1 RETURNING id AS notificacion_id;',
+    structure_params: { id: 'int', titulo: 'string', mensaje: 'string', leida: 'boolean', usuario_id: 'number', tipo_id: 'number' },
+    orderArray: ['id', 'titulo', 'mensaje', 'leida', 'usuario_id', 'tipo_id']
+  },
+  'markNotificacionAsRead': {
+    query: 'UPDATE public.notification SET is_read = TRUE WHERE id = $1 RETURNING id AS notificacion_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'deleteNotificacion': {
+    query: 'DELETE FROM public.notification WHERE id = $1 RETURNING id AS notificacion_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertAuditoria': {
+    query: 'INSERT INTO public.audit (entity_name, method, details, user_id, type_id, event_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id AS auditoria_id;',
+    structure_params: { entidad: 'string', metodo: 'string', detalles: 'string', usuario_id: 'number', tipo_id: 'number' },
+    orderArray: ['entidad', 'metodo', 'detalles', 'usuario_id', 'tipo_id']
+  },
+  'getAuditoriaById': {
+    query: 'SELECT a.id AS auditoria_id, a.entity_name AS entidad, a.method AS metodo, a.details AS detalles, a.user_id AS usuario_id, u.first_name || '' || u.last_name AS nombre_usuario, a.event_at AS fecha_evento, at.name AS nombre_tipo FROM public.audit a LEFT JOIN public."user" u ON a.user_id = u.id LEFT JOIN public.audit_type at ON a.type_id = at.id WHERE a.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getAuditoriaByUsuario': {
+    query: 'SELECT a.id AS auditoria_id, a.entity_name AS entidad, a.method AS metodo, a.details AS detalles, a.user_id AS usuario_id, u.first_name || '' || u.last_name AS nombre_usuario, a.event_at AS fecha_evento, at.name AS nombre_tipo FROM public.audit a LEFT JOIN public."user" u ON a.user_id = u.id LEFT JOIN public.audit_type at ON a.type_id = at.id WHERE a.user_id = $1 ORDER BY a.event_at DESC;',
+    structure_params: { usuario_id: 'int' },
+    orderArray: ['usuario_id']
+  },
+  'getAllAuditorias': {
+    query: 'SELECT a.id AS auditoria_id, a.entity_name AS entidad, a.method AS metodo, a.details AS detalles, a.user_id AS usuario_id, u.name AS nombre_usuario, a.event_at AS fecha_evento, at.name AS nombre_tipo FROM public.audit a LEFT JOIN public."user" u ON a.user_id = u.id LEFT JOIN public.audit_type at ON a.type_id = at.id ORDER BY a.event_at DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'deleteAuditoria': {
+    query: 'DELETE FROM public.audit WHERE id = $1 RETURNING id AS auditoria_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'insertPeriodoAcademico': {
+    query: 'INSERT INTO public.period (name, description, start_date, end_date, type_id, is_active) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id AS periodo_id;',
+    structure_params: { nombre: 'string', descripcion: 'string', fecha_inicio: 'string', fecha_fin: 'string', tipo_id: 'number', is_active: 'boolean' },
+    orderArray: ['nombre', 'descripcion', 'fecha_inicio', 'fecha_fin', 'tipo_id', 'is_active']
+  },
+  'getPeriodoAcademicoById': {
+    query: 'SELECT p.id AS periodo_id, p.name AS nombre, p.description, p.start_date AS fecha_inicio, p.end_date AS fecha_fin, p.type_id AS tipo_id, pt.name AS nombre_tipo, p.is_active AS esta_activo FROM public.period p LEFT JOIN public.period_type pt ON p.type_id = pt.id WHERE p.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getAllPeriodosAcademicos': {
+    query: 'SELECT p.id AS periodo_id, p.name AS nombre, p.description, p.start_date AS fecha_inicio, p.end_date AS fecha_fin, p.type_id AS tipo_id, pt.name AS nombre_tipo, p.is_active AS esta_activo FROM public.period p LEFT JOIN public.period_type pt ON p.type_id = pt.id ORDER BY p.start_date DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'getPeriodosAcademicosActivos': {
+    query: 'SELECT p.id AS periodo_id, p.name AS nombre, p.description, p.start_date AS fecha_inicio, p.end_date AS fecha_fin, p.type_id AS tipo_id, pt.name AS nombre_tipo, p.is_active AS esta_activo FROM public.period p LEFT JOIN public.period_type pt ON p.type_id = pt.id WHERE p.is_active = TRUE ORDER BY p.start_date DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+  'updatePeriodoAcademico': {
+    query: 'UPDATE public.period SET name = $2, description = $3, start_date = $4, end_date = $5, type_id = $6, is_active = $7 WHERE id = $1 RETURNING id AS periodo_id;',
+    structure_params: { id: 'int', nombre: 'string', descripcion: 'string', fecha_inicio: 'string', fecha_fin: 'string', tipo_id: 'number', is_active: 'boolean' },
+    orderArray: ['id', 'nombre', 'descripcion', 'fecha_inicio', 'fecha_fin', 'tipo_id', 'is_active']
+  },
+  'deletePeriodoAcademico': {
+    query: 'DELETE FROM public.period WHERE id = $1 RETURNING id AS periodo_id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'testQuery': {
+    query: 'SELECT 1 as test;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  # ========== FUEL ==========
+
+  'createVehiculo': {
+    query: 'INSERT INTO public.vehicle (codigo, nombre, placa, tanque_capacidad_litros) VALUES ($1, $2, $3, $4) RETURNING id, codigo, nombre, placa, tanque_capacidad_litros;',
+    structure_params: { codigo: 'string', nombre: 'string', placa: 'string|null', tanque_capacidad_litros: 'int|null' },
+    orderArray: ['codigo', 'nombre', 'placa', 'tanque_capacidad_litros']
+  },
+
+  'getVehiculoById': {
+    query: 'SELECT id, codigo, nombre, placa, tanque_capacidad_litros, is_active FROM public.vehicle WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllVehiculos': {
+    query: 'SELECT id, codigo, nombre, placa, tanque_capacidad_litros, is_active FROM public.vehicle WHERE deleted_at IS NULL ORDER BY codigo;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'updateVehiculo': {
+    query: 'UPDATE public.vehicle SET nombre = $2, placa = $3, tanque_capacidad_litros = $4, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id, codigo, nombre, placa, tanque_capacidad_litros;',
+    structure_params: { id: 'int', nombre: 'string', placa: 'string|null', tanque_capacidad_litros: 'int|null' },
+    orderArray: ['id', 'nombre', 'placa', 'tanque_capacidad_litros']
+  },
+
+  'deleteVehiculo': {
+    query: 'UPDATE public.vehicle SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'createCarga': {
+    query: 'INSERT INTO public.fuel_carga (vehicle_id, fecha, litros, tanque_lleno, estacion, odometro, monto, observaciones, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, vehicle_id, fecha, litros, tanque_lleno, estacion, odometro, monto, observaciones;',
+    structure_params: { vehicle_id: 'int', fecha: 'string|null', litros: 'int', tanque_lleno: 'boolean', estacion: 'string|null', odometro: 'int|null', monto: 'int|null', observaciones: 'string|null', created_by: 'int|null' },
+    orderArray: ['vehicle_id', 'fecha', 'litros', 'tanque_lleno', 'estacion', 'odometro', 'monto', 'observaciones', 'created_by']
+  },
+
+  'getCargasByVehiculo': {
+    query: 'SELECT c.id, c.vehicle_id, v.codigo AS vehiculo_codigo, v.nombre AS vehiculo_nombre, c.fecha, c.litros, c.tanque_lleno, c.estacion, c.odometro, c.monto, c.observaciones FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.vehicle_id = $1 AND c.deleted_at IS NULL ORDER BY c.fecha DESC;',
+    structure_params: { vehicle_id: 'int' },
+    orderArray: ['vehicle_id']
+  },
+
+  'getAllCargas': {
+    query: 'SELECT c.id, c.vehicle_id, v.codigo AS vehiculo_codigo, v.nombre AS vehiculo_nombre, c.fecha, c.litros, c.tanque_lleno, c.estacion, c.odometro, c.monto, c.observaciones FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.deleted_at IS NULL ORDER BY c.fecha DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'updateCarga': {
+    query: 'UPDATE public.fuel_carga SET litros = $2, tanque_lleno = $3, estacion = $4, odometro = $5, monto = $6, observaciones = $7 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, fecha, litros, tanque_lleno, estacion, odometro, monto, observaciones;',
+    structure_params: { id: 'int', litros: 'int', tanque_lleno: 'boolean', estacion: 'string|null', odometro: 'int|null', monto: 'int|null', observaciones: 'string|null' },
+    orderArray: ['id', 'litros', 'tanque_lleno', 'estacion', 'odometro', 'monto', 'observaciones']
+  },
+
+  'deleteCarga': {
+    query: 'UPDATE public.fuel_carga SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  }
+}

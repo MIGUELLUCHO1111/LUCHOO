@@ -1,0 +1,12 @@
+export * from "./login/login.jsx";
+export * from "./forgot/forgot.jsx";
+export * from "./reset/reset.jsx";
+export * from "./dashboard/dashboard.jsx";
+export * from "./notFound/notFound.jsx";
+export { default as Reports } from "./reports/reportes.jsx";
+export { default as Persons } from "./persons/persons.jsx";
+export { default as Users } from "./users/users.jsx";
+export { default as Profiles } from "./profiles/profiles.jsx";
+export { default as FuelLightFleet } from "./fuel/fuelLightFleet.jsx";
+export { default as FuelHeavyFleet } from "./fuel/fuelHeavyFleet.jsx";
+export { default as Vehicles } from "./vehicles/vehicles.jsx";

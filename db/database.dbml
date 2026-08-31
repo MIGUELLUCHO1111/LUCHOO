@@ -1,0 +1,229 @@
+Table "person" {
+  "id" int8 [pk, not null, increment]
+  "document_id" varchar(30) [unique, not null]
+  "first_name" varchar(100) [not null, check: `btrim((first_name)::text) <> ''::text`]
+  "last_name" varchar(100) [not null, check: `btrim((last_name)::text) <> ''::text`]
+  "phone" varchar(30)
+  "degree" varchar(150)
+  "address" text
+  "birth_date" date
+  "created_at" timestamptz [not null, default: `now()`]
+  "updated_at" timestamptz [not null, default: `now()`]
+  "deleted_at" timestamptz
+}
+
+Table "user" {
+  "id" int8 [pk, not null, increment]
+  "name" varchar(60) [not null, check: `btrim((name)::text) <> ''::text`]
+  "email" varchar(150)
+  "password_hash" text [not null, check: `btrim(password_hash) <> ''::text`]
+  "is_solvency" bool [not null, default: true]
+  "is_active" bool [not null, default: true]
+  "person_id" int8
+  "created_at" timestamptz [not null, default: `now()`]
+  "updated_at" timestamptz [not null, default: `now()`]
+  "deleted_at" timestamptz
+}
+
+Table "profile" {
+  "id" int8 [pk, not null, increment]
+  "name" varchar(100) [unique, not null, check: `btrim((name)::text) <> ''::text`]
+  "description" text
+  "is_active" bool [not null, default: true]
+}
+
+Table "user_profile" {
+  "id" int8 [pk, not null, increment]
+  "user_id" int8 [not null]
+  "profile_id" int8 [not null]
+
+  Indexes {
+    (user_id, profile_id) [type: btree, unique, name: "uq_user_profile"]
+  }
+}
+
+Table "subsystem" {
+  "id" int8 [pk, not null, increment]
+  "name" varchar(100) [unique, not null, check: `btrim((name)::text) <> ''::text`]
+  "description" text
+}
+
+Table "class" {
+  "id" int8 [pk, not null, increment]
+  "name" varchar(100) [unique, not null, check: `btrim((name)::text) <> ''::text`]
+  "description" text
+}
+
+Table "method" {
+  "id" int8 [pk, not null, increment]
+  "name" varchar(100) [unique, not null, check: `btrim((name)::text) <> ''::text`]
+  "description" text
+}
+
+Table "subsystem_class" {
+  "id" int8 [pk, not null, increment]
+  "subsystem_id" int8 [not null]
+  "class_id" int8 [not null]
+
+  Indexes {
+    (subsystem_id, class_id) [type: btree, unique, name: "uq_subsystem_class"]
+  }
+}
+
+Table "class_method" {
+  "id" int8 [pk, not null, increment]
+  "class_id" int8 [not null]
+  "method_id" int8 [not null]
+
+  Indexes {
+    (class_id, method_id) [type: btree, unique, name: "uq_class_method"]
+  }
+}
+
+Table "method_profile" {
+  "id" int8 [pk, not null, increment]
+  "method_id" int8 [not null]
+  "profile_id" int8 [not null]
+
+  Indexes {
+    (method_id, profile_id) [type: btree, unique, name: "uq_method_profile"]
+  }
+}
+
+Table "transaction" {
+  "id" int8 [pk, not null, increment]
+  "subsystem_id" int8 [not null]
+  "class_id" int8 [not null]
+  "method_id" int8 [not null]
+  "created_at" timestamptz [not null, default: `now()`]
+  "updated_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    (subsystem_id, class_id, method_id) [type: btree, unique, name: "uq_transaction_scope"]
+  }
+}
+
+Table "option" {
+  "id" int8 [pk, not null, increment]
+  "name" varchar(100) [unique, not null, check: `btrim((name)::text) <> ''::text`]
+  "description" text
+}
+
+Table "option_profile" {
+  "id" int8 [pk, not null, increment]
+  "profile_id" int8 [not null]
+  "option_id" int8 [not null]
+
+  Indexes {
+    (profile_id, option_id) [type: btree, unique, name: "uq_option_profile"]
+  }
+}
+
+Table "menu" {
+  "id" int8 [pk, not null, increment]
+  "name" varchar(100) [not null, check: `btrim((name)::text) <> ''::text`]
+  "description" text
+  "subsystem_id" int8 [not null]
+
+  Indexes {
+    (name, subsystem_id) [type: btree, unique, name: "uq_menu_name_subsystem"]
+  }
+}
+
+Table "option_menu" {
+  "id" int8 [pk, not null, increment]
+  "option_id" int8 [not null]
+  "menu_id" int8 [not null]
+
+  Indexes {
+    (option_id, menu_id) [type: btree, unique, name: "uq_option_menu"]
+  }
+}
+
+Table "vehicle" {
+  "id" int8 [pk, not null, increment]
+  "codigo" varchar(20) [unique, not null]
+  "nombre" varchar(100) [not null]
+  "placa" varchar(20)
+  "tanque_capacidad_litros" numeric(8,2) [not null, default: 0]
+  "is_active" bool [not null, default: true]
+  "created_at" timestamptz [not null, default: `now()`]
+  "updated_at" timestamptz [not null, default: `now()`]
+  "deleted_at" timestamptz
+}
+
+Table "fuel_carga" {
+  "id" int8 [pk, not null, increment]
+  "vehicle_id" int8 [not null]
+  "fecha" timestamptz [not null, default: `now()`]
+  "litros" numeric(8,2) [not null, check: `litros > (0)::numeric`]
+  "tanque_lleno" bool [not null, default: false]
+  "estacion" varchar(100)
+  "odometro" numeric(10,1)
+  "monto" numeric(12,2)
+  "observaciones" text
+  "created_by" int8
+  "created_at" timestamptz [not null, default: `now()`]
+  "deleted_at" timestamptz
+
+  Indexes {
+    (vehicle_id, fecha) [type: btree, name: "idx_fuel_carga_vehicle"]
+  }
+}
+
+Table "fuel_foto" {
+  "id" int8 [pk, not null, increment]
+  "carga_id" int8 [not null]
+  "url" varchar(500) [not null]
+  "thumbnail_url" varchar(500)
+  "mime_type" varchar(30) [default: 'image/jpeg']
+  "size_bytes" int8
+  "uploaded_by" int8
+  "uploaded_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    carga_id [type: btree, name: "idx_fuel_foto_carga"]
+  }
+}
+
+Ref "class_method_class_id_fkey":"class"."id" <? "class_method"."class_id" [delete: restrict]
+
+Ref "class_method_method_id_fkey":"method"."id" <? "class_method"."method_id" [delete: restrict]
+
+Ref "fuel_carga_created_by_fkey":"user"."id" ?<? "fuel_carga"."created_by"
+
+Ref "fuel_carga_vehicle_id_fkey":"vehicle"."id" <? "fuel_carga"."vehicle_id"
+
+Ref "fuel_foto_carga_id_fkey":"fuel_carga"."id" <? "fuel_foto"."carga_id"
+
+Ref "fuel_foto_uploaded_by_fkey":"user"."id" ?<? "fuel_foto"."uploaded_by"
+
+Ref "menu_subsystem_id_fkey":"subsystem"."id" <? "menu"."subsystem_id" [delete: restrict]
+
+Ref "method_profile_method_id_fkey":"method"."id" <? "method_profile"."method_id" [delete: restrict]
+
+Ref "method_profile_profile_id_fkey":"profile"."id" <? "method_profile"."profile_id" [delete: restrict]
+
+Ref "option_menu_menu_id_fkey":"menu"."id" <? "option_menu"."menu_id" [delete: restrict]
+
+Ref "option_menu_option_id_fkey":"option"."id" <? "option_menu"."option_id" [delete: restrict]
+
+Ref "option_profile_option_id_fkey":"option"."id" <? "option_profile"."option_id" [delete: restrict]
+
+Ref "option_profile_profile_id_fkey":"profile"."id" <? "option_profile"."profile_id" [delete: restrict]
+
+Ref "subsystem_class_class_id_fkey":"class"."id" <? "subsystem_class"."class_id" [delete: restrict]
+
+Ref "subsystem_class_subsystem_id_fkey":"subsystem"."id" <? "subsystem_class"."subsystem_id" [delete: restrict]
+
+Ref "transaction_class_id_fkey":"class"."id" <? "transaction"."class_id" [delete: restrict]
+
+Ref "transaction_method_id_fkey":"method"."id" <? "transaction"."method_id" [delete: restrict]
+
+Ref "transaction_subsystem_id_fkey":"subsystem"."id" <? "transaction"."subsystem_id" [delete: restrict]
+
+Ref "user_person_id_fkey":"person"."id" ?<? "user"."person_id" [delete: set null]
+
+Ref "user_profile_profile_id_fkey":"profile"."id" <? "user_profile"."profile_id" [delete: restrict]
+
+Ref "user_profile_user_id_fkey":"user"."id" <? "user_profile"."user_id" [delete: restrict]
