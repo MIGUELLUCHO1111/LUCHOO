@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
+import Security from '../../../security/security.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -9,6 +10,7 @@ export class Usuario {
   constructor() {
     this.dbms = new DBMS();
     this.dbmsReady = this.dbms.init();
+    this.security = new Security();
   }
 
   createUsuario = async (data = {}) => {
@@ -40,6 +42,7 @@ export class Usuario {
           nameQuery: 'insertUserProfile',
           params: { user_id: usuario_id, profile_id },
         });
+        await this.security.syncUserProfiles();
       }
 
       return { statusCode: STATUS_CODES.CREATED, data: { id: usuario_id }, message: 'Usuario creado exitosamente' };
@@ -107,12 +110,12 @@ export class Usuario {
   };
 
   updateUsuario = async (data = {}) => {
-    const { id, first_name, last_name, email, is_active = true, password = null, profile_id = null } = data;
+    const { id, name, first_name, last_name, email, is_active = true, password = null, profile_id = null } = data;
 
-    if (!id || !first_name || !last_name || !email) {
+    if (!id || !name || !first_name || !last_name || !email) {
       throw new Error(
         JSON.stringify({
-          message: "Campos requeridos: 'id', 'first_name', 'last_name', 'email'",
+          message: "Campos requeridos: 'id', 'name', 'first_name', 'last_name', 'email'",
           statusCode: STATUS_CODES.BAD_REQUEST,
         }),
       );
@@ -123,7 +126,7 @@ export class Usuario {
     try {
       const result = await this.dbms.executeNamedQuery({
         nameQuery: 'updateUsuario',
-        params: { id, first_name, last_name, email, is_active },
+        params: { id, nombre: name, first_name, last_name, email, is_active },
       });
 
       const usuario = result?.rows?.[0];
@@ -149,13 +152,14 @@ export class Usuario {
           params: { user_id: id, profile_id },
         });
       }
+      await this.security.syncUserProfiles();
 
       return { statusCode: STATUS_CODES.OK, data: usuario, message: 'Usuario actualizado' };
     } catch (error) {
       const { code } = extractDbError(error);
       if (code === '23505') {
         throw new Error(
-          JSON.stringify({ message: `Ya existe un usuario con ese correo`, statusCode: STATUS_CODES.CONFLICT }),
+          JSON.stringify({ message: `Ya existe un usuario con ese correo o nombre de usuario`, statusCode: STATUS_CODES.CONFLICT }),
         );
       }
       throw error;

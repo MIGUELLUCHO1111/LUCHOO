@@ -31,14 +31,28 @@ api.interceptors.response.use(
   }
 );
 
+/** Perfil primario del usuario logueado (guardado por authService en login/me). */
+const getCurrentProfile = () => {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    return user?.profiles?.[0]?.name || null;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Ejecuta una transacción vía el dispatcher.
  * @param {number} transactionId - ID de la transacción (permission.csv)
  * @param {object} data - Payload de la transacción
- * @param {string} profile - Perfil del usuario (default 'admin')
+ * @param {string} [profile] - Perfil a reclamar; si se omite, usa el perfil
+ *   primario del usuario logueado (antes iba fijo a "admin", lo que hacía
+ *   que cualquier perfil que no fuera admin fallara en todo).
  */
-export const executeTransaction = (transactionId, data = {}, profile = "admin") => {
-  return api.post("/", { transaction_id: transactionId, data, profile });
+export const executeTransaction = (transactionId, data = {}, profile) => {
+  return api.post("/", { transaction_id: transactionId, data, profile: profile || getCurrentProfile() });
 };
 
 export default api;

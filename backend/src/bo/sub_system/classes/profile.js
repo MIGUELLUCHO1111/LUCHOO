@@ -1,5 +1,6 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
+import Security from '../../../security/security.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -8,6 +9,7 @@ export class Profile {
   constructor() {
     this.dbms = new DBMS();
     this.dbmsReady = this.dbms.init();
+    this.security = new Security();
   }
 
   createProfile = async (data = {}) => {
@@ -70,6 +72,7 @@ export class Profile {
         nameQuery: 'insertUserProfile',
         params: { user_id, profile_id },
       });
+      await this.security.syncUserProfiles();
       return { statusCode: STATUS_CODES.CREATED, data: result?.rows?.[0], message: 'Perfil asignado' };
     } catch (error) {
       const { code } = extractDbError(error);
@@ -156,6 +159,9 @@ export class Profile {
       throw new Error(JSON.stringify({ message: `Perfil con id ${id} no encontrado`, statusCode: STATUS_CODES.NOT_FOUND }));
     }
 
+    // El borrado en cascada también quita filas de method_profile — refrescar
+    // el mapa de permisos en memoria completo, no solo los perfiles de usuario.
+    await this.security.syncPermissions();
     return { statusCode: STATUS_CODES.OK, message: 'Perfil eliminado' };
   };
 
@@ -173,6 +179,7 @@ export class Profile {
       params: { user_id, profile_id },
     });
 
+    await this.security.syncUserProfiles();
     return { statusCode: STATUS_CODES.OK, message: 'Perfil removido del usuario' };
   };
 

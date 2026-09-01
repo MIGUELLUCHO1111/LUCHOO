@@ -75,24 +75,21 @@ router.post('/register', authLimiter, async (req, res) => {
 // Login
 router.post('/login', authLimiter, async (req, res) => {
   try {
-    // Schema de validación para login
-    const loginSchema = {
-      username: {
-        type: 'string',
-        options: { required: true },
-      },
-      password: {
-        type: 'string',
-        options: { required: true },
-      },
-    };
-
-    // Validar campos de login
-    const validation = validator.validateObject(req.body, loginSchema);
-    if (!validation.isValid) {
+    // El login solo verifica que vengan usuario y contraseña no vacíos.
+    // No se reutiliza el validador de "password" (longitud/mayúsculas/
+    // números): esa es una regla para cuando se ESTABLECE una contraseña
+    // (registro, reset), no para cuando se verifica una ya existente — si no,
+    // una cuenta creada con una contraseña más corta/simple (ej. desde el
+    // panel de Usuarios, que solo pide 6 caracteres) nunca podría iniciar
+    // sesión aunque la contraseña sea la correcta.
+    const { username, password } = req.body || {};
+    if (typeof username !== 'string' || !username.trim() || typeof password !== 'string' || !password) {
       return res.status(STATUS_CODES.BAD_REQUEST).json({
         message: getMessage(config.LANGUAGE, 'validation_error'),
-        errors: validation.errors,
+        errors: {
+          ...(!username ? { username: 'El campo username es obligatorio' } : {}),
+          ...(!password ? { password: 'El campo password es obligatorio' } : {}),
+        },
       });
     }
 

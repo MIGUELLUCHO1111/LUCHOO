@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { authService } from "@/services";
+import { authService, optionService } from "@/services";
 
 const AuthContext = createContext();
 
@@ -8,17 +8,39 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Rutas que el perfil del usuario logueado puede usar (según Security/Option).
+  // null = todavía no se resolvió; se trata como "sin restricción" para no
+  // bloquear el menú/rutas mientras carga.
+  const [allowedSections, setAllowedSections] = useState(null);
+
+  const loadAllowedSections = async (userData) => {
+    const profileId = userData?.profiles?.[0]?.id;
+    if (!profileId) {
+      setAllowedSections([]);
+      return;
+    }
+    try {
+      const opts = await optionService.getByProfile(profileId);
+      const routes = (Array.isArray(opts) ? opts : []).map((o) => o.name);
+      setAllowedSections(routes);
+    } catch {
+      setAllowedSections([]);
+    }
+  };
 
   const checkAuth = async () => {
     try {
       const userData = await authService.getMe();
       if (userData) {
         setUser(userData);
+        await loadAllowedSections(userData);
       } else {
         setUser(null);
+        setAllowedSections([]);
       }
     } catch {
       setUser(null);
+      setAllowedSections([]);
     } finally {
       setLoading(false);
     }
@@ -45,6 +67,7 @@ export const AuthProvider = ({ children }) => {
       );
       if (data.user) {
         setUser(data.user);
+        await loadAllowedSections(data.user);
         return data;
       }
     } catch (err) {
@@ -61,6 +84,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await authService.logout();
       setUser(null);
+      setAllowedSections(null);
       if (navigate) {
         navigate("/login", { replace: true });
       }
@@ -111,6 +135,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         loading,
+        allowedSections,
         isSubmitting,
         authError,
         login,

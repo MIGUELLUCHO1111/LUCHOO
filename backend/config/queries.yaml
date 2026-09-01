@@ -19,6 +19,31 @@
     structure_params: { profile_name: 'string' },
     orderArray: ['profile_name']
   },
+  'getAllOptions': {
+    query: 'SELECT id AS option_id, name, description FROM public.option ORDER BY id;',
+    structure_params: {},
+    orderArray: []
+  },
+  'getOptionById': {
+    query: 'SELECT id AS option_id, name, description FROM public.option WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+  'getOptionsByProfileId': {
+    query: 'SELECT o.id AS option_id, o.name, o.description FROM public.option_profile op JOIN public.option o ON o.id = op.option_id WHERE op.profile_id = $1 ORDER BY o.id;',
+    structure_params: { profile_id: 'int' },
+    orderArray: ['profile_id']
+  },
+  'insertOptionProfile': {
+    query: 'INSERT INTO public.option_profile (profile_id, option_id) VALUES ($1, $2) ON CONFLICT (profile_id, option_id) DO NOTHING RETURNING id AS option_profile_id;',
+    structure_params: { profile_id: 'int', option_id: 'int' },
+    orderArray: ['profile_id', 'option_id']
+  },
+  'deleteOptionProfileByIds': {
+    query: 'DELETE FROM public.option_profile WHERE profile_id = $1 AND option_id = $2;',
+    structure_params: { profile_id: 'int', option_id: 'int' },
+    orderArray: ['profile_id', 'option_id']
+  },
   'getProfilesOptions': {
     query: 'SELECT p.id AS profile_id, p.name AS profile_name, o.id AS option_id, o.name AS option_name FROM public."profile" p JOIN public."option_profile" op ON p.id = op.profile_id JOIN public."option" o ON op.option_id = o.id;',
     structure_params: {},
@@ -105,7 +130,7 @@
     orderArray: ['username', 'password', 'person_id']
   },
   'getUserById': {
-    query: 'SELECT u.id AS id, u.name AS username, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.id = $1;',
+    query: 'SELECT u.id AS id, u.name AS username, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci, (SELECT COALESCE(json_agg(json_build_object(''id'', pr.id, ''name'', pr.name)), ''[]''::json) FROM public.user_profile up JOIN public.profile pr ON pr.id = up.profile_id WHERE up.user_id = u.id) AS profiles FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.id = $1;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
@@ -125,7 +150,7 @@
     orderArray: ['username']
   },
   'getUser': {
-    query: 'SELECT u.id AS id, u.name AS username, u.password_hash AS password, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.name = $1;',
+    query: 'SELECT u.id AS id, u.name AS username, u.password_hash AS password, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci, (SELECT COALESCE(json_agg(json_build_object(''id'', pr.id, ''name'', pr.name)), ''[]''::json) FROM public.user_profile up JOIN public.profile pr ON pr.id = up.profile_id WHERE up.user_id = u.id) AS profiles FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.name = $1;',
     structure_params: { username: 'string' },
     orderArray: ['username']
   },
@@ -200,7 +225,7 @@
     orderArray: ['id', 'name', 'description', 'is_active']
   },
   'deleteProfileCascade': {
-    query: 'WITH del_assignments AS (DELETE FROM public.user_profile WHERE profile_id = $1) DELETE FROM public.profile WHERE id = $1 RETURNING id AS profile_id;',
+    query: 'WITH del_users AS (DELETE FROM public.user_profile WHERE profile_id = $1), del_methods AS (DELETE FROM public.method_profile WHERE profile_id = $1), del_options AS (DELETE FROM public.option_profile WHERE profile_id = $1) DELETE FROM public.profile WHERE id = $1 RETURNING id AS profile_id;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
@@ -400,9 +425,9 @@
     orderArray: []
   },
   'updateUsuario': {
-    query: 'UPDATE public."user" SET first_name = $2, last_name = $3, email = $4, is_active = $5, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS usuario_id;',
-    structure_params: { id: 'int', first_name: 'string', last_name: 'string', email: 'string', is_active: 'boolean' },
-    orderArray: ['id', 'first_name', 'last_name', 'email', 'is_active']
+    query: 'UPDATE public."user" SET name = $2, first_name = $3, last_name = $4, email = $5, is_active = $6, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS usuario_id;',
+    structure_params: { id: 'int', nombre: 'string', first_name: 'string', last_name: 'string', email: 'string', is_active: 'boolean' },
+    orderArray: ['id', 'nombre', 'first_name', 'last_name', 'email', 'is_active']
   },
   'deleteUsuario': {
     query: 'UPDATE public."user" SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id AS usuario_id;',

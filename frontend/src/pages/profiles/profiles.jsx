@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck, Plus, X, Pencil, Trash2, UserCog, Save } from "lucide-react";
-import { profileService, userService } from "@/services";
+import { profileService, userService, optionService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,6 +66,11 @@ const Profiles = () => {
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
+  // Secciones (páginas) que este perfil puede usar.
+  const [sections, setSections] = useState([]);
+  const [selectedSectionIds, setSelectedSectionIds] = useState({});
+  const [previousSectionIds, setPreviousSectionIds] = useState([]);
+
   const [assigningId, setAssigningId] = useState("");
   const [assigningSel, setAssigningSel] = useState({});
   const [savingAssignment, setSavingAssignment] = useState(false);
@@ -105,6 +110,13 @@ const Profiles = () => {
     }
 
     setAssignment(readJSON(ASSIGN_STORAGE_KEY, {}));
+
+    try {
+      const opts = await optionService.getAll();
+      setSections(Array.isArray(opts) ? opts : []);
+    } catch (_) {
+      setSections([]);
+    }
   };
 
   useEffect(() => {
@@ -122,6 +134,8 @@ const Profiles = () => {
     setEditingId(null);
     setShowForm(false);
     setError(null);
+    setSelectedSectionIds({});
+    setPreviousSectionIds([]);
   };
 
   const handleSubmit = async (e) => {
@@ -158,6 +172,30 @@ const Profiles = () => {
         }
         saveRoles([...roles, row]);
       }
+
+      // Diff de secciones asignadas contra lo que había antes de editar
+      // (vacío si es un rol nuevo) — mismo patrón que saveAssignment().
+      const currentSectionIds = sections
+        .map((s) => s.option_id ?? s.id)
+        .filter((id) => selectedSectionIds[id]);
+      const addedSections = currentSectionIds.filter((id) => !previousSectionIds.includes(id));
+      const removedSections = previousSectionIds.filter((id) => !currentSectionIds.includes(id));
+
+      for (const optionId of addedSections) {
+        try {
+          await optionService.assignToProfile(optionId, row.id);
+        } catch (err) {
+          if (!isPendingTransaction(err)) console.error(err);
+        }
+      }
+      for (const optionId of removedSections) {
+        try {
+          await optionService.removeFromProfile(optionId, row.id);
+        } catch (err) {
+          if (!isPendingTransaction(err)) console.error(err);
+        }
+      }
+
       resetForm();
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Error al guardar");
@@ -166,7 +204,7 @@ const Profiles = () => {
     }
   };
 
-  const handleEdit = (r) => {
+  const handleEdit = async (r) => {
     setForm({
       name: r.name,
       description: r.description || "",
@@ -175,6 +213,20 @@ const Profiles = () => {
     setEditingId(r.id);
     setShowForm(true);
     setError(null);
+
+    try {
+      const assigned = await optionService.getByProfile(r.id);
+      const ids = (Array.isArray(assigned) ? assigned : []).map((o) => o.option_id ?? o.id);
+      setPreviousSectionIds(ids);
+      const sel = {};
+      ids.forEach((id) => {
+        sel[id] = true;
+      });
+      setSelectedSectionIds(sel);
+    } catch (_) {
+      setPreviousSectionIds([]);
+      setSelectedSectionIds({});
+    }
   };
 
   const handleDelete = async (r) => {
@@ -330,6 +382,43 @@ const Profiles = () => {
                         {form.is_active ? "Activo" : "Inactivo"}
                       </span>
                     </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-sm font-bold">
+                        Secciones permitidas
+                      </Label>
+                      {sections.length === 0 ? (
+                        <p className="text-xs text-slate-400">
+                          No se pudieron cargar las secciones disponibles.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {sections.map((s) => {
+                            const optionId = s.option_id ?? s.id;
+                            return (
+                              <label
+                                key={optionId}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-500/40 cursor-pointer text-sm"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={!!selectedSectionIds[optionId]}
+                                  onChange={(e) =>
+                                    setSelectedSectionIds({
+                                      ...selectedSectionIds,
+                                      [optionId]: e.target.checked,
+                                    })
+                                  }
+                                  className="accent-orange-500 h-4 w-4"
+                                />
+                                {s.description || s.name}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex justify-end gap-3 pt-1">
                       <Button
                         type="button"

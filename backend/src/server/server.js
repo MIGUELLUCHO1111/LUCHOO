@@ -31,9 +31,18 @@ class Server {
   }
 
   configuration() {
+    // FRONTEND_URL admite una lista separada por comas (ej. para probar desde
+    // localhost y desde una IP de red a la vez). localhost:5173 siempre queda
+    // permitido de base, así no hay que tocar .env para alternar entre los dos.
+    const extraOrigins = (process.env.FRONTEND_URL || '')
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean);
+    const allowedOrigins = [...new Set(['http://localhost:5173', ...extraOrigins])];
+
     this.app.use(
       cors({
-        origin: [process.env.FRONTEND_URL || 'http://localhost:5173'],
+        origin: allowedOrigins,
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],

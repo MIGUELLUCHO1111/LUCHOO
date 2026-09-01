@@ -12,9 +12,11 @@ const unwrap = (res) => {
 };
 
 /**
- * Derives a unique username from first + last name (current login = `name`).
+ * Deriva el usuario de acceso a partir de nombre + apellido (login = `name`).
+ * Exportado para que la UI pueda mostrarle al admin, antes de guardar, con
+ * qu\u00e9 usuario va a poder entrar la persona que est\u00e1 registrando.
  */
-const generateUsername = (first_name, last_name) =>
+export const generateUsername = (first_name, last_name) =>
   `${first_name}${last_name}`
     .toLowerCase()
     .normalize("NFD")
@@ -30,9 +32,9 @@ const generateUsername = (first_name, last_name) =>
  * create 31 / getById 32 / getByEmail 33 / getAll 34 / update 35 / delete 36
  */
 const userService = {
-  create({ first_name, last_name, email, password, profile_id, is_active }) {
+  create({ name, first_name, last_name, email, password, profile_id, is_active }) {
     const payload = {
-      name: generateUsername(first_name, last_name),
+      name: name?.trim() || generateUsername(first_name, last_name),
       first_name,
       last_name,
       email,

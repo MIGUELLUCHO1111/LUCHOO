@@ -119,11 +119,15 @@ const SidebarItem = ({
 
 export const Sidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { logout } = useAuth();
+  const { logout, allowedSections } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const menuConfig = [
+  // allowedSections === null mientras se resuelve el perfil: no restringe
+  // todavía (evita un parpadeo de "menú vacío" al cargar).
+  const canSee = (url) => !allowedSections || allowedSections.includes(url);
+
+  const rawMenuConfig = [
     {
       icon: ShieldCheck,
       label: "Seguridad",
@@ -144,6 +148,14 @@ export const Sidebar = () => {
     },
     { icon: BarChart3, label: "Reportes", url: "/reports" },
   ];
+
+  const menuConfig = rawMenuConfig
+    .map((item) =>
+      item.children
+        ? { ...item, children: item.children.filter((c) => canSee(c.url)) }
+        : item,
+    )
+    .filter((item) => (item.children ? item.children.length > 0 : canSee(item.url)));
 
   const checkActive = (item) => {
     if (item.url)

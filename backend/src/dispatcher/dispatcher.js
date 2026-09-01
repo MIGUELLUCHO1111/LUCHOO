@@ -2,6 +2,12 @@ import SS from '../session/sessionWrapper.js';
 import Config from '../../config/config.js';
 import Security from '../security/security.js';
 
+// Transacciones de "autoservicio": cualquier usuario autenticado puede
+// ejecutarlas para SU perfil, sin necesitar un method_profile explícito.
+// Sin esto, ningún perfil nuevo podría nunca averiguar qué secciones puede
+// ver (consultar tu propio menú no debería requerir ya tener un permiso).
+const SELF_SERVICE_METHODS = new Set(['Security.Option.getOptionsByProfile']);
+
 export default class Dispatcher {
   static instance;
 
@@ -51,7 +57,10 @@ export default class Dispatcher {
         profile: profile
       };
 
-      if (!this.security.hasPermission(permission)) {
+      const routeKey = `${permissionRoute.sub_system}.${permissionRoute.class}.${permissionRoute.method}`;
+      const isSelfService = SELF_SERVICE_METHODS.has(routeKey);
+
+      if (!isSelfService && !this.security.hasPermission(permission)) {
         return this.config.getMessage(lang, 'missing_required_fields'); // O 'unauthorized_action'
       }
 

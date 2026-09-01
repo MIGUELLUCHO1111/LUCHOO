@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Outlet, useLocation } from "react-router-dom";
+import { useNavigate, Outlet, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "@/context";
 import { AlertMessage } from "@/components";
 
 export const ProtectedRoute = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, allowedSections } = useAuth();
   const [showWarning, setShowWarning] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -64,6 +64,17 @@ export const ProtectedRoute = () => {
     );
   }
 
+  // /dashboard nunca se restringe (no está en el menú, es el aterrizaje).
+  // allowedSections === null mientras se resuelve el perfil: no bloquea
+  // todavía, para no redirigir de más antes de tener la respuesta.
+  const isRestricted =
+    allowedSections &&
+    location.pathname !== "/dashboard" &&
+    !allowedSections.includes(location.pathname);
+
+  if (isRestricted) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return <Outlet />;
 };

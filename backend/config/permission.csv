@@ -99,3 +99,7 @@ id;sub_system;class;method;profile
 98;Security;Profile;deleteProfile;admin
 99;Security;Profile;removeProfileFromUser;admin
 100;Security;Profile;getProfilesByUser;admin
+101;Security;Option;getAllOptions;admin
+102;Security;Option;getOptionsByProfile;admin
+103;Security;Option;assignOptionToProfile;admin
+104;Security;Option;removeOptionFromProfile;admin

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { UserCog, Plus, X, Pencil, Trash2, KeyRound } from "lucide-react";
-import { userService, profileService } from "@/services";
+import { userService, profileService, generateUsername } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ const PROFILES_STORAGE_KEY = "fullpetro_profiles_local";
 const emptyForm = {
   first_name: "",
   last_name: "",
+  name: "",
   email: "",
   profile_id: "",
   password: "",
@@ -55,6 +56,15 @@ const Users = () => {
   const [form, setForm] = useState(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  // Mientras no se toque a mano, el usuario de acceso se sugiere solo a
+  // partir de nombre+apellido (solo al crear; al editar uno existente no se
+  // le cambia el username por retocar el nombre).
+  const [usernameTouched, setUsernameTouched] = useState(false);
+
+  useEffect(() => {
+    if (editingId || usernameTouched) return;
+    setForm((f) => ({ ...f, name: generateUsername(f.first_name, f.last_name) }));
+  }, [form.first_name, form.last_name, editingId, usernameTouched]);
 
   const loadProfiles = async () => {
     try {
@@ -105,6 +115,7 @@ const Users = () => {
     setEditingId(null);
     setShowForm(false);
     setError(null);
+    setUsernameTouched(false);
   };
 
   const roleName = (id) =>
@@ -138,9 +149,15 @@ const Users = () => {
       setSubmitting(false);
       return;
     }
+    if (!form.name.trim()) {
+      setError("El usuario de acceso es obligatorio.");
+      setSubmitting(false);
+      return;
+    }
 
     const row = {
       id: editingId || Date.now(),
+      name: form.name.trim(),
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       email: form.email.trim(),
@@ -182,6 +199,7 @@ const Users = () => {
     setForm({
       first_name: u.first_name,
       last_name: u.last_name,
+      name: u.name,
       email: u.email || "",
       profile_id: String(u.profile_id || ""),
       password: "",
@@ -191,6 +209,7 @@ const Users = () => {
     setEditingId(u.id);
     setShowForm(true);
     setError(null);
+    setUsernameTouched(true);
   };
 
   const handleDelete = async (u) => {
@@ -228,7 +247,8 @@ const Users = () => {
 
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Cada usuario accede con su <b>correo empresarial</b> y contraseña.
+          Cada usuario accede con su <b>usuario</b> (se genera solo, columna
+          "Usuario") y contraseña — el correo es solo de referencia.
         </p>
         <Button
           onClick={() => {
@@ -292,6 +312,27 @@ const Users = () => {
                         setForm({ ...form, last_name: e.target.value })
                       }
                     />
+                  </div>
+
+                  <div className="md:col-span-2 flex flex-col gap-1.5">
+                    <Label className="text-sm font-bold">Usuario de acceso *</Label>
+                    <Input
+                      required
+                      className="font-mono"
+                      placeholder="Se sugiere a partir del nombre y apellido"
+                      value={form.name}
+                      onChange={(e) => {
+                        setUsernameTouched(true);
+                        setForm({
+                          ...form,
+                          name: e.target.value.toLowerCase().replace(/\s+/g, ""),
+                        });
+                      }}
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      Con esto (y la contraseña) entra a Fullpetro — comunícaselo a la persona.
+                      {!editingId && " Se sugiere solo; puedes cambiarlo."}
+                    </p>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -416,6 +457,7 @@ const Users = () => {
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Apellido</TableHead>
+              <TableHead>Usuario</TableHead>
               <TableHead>Correo</TableHead>
               <TableHead>Rol</TableHead>
               <TableHead>Estado</TableHead>
@@ -425,13 +467,13 @@ const Users = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={7} className="text-center py-8 text-slate-400">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={7} className="text-center py-8 text-slate-400">
                   No hay usuarios registrados
                 </TableCell>
               </TableRow>
@@ -447,6 +489,9 @@ const Users = () => {
                 >
                   <TableCell className="text-sm">{u.first_name}</TableCell>
                   <TableCell className="text-sm">{u.last_name}</TableCell>
+                  <TableCell className="text-sm font-mono text-slate-500 dark:text-slate-400">
+                    {u.name || "-"}
+                  </TableCell>
                   <TableCell className="text-sm">{u.email || "-"}</TableCell>
                   <TableCell className="text-sm">
                     <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
