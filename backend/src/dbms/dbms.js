@@ -77,9 +77,10 @@ export default class DBMS {
   }
 
   async query(arg1, arg2) {
-    // Compatibilidad: acepta (queryString, paramsArray) o ({ query, params })
+    // Compatibilidad: acepta (queryString, paramsArray) o ({ query, params, client })
     let queryString = null;
     let params = [];
+    let passedClient = null;
 
     if (typeof arg1 === 'string') {
       queryString = arg1;
@@ -87,6 +88,7 @@ export default class DBMS {
     } else if (arg1 && typeof arg1 === 'object') {
       queryString = arg1.query;
       params = Array.isArray(arg1.params) ? arg1.params : arg1.params || [];
+      passedClient = arg1.client || null;
     }
 
     if (!queryString) {
@@ -97,7 +99,7 @@ export default class DBMS {
       return;
     }
 
-    const client = await this.connection();
+    const client = passedClient || await this.connection();
     try {
       return await client.query(queryString, params);
     } catch (error) {
@@ -126,11 +128,13 @@ export default class DBMS {
         error,
       });
     } finally {
-      this.disconnection(client);
+      if (!passedClient) {
+        this.disconnection(client);
+      }
     }
   }
   //
-  async executeNamedQuery({ nameQuery, params = [] }) {
+  async executeNamedQuery({ nameQuery, params = [], client = null }) {
     if (!this.queries || !this.queries[nameQuery]) {
       this.utils.handleError({
         message: `Consulta nombrada '${nameQuery}' no encontrada`,
@@ -281,7 +285,7 @@ export default class DBMS {
     }
 
     try {
-      const res = await this.query({ query: queryString, params });
+      const res = await this.query({ query: queryString, params, client });
       return res;
     } catch (error) {
       return this.utils.handleError({
@@ -292,7 +296,7 @@ export default class DBMS {
     }
   }
 
-  async executeJsonNamedQuery(jsonParams) {
+  async executeJsonNamedQuery(jsonParams, client = null) {
     if (!jsonParams || Object.keys(jsonParams).length === 0) {
       this.utils.handleError({
         message:
@@ -324,7 +328,7 @@ export default class DBMS {
       }
 
       result.push(
-        await this.executeNamedQuery({ nameQuery: key, params: value }),
+        await this.executeNamedQuery({ nameQuery: key, params: value, client }),
       );
     }
     return result;
@@ -350,7 +354,7 @@ export default class DBMS {
   ) {
     const client = await this.beginTransaction();
     try {
-      const result = await this.executeJsonNamedQuery(jsonParams);
+      const result = await this.executeJsonNamedQuery(jsonParams, client);
       await this.commitTransaction(client);
       return result;
     } catch (error) {

@@ -1,10 +1,11 @@
 # MODELO DE DATOS — Fullpetro
 
-> **Actualizado:** 31/08/2026
+> **Actualizado:** 31/08/2026 (revisión de vigencia)
 > Este documento describe el estado actual de la base de datos (PostgreSQL)
 > y lo que está **planificado** para la fase backend de Combustible.
 > Fuente de verdad de los DDL: `db/schema.sql`, `db/seed.sql`, `db/migrations/002_fuel.sql`,
-> `db/migrations/003_fuel_english.sql`, `db/migrations/004_security_completion.sql`.
+> `db/migrations/003_fuel_english.sql` (pospuesta), `db/migrations/004_security_completion.sql`,
+> `db/migrations/005_options_seed.sql`, `db/migrations/006_username_unique.sql`.
 >
 > **Corrección 31/08/2026:** la nota anterior decía que la decisión de mover Combustible
 > a inglés (migración `003`) estaba "aplicada". **No lo está** — se verificó directamente
@@ -30,7 +31,9 @@ psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/schema.sql          # 1. Segurida
 psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/seed.sql            # 2. Datos iniciales (admin)
 psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/002_fuel.sql  # 3. Combustible
 psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/004_security_completion.sql  # 4. person.department + user.first_name/last_name/email UNIQUE (independiente de la 003, YA APLICADA)
-# psql ... db/migrations/003_fuel_english.sql   # 5. Modelo en inglés + fuel_pesada — POSPUESTA, no aplicar sola (ver nota arriba)
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/005_options_seed.sql  # 5. Siembra `option` (7 secciones) + asigna todas a `admin` (YA APLICADA)
+psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f db/migrations/006_username_unique.sql  # 6. UNIQUE en user.name — el username ya se puede editar a mano (YA APLICADA)
+# psql ... db/migrations/003_fuel_english.sql   # 7. Modelo en inglés + fuel_pesada — POSPUESTA, no aplicar sola (ver nota arriba)
 ```
 
 > ⚠️ **003_fuel_english.sql** renombra columnas de `vehicle`, `fuel_carga` y `fuel_foto`.
@@ -142,9 +145,13 @@ Sesión con correo (empresarial) y contraseña; acceso limitado por rol.
 | `created_at` / `updated_at` | TIMESTAMPTZ | DEFAULT NOW() |
 | `deleted_at` | TIMESTAMPTZ | soft-delete |
 
-Restricciones: `ck_user_name_not_blank`, `ck_user_password_hash_not_blank`, `uq_user_email`.
+Restricciones: `ck_user_name_not_blank`, `ck_user_password_hash_not_blank`, `uq_user_email`, `uq_user_name` (agregada por `006_username_unique.sql`).
 
 CRUD completo **funcional end-to-end**: tx 31-36, subsistema `Users` (clase `Usuario`, `backend/src/bo/sub_system/Users.js` + `classes/usuario.js`) — nombrado así (no `Security/User`) porque esa combinación subsistema+clase ya existía en la tabla `transaction` con esos ids exactos; cambiarla habría hecho que Postgres asignara ids nuevos (ver nota de la sección 8).
+
+> El username (`name`) ya **no es solo autogenerado**: el panel de Usuarios lo sugiere a
+> partir de nombre+apellido pero el admin puede editarlo libremente al crear o editar,
+> por eso hizo falta la restricción `uq_user_name` (antes no había garantía de unicidad).
 
 ### 3.3 `profile` — Roles
 | Campo | Tipo | Notas |
@@ -153,6 +160,14 @@ CRUD completo **funcional end-to-end**: tx 31-36, subsistema `Users` (clase `Usu
 | `name` | VARCHAR(100) | NOT NULL, UNIQUE (ej. `admin`) |
 | `description` | TEXT | NULL |
 | `is_active` | BOOLEAN | DEFAULT TRUE |
+
+Sin `deleted_at` — no tiene soft-delete de columna. **Dos acciones distintas en el
+front, con semántica distinta:**
+- El switch "Activo" del formulario (editar) solo cambia `is_active` — el perfil
+  sigue existiendo y visible en la lista, marcado "Inactivo".
+- El botón "Eliminar" hace un **borrado real en cascada** (`deleteProfileCascade`):
+  quita las filas de `user_profile`, `method_profile` y `option_profile` de ese
+  perfil y luego borra la fila de `profile`. No se puede deshacer.
 
 ### 3.4 `user_profile` — Asignación usuario ↔ rol (N:M)
 | Campo | Tipo | Notas |
@@ -176,14 +191,39 @@ El motor de permisos modela la arquitectura de `permission.csv`:
   `id`, `subsystem_id` (FK), `class_id` (FK), `method_id` (FK), `created_at`, `updated_at`, `uq(subsystem_id, class_id, method_id)`.
   Es la tabla que el backend sincroniza desde `permission.csv` al arrancar (function `syncPermissions`): la **columna `id` del CSV = ID de la transacción** que usa el front (`transaction_id`).
 
-### 3.6 Menús y opciones por perfil (navegación)
+### 3.6 Secciones por perfil — permisos de navegación (`Security/Option`)
 
-- `option` — opción de navegación: `id`, `name` (UNIQUE), `description`.
+- `option` — una sección/página de la app: `id`, `name` (UNIQUE, = la **ruta**, ej.
+  `/fuel`), `description` (= la etiqueta, ej. `Combustible Liviana`).
 - `option_profile` — N:M opción↔perfil: `id`, `profile_id` (FK), `option_id` (FK), `uq(profile_id, option_id)`.
-- `menu` — menú: `id`, `name`, `description`, `subsystem_id` (FK → `subsystem`), `uq(name, subsystem_id)`.
-- `option_menu` — N:M opción↔menú: `id`, `option_id` (FK), `menu_id` (FK), `uq(option_id, menu_id)`.
+- `menu` / `option_menu` — agrupación de opciones en menús (jerarquía). Existen en el
+  esquema pero **no se usan todavía**: el sidebar sigue teniendo su propia estructura
+  de grupos hardcodeada en `frontend/src/components/Sidebar/Sidebar.jsx`, y solo se
+  consulta `option`/`option_profile` para decidir **qué items de esa estructura fija
+  mostrar** — no para construir el árbol de navegación en sí.
 
-> Estas tablas de navegación están definidas pero **aún no son pobladas** por el frontend (el sidebar es estático hoy).
+**Ya no es un catálogo sin usar** — es una funcionalidad completa desde el
+31/08/2026 (migración `005_options_seed.sql` siembra las 7 secciones actuales y le
+da las 7 al perfil `admin`):
+
+- En "Perfiles" (`profiles.jsx`) se puede marcar/desmarcar qué secciones tiene cada
+  rol vía un checklist en el formulario de crear/editar.
+- `AuthContext` resuelve las secciones permitidas del usuario logueado
+  (`optionService.getByProfile`) y las expone como `allowedSections`.
+- `Sidebar.jsx` filtra su menú a solo esas rutas; `ProtectedRoute.jsx` redirige a
+  `/dashboard` si se navega a mano a una ruta no permitida.
+- **Importante:** asignar/quitar una sección **también** otorga/revoca los permisos
+  de método (`method_profile`) reales que esa sección necesita — el mapeo está
+  hardcodeado en `SECTION_PERMISSIONS` dentro de
+  `backend/src/bo/sub_system/classes/option.js` (ver `SECURITY_REVIEW.md` para los
+  riesgos de mantenimiento de ese acoplamiento). Sin esto, "ver la sección" no
+  significaría "poder usarla".
+- Transacciones: `Security/Option` — tx 101 (`getAllOptions`), 102
+  (`getOptionsByProfile`), 103 (`assignOptionToProfile`), 104
+  (`removeOptionFromProfile`). `getOptionsByProfile` tiene una excepción de
+  "autoservicio" en el dispatcher (cualquier perfil puede consultar sus propias
+  secciones sin tener el permiso de método explícito — si no, ningún perfil nuevo
+  podría averiguar su propio menú).
 
 ---
 
@@ -246,7 +286,9 @@ El motor de permisos modela la arquitectura de `permission.csv`:
 
 ### 5.1 `fuel_pesada` — Llenados de flota pesada (pesada)
 
-> **Creada por `003_fuel_english.sql`** (aplicada de forma coordinada con backend + frontend).
+> **Diseñada dentro de `003_fuel_english.sql`, todavía no aplicada** (esa migración
+> sigue pospuesta — ver nota del encabezado). El SQL de abajo es el diseño acordado,
+> no algo que ya exista en la BD.
 > **Medida única valor+tipo** (no hay odómetro en pesada; hay unidades que se rigen por horas).
 
 ```sql
@@ -368,4 +410,5 @@ user  ──────created_by──> fuel_carga / fuel_pesada (auditoría)
 | 81-90 | Fuel (Vehiculo 81-84/90, Carga 85-89) | **funcional end-to-end** |
 | 91-94 | Security/Person | listar/obtener/actualizar/eliminar persona — **funcional end-to-end** |
 | 95-100 | Security/Profile | listar/obtener/actualizar/eliminar perfil, quitar perfil de usuario, perfiles por usuario — **funcional end-to-end** (ids reales verificados en BD; no coinciden con los 101-105 que se habían anticipado en este documento) |
-| 96-100 (frontend, aún no sincronizado en permission.csv) | Fuel/Pesada | CRUD pesada — **pendiente** (pospuesto; al implementarlo, verificar los ids reales que asigne Postgres, que ya no serán 96-100 porque esos quedaron ocupados por Profile) |
+| 101-104 | Security/Option | listar secciones, secciones por perfil, asignar/quitar sección de perfil — **funcional end-to-end** (ver §3.6) |
+| 96-100 (frontend, aún no sincronizado en permission.csv) | Fuel/Pesada | CRUD pesada — **pendiente** (pospuesto; al implementarlo, verificar los ids reales que asigne Postgres — ya no serán 96-100, esos quedaron ocupados por Profile, y probablemente tampoco serán consecutivos a 104 si se agrega algo más de Security antes) |

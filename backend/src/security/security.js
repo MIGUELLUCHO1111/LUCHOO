@@ -79,7 +79,12 @@ export default class Security {
   }
 
   async getPermissionsFile() {
-    const csvPath = path.resolve(__dirname, '../../config/permission.csv');
+    // Si existe la variable de entorno, úsala. Si no, usa el path predeterminado.
+    const defaultPath = path.resolve(__dirname, '../../config/permission.csv');
+    const csvPath = process.env.PERMISSIONS_FILE_PATH 
+      ? path.resolve(process.env.PERMISSIONS_FILE_PATH) 
+      : defaultPath;
+
     const csvMap = await this.utils.readCSV(csvPath);
     const permissions = new Map();
 
@@ -113,25 +118,60 @@ export default class Security {
     return this.permissions.has(key);
   }
 
+  isUserAuthorized(userId, transactionId) {
+    const tx = this.resolveTransaction(transactionId);
+    if (!tx) return false;
+
+    const normalizedUserId = String(userId).trim().toLowerCase();
+    const profiles = this.userProfiles.get(normalizedUserId);
+    if (!profiles) return false;
+
+    for (const profile of profiles) {
+      const checkPerm = {
+        sub_system: tx.sub_system,
+        class: tx.class,
+        method: tx.method,
+        profile: profile
+      };
+      
+      if (this.hasPermission(checkPerm)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
   async setPermission(permission) {
     await this.dbmsReady;
-    await this.dbms.executeNamedQuery({
-      nameQuery: 'ensureTransactionSerial',
-    });
+    const client = await this.dbms.beginTransaction();
+    try {
+      await this.dbms.executeNamedQuery({
+        nameQuery: 'ensureTransactionSerial',
+        client
+      });
 
-    const normalized = this.normalizePermission(permission);
+      const normalized = this.normalizePermission(permission);
 
-    await this.dbms.executeNamedQuery({
-      nameQuery: 'insertPermission',
-      params: {
-        sub_system: normalized.sub_system,
-        class_name: normalized.class,
-        method_name: normalized.method,
-        profile_name: normalized.profile,
-      },
-    });
+      await this.dbms.executeNamedQuery({
+        nameQuery: 'insertPermission',
+        params: {
+          sub_system: normalized.sub_system,
+          class_name: normalized.class,
+          method_name: normalized.method,
+          profile_name: normalized.profile,
+        },
+        client
+      });
 
-    this.permissions.set(this.buildPermissionKey(normalized), normalized);
+      await this.dbms.commitTransaction(client);
+      this.permissions.set(this.buildPermissionKey(normalized), normalized);
+    } catch (error) {
+      await this.dbms.rollbackTransaction(client);
+      throw error;
+    } finally {
+      this.dbms.endTransaction(client);
+    }
   }
 
   async syncUserProfiles() {
@@ -169,25 +209,37 @@ export default class Security {
 
   async setUserProfile(userId, profile) {
     await this.dbmsReady;
-    await this.dbms.executeNamedQuery({
-      nameQuery: 'ensureTransactionSerial',
-    });
+    const client = await this.dbms.beginTransaction();
+    try {
+      await this.dbms.executeNamedQuery({
+        nameQuery: 'ensureTransactionSerial',
+        client
+      });
 
-    const normalizedUserId = String(userId).trim().toLowerCase();
-    const normalizedProfile = String(profile).trim().toLowerCase();
+      const normalizedUserId = String(userId).trim().toLowerCase();
+      const normalizedProfile = String(profile).trim().toLowerCase();
 
-    await this.dbms.executeNamedQuery({
-      nameQuery: 'insertUserProfile',
-      params: {
-        user_id: userId,
-        profile_name: profile,
-      },
-    });
+      await this.dbms.executeNamedQuery({
+        nameQuery: 'insertUserProfile',
+        params: {
+          user_id: userId,
+          profile_name: profile,
+        },
+        client
+      });
 
-    if (!this.userProfiles.has(normalizedUserId)) {
-      this.userProfiles.set(normalizedUserId, new Set());
+      await this.dbms.commitTransaction(client);
+
+      if (!this.userProfiles.has(normalizedUserId)) {
+        this.userProfiles.set(normalizedUserId, new Set());
+      }
+      this.userProfiles.get(normalizedUserId).add(normalizedProfile);
+    } catch (error) {
+      await this.dbms.rollbackTransaction(client);
+      throw error;
+    } finally {
+      this.dbms.endTransaction(client);
     }
-    this.userProfiles.get(normalizedUserId).add(normalizedProfile);
   }
 
   async syncTransactions() {
@@ -213,9 +265,17 @@ export default class Security {
     return this.transactions.get(String(transactionId));
   }
 
-  async execute(permission, reqBody = {}) {
+  async execute(transactionId, reqBody = {}) {
     try {
-      const { sub_system, class: className, method } = this.normalizePermission(permission);
+      const tx = this.resolveTransaction(transactionId);
+      if (!tx) {
+        return this.utils.handleError({
+          message: 'Transacción no encontrada o inválida',
+          statusCode: 404
+        });
+      }
+
+      const { sub_system, class: className, method } = tx;
 
       const actionInstance = await resolveExecutable({
         subsystem: sub_system,
@@ -236,7 +296,7 @@ export default class Security {
       };
 
     } catch (error) {
-      console.error(`Error en executeAuthorized:`, error);
+      console.error(`Error en execute:`, error);
       return this.utils.handleError({
         message: 'Error interno al ejecutar la transacción',
         statusCode: 500

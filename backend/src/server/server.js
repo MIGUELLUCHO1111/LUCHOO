@@ -9,6 +9,7 @@ import pool from '../../config/db.js';
 import userRouter from '../session/sessionRoutes.js';
 import Security from '../security/security.js';
 import dispatcherRouter from '../dispatcher/dispatcherRoutes.js';
+import fuelPhotoRouter from '../fuel/fuelPhotoRoutes.js';
 import authMiddleware from '../auth/authMiddleware.js';
 
 dotenv.config();
@@ -74,6 +75,7 @@ class Server {
     this.app.use(authMiddleware);
     this.app.use('/', dispatcherRouter);
     this.app.use('/user', userRouter);
+    this.app.use('/fuel', fuelPhotoRouter);
   }
 
   async init() {

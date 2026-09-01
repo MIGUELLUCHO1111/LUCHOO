@@ -5,3 +5,4 @@ dist/
 boot.log
 boot.err.log
 _tmp_diag2.mjs
+backend/uploads/

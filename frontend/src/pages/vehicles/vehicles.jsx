@@ -16,18 +16,10 @@ import {
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
-import { readJSON, writeJSON } from "@/lib/storage";
-
-const FLEET_STORAGE_KEY = "fullpetro_vehicle_fleet";
-
-const readFleet = () => readJSON(FLEET_STORAGE_KEY, {});
-
-const writeFleet = (map) => writeJSON(FLEET_STORAGE_KEY, map);
 
 const Vehicles = () => {
   const confirm = useConfirm();
   const [vehicles, setVehicles] = useState([]);
-  const [fleet, setFleet] = useState(readFleet());
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -35,11 +27,11 @@ const Vehicles = () => {
   const [error, setError] = useState(null);
 
   const [form, setForm] = useState({
-    codigo: "",
-    nombre: "",
-    placa: "",
-    tanque_capacidad_litros: "",
-    tipo_flota: "liviana",
+    code: "",
+    name: "",
+    plate: "",
+    tank_capacity_liters: "",
+    fleet_type: "liviana",
   });
 
   useEffect(() => {
@@ -49,13 +41,7 @@ const Vehicles = () => {
   const loadVehicles = async () => {
     try {
       const res = await fuelService.getAllVehicles();
-      const list = Array.isArray(res) ? res : [];
-      setVehicles(
-        list.map((v) => ({
-          ...v,
-          tipo_flota: v.tipo_flota || fleet[v.id] || "liviana",
-        })),
-      );
+      setVehicles(Array.isArray(res) ? res : []);
     } catch (err) {
       console.error("Error cargando vehículos:", err);
     } finally {
@@ -63,21 +49,13 @@ const Vehicles = () => {
     }
   };
 
-  const getFleetType = (v) => v.tipo_flota || fleet[v.id] || "liviana";
-
-  const saveFleet = (id, type) => {
-    const next = { ...fleet, [id]: type };
-    writeFleet(next);
-    setFleet(next);
-  };
-
   const resetForm = () => {
     setForm({
-      codigo: "",
-      nombre: "",
-      placa: "",
-      tanque_capacidad_litros: "",
-      tipo_flota: "liviana",
+      code: "",
+      name: "",
+      plate: "",
+      tank_capacity_liters: "",
+      fleet_type: "liviana",
     });
     setEditingId(null);
     setShowForm(false);
@@ -86,11 +64,11 @@ const Vehicles = () => {
 
   const handleEdit = (vehicle) => {
     setForm({
-      codigo: vehicle.codigo,
-      nombre: vehicle.nombre,
-      placa: vehicle.placa || "",
-      tanque_capacidad_litros: vehicle.tanque_capacidad_litros || "",
-      tipo_flota: getFleetType(vehicle),
+      code: vehicle.code,
+      name: vehicle.name,
+      plate: vehicle.plate || "",
+      tank_capacity_liters: vehicle.tank_capacity_liters || "",
+      fleet_type: vehicle.fleet_type || "liviana",
     });
     setEditingId(vehicle.id);
     setShowForm(true);
@@ -105,19 +83,18 @@ const Vehicles = () => {
     try {
       if (editingId) {
         await fuelService.updateVehicle(editingId, {
-          nombre: form.nombre,
-          placa: form.placa || null,
-          tanque_capacidad_litros: form.tanque_capacidad_litros ? parseInt(form.tanque_capacidad_litros) : null,
+          name: form.name,
+          plate: form.plate || null,
+          tank_capacity_liters: form.tank_capacity_liters ? parseInt(form.tank_capacity_liters) : null,
+          fleet_type: form.fleet_type,
         });
-        // tipo_flota pendiente de persistencia en backend (fase posterior):
-        saveFleet(editingId, form.tipo_flota);
       } else {
         await fuelService.createVehicle({
-          codigo: form.codigo,
-          nombre: form.nombre,
-          placa: form.placa || null,
-          tanque_capacidad_litros: form.tanque_capacidad_litros ? parseInt(form.tanque_capacidad_litros) : null,
-          tipo_flota: form.tipo_flota,
+          code: form.code,
+          name: form.name,
+          plate: form.plate || null,
+          tank_capacity_liters: form.tank_capacity_liters ? parseInt(form.tank_capacity_liters) : null,
+          fleet_type: form.fleet_type,
         });
       }
       resetForm();
@@ -130,8 +107,8 @@ const Vehicles = () => {
     }
   };
 
-  const handleDelete = async (id, codigo) => {
-    const ok = await confirm(`¿Eliminar vehículo ${codigo}?`, {
+  const handleDelete = async (id, code) => {
+    const ok = await confirm(`¿Eliminar vehículo ${code}?`, {
       title: "Eliminar vehículo",
     });
     if (!ok) return;
@@ -187,8 +164,8 @@ const Vehicles = () => {
                     <Input
                       required
                       placeholder="Ej: VH-001"
-                      value={form.codigo}
-                      onChange={(e) => setForm({ ...form, codigo: e.target.value })}
+                      value={form.code}
+                      onChange={(e) => setForm({ ...form, code: e.target.value })}
                       disabled={!!editingId}
                       className={editingId ? "opacity-50" : ""}
                     />
@@ -199,8 +176,8 @@ const Vehicles = () => {
                     <Input
                       required
                       placeholder="Ej: Camioneta Ford"
-                      value={form.nombre}
-                      onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
                     />
                   </div>
 
@@ -208,8 +185,8 @@ const Vehicles = () => {
                     <Label className="text-sm font-bold">Placa</Label>
                     <Input
                       placeholder="Ej: ABC-123"
-                      value={form.placa}
-                      onChange={(e) => setForm({ ...form, placa: e.target.value })}
+                      value={form.plate}
+                      onChange={(e) => setForm({ ...form, plate: e.target.value })}
                     />
                   </div>
 
@@ -219,24 +196,21 @@ const Vehicles = () => {
                       type="number"
                       min="0"
                       placeholder="Ej: 80"
-                      value={form.tanque_capacidad_litros}
-                      onChange={(e) => setForm({ ...form, tanque_capacidad_litros: e.target.value })}
+                      value={form.tank_capacity_liters}
+                      onChange={(e) => setForm({ ...form, tank_capacity_liters: e.target.value })}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Tipo de flota *</Label>
                     <select
-                      value={form.tipo_flota}
-                      onChange={(e) => setForm({ ...form, tipo_flota: e.target.value })}
+                      value={form.fleet_type}
+                      onChange={(e) => setForm({ ...form, fleet_type: e.target.value })}
                       className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
                     >
                       <option value="liviana">Liviana</option>
                       <option value="pesada">Pesada</option>
                     </select>
-                    <span className="text-[11px] text-slate-400">
-                      Pendiente de persistencia en BD (fase backend).
-                    </span>
                   </div>
 
                   <div className="md:col-span-2 flex justify-end gap-3">
@@ -296,14 +270,14 @@ const Vehicles = () => {
                   className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}
                 >
                   <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
-                    {v.codigo}
+                    {v.code}
                   </TableCell>
-                  <TableCell className="text-sm">{v.nombre}</TableCell>
-                  <TableCell className="text-sm">{v.placa || "-"}</TableCell>
-                  <TableCell className="text-sm">{v.tanque_capacidad_litros ? `${v.tanque_capacidad_litros}L` : "-"}</TableCell>
+                  <TableCell className="text-sm">{v.name}</TableCell>
+                  <TableCell className="text-sm">{v.plate || "-"}</TableCell>
+                  <TableCell className="text-sm">{v.tank_capacity_liters ? `${v.tank_capacity_liters}L` : "-"}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${getFleetType(v) === "pesada" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"}`}>
-                      {getFleetType(v) === "pesada" ? "Pesada" : "Liviana"}
+                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "pesada" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"}`}>
+                      {v.fleet_type === "pesada" ? "Pesada" : "Liviana"}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -324,7 +298,7 @@ const Vehicles = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => handleDelete(v.id, v.codigo)}
+                        onClick={() => handleDelete(v.id, v.code)}
                         className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
                       >
                         <Trash2 size={14} />

@@ -103,3 +103,16 @@ id;sub_system;class;method;profile
 102;Security;Option;getOptionsByProfile;admin
 103;Security;Option;assignOptionToProfile;admin
 104;Security;Option;removeOptionFromProfile;admin
+105;Fuel;Pesada;createPesada;admin
+106;Fuel;Pesada;getPesadaById;admin
+107;Fuel;Pesada;getAllPesada;admin
+108;Fuel;Pesada;updatePesada;admin
+109;Fuel;Pesada;deletePesada;admin
+110;Fuel;Carga;getCargaById;admin
+111;Fuel;Tanque;createTank;admin
+112;Fuel;Tanque;getAllTanks;admin
+113;Fuel;Tanque;getTankById;admin
+114;Fuel;Tanque;updateTank;admin
+115;Fuel;Tanque;deleteTank;admin
+116;Fuel;Tanque;getMovementsByTank;admin
+117;Fuel;Tanque;registerMovement;admin

@@ -10,12 +10,12 @@ class Vehiculo {
     this.dbmsReady = this.dbms.init();
   }
 
-  createVehiculo = async ({ codigo, nombre, placa, tanque_capacidad_litros }) => {
+  createVehiculo = async ({ code, name, plate, tank_capacity_liters, fleet_type }) => {
     await this.dbmsReady;
 
-    if (!codigo || !nombre) {
+    if (!code || !name) {
       throw new Error(JSON.stringify({
-        message: "Campos requeridos: 'codigo', 'nombre'",
+        message: "Campos requeridos: 'code', 'name'",
         statusCode: STATUS_CODES.BAD_REQUEST,
       }));
     }
@@ -23,7 +23,7 @@ class Vehiculo {
     try {
       const result = await this.dbms.executeNamedQuery({
         nameQuery: 'createVehiculo',
-        params: { codigo, nombre, placa: placa || null, tanque_capacidad_litros: tanque_capacidad_litros || 0 },
+        params: { code, name, plate: plate || null, tank_capacity_liters: tank_capacity_liters || 0, fleet_type: fleet_type || 'liviana' },
       });
 
       const vehiculo = result?.rows?.[0];
@@ -32,7 +32,7 @@ class Vehiculo {
       const dbError = extractDbError(error);
       if (dbError.code === '23505') {
         throw new Error(JSON.stringify({
-          message: `Ya existe un vehículo con el código '${codigo}'`,
+          message: `Ya existe un vehículo con el código '${code}'`,
           statusCode: STATUS_CODES.CONFLICT,
         }));
       }
@@ -77,7 +77,7 @@ class Vehiculo {
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
   };
 
-  updateVehiculo = async ({ id, nombre, placa, tanque_capacidad_litros }) => {
+  updateVehiculo = async ({ id, name, plate, tank_capacity_liters, fleet_type }) => {
     await this.dbmsReady;
 
     if (!id) {
@@ -90,7 +90,7 @@ class Vehiculo {
     try {
       const result = await this.dbms.executeNamedQuery({
         nameQuery: 'updateVehiculo',
-        params: { id, nombre, placa: placa || null, tanque_capacidad_litros: tanque_capacidad_litros || 0 },
+        params: { id, name, plate: plate || null, tank_capacity_liters: tank_capacity_liters || 0, fleet_type: fleet_type || 'liviana' },
       });
 
       const vehiculo = result?.rows?.[0];

@@ -64,7 +64,7 @@ export default class Dispatcher {
         return this.config.getMessage(lang, 'missing_required_fields'); // O 'unauthorized_action'
       }
 
-      return await this.security.execute(permissionRoute, parameters);
+      return await this.security.execute(txId, parameters);
 
     } catch (error) {
       console.error(error);

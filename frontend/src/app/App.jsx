@@ -11,8 +11,9 @@ import {
   Profiles,
   FuelLightFleet,
   FuelHeavyFleet,
+  FuelTank,
   Vehicles
-} from "@/pages"; 
+} from "@/pages";
 
 import { AuthProvider, ConfirmProvider } from "@/context";
 import { ProtectedRoute } from "@/components";
@@ -34,6 +35,7 @@ function App() {
             <Route path="/security/profiles" element={<Profiles />} />
             <Route path="/fuel" element={<FuelLightFleet />} />
             <Route path="/fuel/heavy" element={<FuelHeavyFleet />} />
+            <Route path="/fuel/tank" element={<FuelTank />} />
             <Route path="/fuel/vehicles" element={<Vehicles />} />
             <Route path="/reports" element={<Reports />} />
           </Route>

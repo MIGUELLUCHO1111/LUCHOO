@@ -9,4 +9,5 @@ export { default as Users } from "./users/users.jsx";
 export { default as Profiles } from "./profiles/profiles.jsx";
 export { default as FuelLightFleet } from "./fuel/fuelLightFleet.jsx";
 export { default as FuelHeavyFleet } from "./fuel/fuelHeavyFleet.jsx";
+export { default as FuelTank } from "./fuel/fuelTank.jsx";
 export { default as Vehicles } from "./vehicles/vehicles.jsx";

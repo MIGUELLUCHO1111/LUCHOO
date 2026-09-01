@@ -32,7 +32,7 @@ api.interceptors.response.use(
 );
 
 /** Perfil primario del usuario logueado (guardado por authService en login/me). */
-const getCurrentProfile = () => {
+export const getCurrentProfile = () => {
   try {
     const raw = localStorage.getItem("user");
     if (!raw) return null;

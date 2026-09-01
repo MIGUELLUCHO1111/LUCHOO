@@ -13,7 +13,7 @@ import {
   Filter,
 } from "lucide-react";
 import { useAuth, useConfirm } from "@/context";
-import { fuelService, personService } from "@/services";
+import { fuelService, personService, resolvePhotoUrl } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,7 +29,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { exportToExcel, fmtDate, fmtTime } from "@/lib/excel";
+import { exportToExcel, fmtDate, fmtTime, fmtTimeInput } from "@/lib/excel";
 import { readJSON } from "@/lib/storage";
 
 const PEOPLE_STORAGE_KEY = "fullpetro_persons_local";
@@ -42,16 +42,17 @@ const unwrapList = (res) => {
 
 const emptyForm = {
   vehicle_id: "",
+  transaction_no: "",
   fecha: new Date().toISOString().slice(0, 10),
   hora: "",
-  responsable_id: "",
-  combustible: "gasolina",
-  litros: "",
-  tanque_lleno: false,
-  estacion: "",
-  odometro: "",
-  monto: "",
-  observaciones: "",
+  responsible_id: "",
+  fuel_type: "gasolina",
+  liters: "",
+  tank_full: false,
+  station: "",
+  odometer: "",
+  amount: "",
+  notes: "",
 };
 
 const FuelLightFleet = () => {
@@ -61,10 +62,6 @@ const FuelLightFleet = () => {
   const [vehicles, setVehicles] = useState([]);
   const [refuels, setRefuels] = useState([]);
   const [persons, setPersons] = useState([]);
-
-  // Data the backend does not persist yet (photo/requester/fuel type/time):
-  // pending on the backend phase — kept in the local session.
-  const [extraData, setExtraData] = useState({});
 
   const [filters, setFilters] = useState({
     from: "",
@@ -79,6 +76,7 @@ const FuelLightFleet = () => {
   const [form, setForm] = useState(emptyForm);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [existingPhotoId, setExistingPhotoId] = useState(null);
 
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -118,25 +116,23 @@ const FuelLightFleet = () => {
   };
 
   const lightVehicles = useMemo(
-    () => vehicles.filter((v) => v.tipo_flota !== "pesada"),
+    () => vehicles.filter((v) => v.fleet_type !== "pesada"),
     [vehicles],
   );
 
   const personName = (id) => {
     const p = persons.find((x) => String(x.id) === String(id));
-    if (!p) return extraData[id]?.responsable_name || "";
+    if (!p) return "";
     return `${p.first_name || p.name || ""} ${p.last_name || p.lastname || ""}`.trim();
   };
 
-  const getTime = (r) => extraData[r.id]?.hora || fmtTime(r.fecha);
-  const getFuelType = (r) => extraData[r.id]?.combustible || r.combustible || "gasolina";
-  const getResponsibleId = (r) => extraData[r.id]?.responsable_id || r.responsable_id;
-  const getPhotoUrl = (r) => extraData[r.id]?.fotoUrl;
+  const getTime = (r) => fmtTime(r.filled_at);
+  const getPhotoUrl = (r) => resolvePhotoUrl(r.photos?.at(-1)?.url);
 
   // ---------- Filters ----------
   const filteredRefuels = useMemo(() => {
     return refuels.filter((r) => {
-      const d = new Date(r.fecha);
+      const d = new Date(r.filled_at);
       if (filters.from && d < new Date(filters.from)) return false;
       if (filters.to) {
         const to = new Date(filters.to);
@@ -147,19 +143,19 @@ const FuelLightFleet = () => {
         return false;
       if (
         filters.responsible &&
-        String(getResponsibleId(r)) !== String(filters.responsible)
+        String(r.responsible_id) !== String(filters.responsible)
       )
         return false;
       return true;
     });
-  }, [refuels, filters, extraData]);
+  }, [refuels, filters]);
 
   const totals = useMemo(() => {
     let liters = 0;
     let amount = 0;
     for (const r of filteredRefuels) {
-      liters += parseFloat(r.litros) || 0;
-      amount += parseFloat(r.monto) || 0;
+      liters += parseFloat(r.liters) || 0;
+      amount += parseFloat(r.amount) || 0;
     }
     return { liters: +liters.toFixed(2), amount: +amount.toFixed(2) };
   }, [filteredRefuels]);
@@ -183,6 +179,7 @@ const FuelLightFleet = () => {
     setShowForm(false);
     setPhoto(null);
     setPhotoPreview(null);
+    setExistingPhotoId(null);
     setError(null);
     setNotice(null);
   };
@@ -194,24 +191,43 @@ const FuelLightFleet = () => {
     setPhotoPreview(file ? URL.createObjectURL(file) : null);
   };
 
+  // Quita la foto actual: si ya estaba subida al backend, la borra de verdad;
+  // si era solo una selección local sin guardar, solo limpia el estado.
+  const handleRemovePhoto = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (existingPhotoId) {
+      try {
+        await fuelService.deleteFuelPhoto(existingPhotoId);
+      } catch (err) {
+        console.error("Error borrando foto:", err);
+      }
+      setExistingPhotoId(null);
+    }
+    if (photoPreview && photo) URL.revokeObjectURL(photoPreview);
+    setPhoto(null);
+    setPhotoPreview(null);
+  };
+
   const handleEdit = (r) => {
-    const ext = extraData[r.id] || {};
     setForm({
       vehicle_id: String(r.vehicle_id),
-      fecha: new Date(r.fecha).toISOString().slice(0, 10),
-      hora: ext.hora || fmtTime(r.fecha),
-      responsable_id: String(getResponsibleId(r) || ""),
-      combustible: getFuelType(r),
-      litros: String(r.litros ?? ""),
-      tanque_lleno: !!r.tanque_lleno,
-      estacion: r.estacion || "",
-      odometro: r.odometro != null ? String(r.odometro) : "",
-      monto: r.monto != null ? String(r.monto) : "",
-      observaciones: r.observaciones || "",
+      transaction_no: r.transaction_no || "",
+      fecha: new Date(r.filled_at).toISOString().slice(0, 10),
+      hora: fmtTimeInput(r.filled_at),
+      responsible_id: String(r.responsible_id || ""),
+      fuel_type: r.fuel_type || "gasolina",
+      liters: String(r.liters ?? ""),
+      tank_full: !!r.tank_full,
+      station: r.station || "",
+      odometer: r.odometer != null ? String(r.odometer) : "",
+      amount: r.amount != null ? String(r.amount) : "",
+      notes: r.notes || "",
     });
     setEditingId(r.id);
     setPhoto(null);
-    setPhotoPreview(ext.fotoUrl || null);
+    setPhotoPreview(getPhotoUrl(r));
+    setExistingPhotoId(r.photos?.at(-1)?.id ?? null);
     setShowForm(true);
     setError(null);
     setNotice(null);
@@ -231,51 +247,48 @@ const FuelLightFleet = () => {
     }
 
     try {
-      const fechaISO = form.hora
+      const filledAtISO = form.hora
         ? new Date(`${form.fecha}T${form.hora}`).toISOString()
         : new Date(form.fecha).toISOString();
 
       const payload = {
-        litros: parseFloat(form.litros),
-        tanque_lleno: form.tanque_lleno,
-        estacion: form.estacion || null,
-        odometro: form.odometro ? parseFloat(form.odometro) : null,
-        monto: form.monto ? parseFloat(form.monto) : null,
-        observaciones: form.observaciones || null,
+        vehicle_id: parseInt(form.vehicle_id),
+        transaction_no: form.transaction_no || null,
+        filled_at: filledAtISO,
+        liters: parseFloat(form.liters),
+        tank_full: form.tank_full,
+        station: form.station || null,
+        odometer: form.odometer ? parseFloat(form.odometer) : null,
+        amount: form.amount ? parseFloat(form.amount) : null,
+        notes: form.notes || null,
+        responsible_id: form.responsible_id ? parseInt(form.responsible_id) : null,
+        fuel_type: form.fuel_type,
         created_by: parseInt(user?.id),
-        // Pendientes de persistencia en backend (fase posterior):
-        fecha: fechaISO,
-        hora: form.hora,
-        responsable_id: form.responsable_id ? parseInt(form.responsable_id) : null,
-        combustible: form.combustible,
       };
 
       let recordId = editingId;
+      let noticeMsg;
 
       if (editingId) {
         await fuelService.updateRefuel(editingId, payload);
-        setNotice("Carga actualizada correctamente");
+        noticeMsg = "Carga actualizada correctamente";
       } else {
         const res = await fuelService.createRefuel(payload);
         recordId = res?.id;
-        setNotice("Carga registrada correctamente");
+        noticeMsg = "Carga registrada correctamente";
       }
 
-      if (recordId) {
-        setExtraData((prev) => ({
-          ...prev,
-          [recordId]: {
-            hora: form.hora,
-            responsable_id: form.responsable_id
-              ? parseInt(form.responsable_id)
-              : null,
-            responsable_name: personName(form.responsable_id),
-            combustible: form.combustible,
-            fotoUrl: photoPreview || prev[recordId]?.fotoUrl,
-          },
-        }));
+      if (recordId && photo) {
+        try {
+          await fuelService.uploadFuelPhoto({ targetType: "carga", targetId: recordId, file: photo });
+        } catch (photoErr) {
+          const photoMsg =
+            photoErr.response?.data?.message || photoErr.message || "error desconocido";
+          noticeMsg = `Carga guardada, pero la foto no se pudo subir: ${photoMsg}`;
+        }
       }
 
+      setNotice(noticeMsg);
       resetForm();
       loadData();
     } catch (err) {
@@ -290,18 +303,13 @@ const FuelLightFleet = () => {
     }
   };
 
-  const handleDelete = async (id, codigo) => {
-    const ok = await confirm(`¿Eliminar la carga de la unidad ${codigo}?`, {
+  const handleDelete = async (id, code) => {
+    const ok = await confirm(`¿Eliminar la carga de la unidad ${code}?`, {
       title: "Eliminar carga",
     });
     if (!ok) return;
     try {
       await fuelService.deleteRefuel(id);
-      setExtraData((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
       loadData();
     } catch (err) {
       console.error("Error eliminando:", err);
@@ -316,6 +324,7 @@ const FuelLightFleet = () => {
   // ---------- Excel ----------
   const exportExcel = async () => {
     const headers = [
+      "Transaction ID",
       "Fecha",
       "Hora",
       "Unidad",
@@ -334,20 +343,22 @@ const FuelLightFleet = () => {
         sheetName: "Flota Liviana",
         headers,
         rows: filteredRefuels.map((r) => [
-          fmtDate(r.fecha),
+          r.transaction_no || "",
+          fmtDate(r.filled_at),
           getTime(r),
-          r.vehiculo_codigo || `${r.vehicle_id}`,
-          personName(getResponsibleId(r)),
-          getFuelType(r),
-          r.litros,
-          r.monto ?? "",
-          r.tanque_lleno ? "Sí" : "No",
-          r.estacion || "",
-          r.odometro ?? "",
-          r.observaciones || "",
+          r.vehicle_code || `${r.vehicle_id}`,
+          personName(r.responsible_id),
+          r.fuel_type || "gasolina",
+          r.liters,
+          r.amount ?? "",
+          r.tank_full ? "Sí" : "No",
+          r.station || "",
+          r.odometer ?? "",
+          r.notes || "",
         ]),
         totals: [
           "TOTAL",
+          "",
           "",
           "",
           "",
@@ -368,11 +379,11 @@ const FuelLightFleet = () => {
 
   const getTankLevel = (vehicleId) => {
     const vehicle = vehicles.find((v) => v.id === vehicleId);
-    const capacity = parseFloat(vehicle?.tanque_capacidad_litros || 0);
+    const capacity = parseFloat(vehicle?.tank_capacity_liters || 0);
     const lastRefuel = refuels.find(
-      (r) => r.vehicle_id === vehicleId && r.tanque_lleno,
+      (r) => r.vehicle_id === vehicleId && r.tank_full,
     );
-    const liters = lastRefuel ? parseFloat(lastRefuel.litros) : 0;
+    const liters = lastRefuel ? parseFloat(lastRefuel.liters) : 0;
     return { level: liters, capacity };
   };
 
@@ -464,7 +475,7 @@ const FuelLightFleet = () => {
                             onChange={() => toggleUnitFilter(Number(v.id))}
                             className="accent-orange-500"
                           />
-                          {v.codigo} - {v.nombre}
+                          {v.code} - {v.name}
                         </label>
                       ))}
                       {lightVehicles.length === 0 && (
@@ -571,10 +582,19 @@ const FuelLightFleet = () => {
                       <option value="">Seleccionar...</option>
                       {lightVehicles.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.codigo} - {v.nombre}
+                          {v.code} - {v.name}
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-sm font-bold">Transaction ID</Label>
+                    <Input
+                      placeholder="Nomenclatura por definir"
+                      value={form.transaction_no}
+                      onChange={(e) => setForm({ ...form, transaction_no: e.target.value })}
+                    />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -600,9 +620,9 @@ const FuelLightFleet = () => {
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Responsable</Label>
                     <select
-                      value={form.responsable_id}
+                      value={form.responsible_id}
                       onChange={(e) =>
-                        setForm({ ...form, responsable_id: e.target.value })
+                        setForm({ ...form, responsible_id: e.target.value })
                       }
                       className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
                     >
@@ -618,9 +638,9 @@ const FuelLightFleet = () => {
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Combustible *</Label>
                     <select
-                      value={form.combustible}
+                      value={form.fuel_type}
                       onChange={(e) =>
-                        setForm({ ...form, combustible: e.target.value })
+                        setForm({ ...form, fuel_type: e.target.value })
                       }
                       className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
                     >
@@ -637,8 +657,8 @@ const FuelLightFleet = () => {
                       min="0"
                       step="0.01"
                       placeholder="Ej: 40"
-                      value={form.litros}
-                      onChange={(e) => setForm({ ...form, litros: e.target.value })}
+                      value={form.liters}
+                      onChange={(e) => setForm({ ...form, liters: e.target.value })}
                     />
                   </div>
 
@@ -646,13 +666,13 @@ const FuelLightFleet = () => {
                     <Label className="text-sm font-bold">Tanque lleno</Label>
                     <div className="flex items-center gap-2 h-10">
                       <Switch
-                        checked={form.tanque_lleno}
+                        checked={form.tank_full}
                         onCheckedChange={(checked) =>
-                          setForm({ ...form, tanque_lleno: checked })
+                          setForm({ ...form, tank_full: checked })
                         }
                       />
                       <span className="text-sm text-slate-500">
-                        {form.tanque_lleno ? "Sí" : "No"}
+                        {form.tank_full ? "Sí" : "No"}
                       </span>
                     </div>
                   </div>
@@ -661,8 +681,8 @@ const FuelLightFleet = () => {
                     <Label className="text-sm font-bold">Estación</Label>
                     <Input
                       placeholder="Ej: PDV-01"
-                      value={form.estacion}
-                      onChange={(e) => setForm({ ...form, estacion: e.target.value })}
+                      value={form.station}
+                      onChange={(e) => setForm({ ...form, station: e.target.value })}
                     />
                   </div>
 
@@ -671,8 +691,8 @@ const FuelLightFleet = () => {
                     <Input
                       type="number"
                       placeholder="Ej: 50000"
-                      value={form.odometro}
-                      onChange={(e) => setForm({ ...form, odometro: e.target.value })}
+                      value={form.odometer}
+                      onChange={(e) => setForm({ ...form, odometer: e.target.value })}
                     />
                   </div>
 
@@ -681,8 +701,8 @@ const FuelLightFleet = () => {
                     <Input
                       type="number"
                       placeholder="Ej: 20"
-                      value={form.monto}
-                      onChange={(e) => setForm({ ...form, monto: e.target.value })}
+                      value={form.amount}
+                      onChange={(e) => setForm({ ...form, amount: e.target.value })}
                     />
                   </div>
 
@@ -690,9 +710,9 @@ const FuelLightFleet = () => {
                     <Label className="text-sm font-bold">Observaciones</Label>
                     <Input
                       placeholder="Notas adicionales..."
-                      value={form.observaciones}
+                      value={form.notes}
                       onChange={(e) =>
-                        setForm({ ...form, observaciones: e.target.value })
+                        setForm({ ...form, notes: e.target.value })
                       }
                     />
                   </div>
@@ -707,14 +727,24 @@ const FuelLightFleet = () => {
                       )}
                     </Label>
                     <label
-                      className="flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-orange-400 transition-colors overflow-hidden"
+                      className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-orange-400 transition-colors overflow-hidden"
                     >
                       {photoPreview ? (
-                        <img
-                          src={photoPreview}
-                          alt="Ticket"
-                          className="h-full w-full object-cover"
-                        />
+                        <>
+                          <img
+                            src={photoPreview}
+                            alt="Ticket"
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemovePhoto}
+                            title="Quitar foto"
+                            className="absolute top-1 right-1 h-6 w-6 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-red-600 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </>
                       ) : (
                         <>
                           <Camera size={22} className="text-slate-400" />
@@ -773,7 +803,7 @@ const FuelLightFleet = () => {
                 <CardContent className="p-4 flex flex-col items-center gap-2">
                   <TankBar level={level} capacity={capacity} />
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300 text-center">
-                    {v.codigo}
+                    {v.code}
                   </span>
                 </CardContent>
               </Card>
@@ -790,6 +820,7 @@ const FuelLightFleet = () => {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Transaction ID</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead>Hora</TableHead>
               <TableHead>Unidad</TableHead>
@@ -804,13 +835,13 @@ const FuelLightFleet = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={10} className="text-center py-8 text-slate-400">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : filteredRefuels.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={10} className="text-center py-8 text-slate-400">
                   No hay llenados registrados
                 </TableCell>
               </TableRow>
@@ -824,22 +855,25 @@ const FuelLightFleet = () => {
                       : "bg-slate-50/60 dark:bg-white/[0.02]"
                   }
                 >
-                  <TableCell className="text-sm">{fmtDate(r.fecha)}</TableCell>
+                  <TableCell className="text-sm font-mono text-orange-600 dark:text-orange-400">
+                    {r.transaction_no || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm">{fmtDate(r.filled_at)}</TableCell>
                   <TableCell className="text-sm font-mono">{getTime(r)}</TableCell>
                   <TableCell className="text-sm">
-                    {r.vehiculo_codigo || `${r.vehicle_id}`}
+                    {r.vehicle_code || `${r.vehicle_id}`}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {personName(getResponsibleId(r)) || "-"}
+                    {personName(r.responsible_id) || "-"}
                   </TableCell>
                   <TableCell className="text-sm capitalize">
-                    {getFuelType(r)}
+                    {r.fuel_type || "gasolina"}
                   </TableCell>
                   <TableCell className="font-bold text-slate-900 dark:text-white text-sm">
-                    {r.litros}L
+                    {r.liters}L
                   </TableCell>
                   <TableCell className="text-sm">
-                    {r.monto ? `$${r.monto}` : "-"}
+                    {r.amount ? `$${r.amount}` : "-"}
                   </TableCell>
                   <TableCell>
                     {getPhotoUrl(r) ? (
@@ -876,7 +910,7 @@ const FuelLightFleet = () => {
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => handleDelete(r.id, r.vehiculo_codigo)}
+                        onClick={() => handleDelete(r.id, r.vehicle_code)}
                         className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
                         title="Eliminar"
                       >
@@ -923,48 +957,49 @@ const FuelLightFleet = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <Info label="Fecha" value={fmtDate(detailRow.fecha)} />
+                <Info label="Transaction ID" value={detailRow.transaction_no || "-"} mono />
+                <Info label="Fecha" value={fmtDate(detailRow.filled_at)} />
                 <Info label="Hora" value={getTime(detailRow)} />
                 <Info
                   label="Unidad"
                   value={
-                    detailRow.vehiculo_nombre ||
-                    detailRow.vehiculo_codigo ||
+                    detailRow.vehicle_name ||
+                    detailRow.vehicle_code ||
                     String(detailRow.vehicle_id)
                   }
                 />
                 <Info
                   label="Responsable"
-                  value={personName(getResponsibleId(detailRow)) || "-"}
+                  value={personName(detailRow.responsible_id) || "-"}
                 />
                 <Info
                   label="Combustible"
-                  value={getFuelType(detailRow)}
+                  value={detailRow.fuel_type || "gasolina"}
                 />
-                <Info label="Litros" value={`${detailRow.litros} L`} />
+                <Info label="Litros" value={`${detailRow.liters} L`} />
                 <Info
                   label="Monto"
-                  value={detailRow.monto ? `$${detailRow.monto}` : "-"}
+                  value={detailRow.amount ? `$${detailRow.amount}` : "-"}
                 />
                 <Info
                   label="Tanque lleno"
-                  value={detailRow.tanque_lleno ? "Sí" : "No"}
+                  value={detailRow.tank_full ? "Sí" : "No"}
                 />
               </div>
 
-              {detailRow.estacion && (
+              {detailRow.station && (
                 <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                  <b>Estación:</b> {detailRow.estacion}
+                  <b>Estación:</b> {detailRow.station}
                 </p>
               )}
-              {detailRow.odometro != null && (
+              {detailRow.odometer != null && (
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  <b>Odómetro:</b> {detailRow.odometro}
+                  <b>Odómetro:</b> {detailRow.odometer}
                 </p>
               )}
-              {detailRow.observaciones && (
+              {detailRow.notes && (
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  <b>Observaciones:</b> {detailRow.observaciones}
+                  <b>Observaciones:</b> {detailRow.notes}
                 </p>
               )}
 
@@ -984,8 +1019,7 @@ const FuelLightFleet = () => {
               )}
               {!getPhotoUrl(detailRow) && (
                 <p className="mt-4 text-xs text-slate-400 flex items-center gap-1.5">
-                  <FileUp size={14} /> Sin foto adjunta (foto pendiente de
-                  persistencia cuando se active la fase backend)
+                  <FileUp size={14} /> Sin foto adjunta
                 </p>
               )}
             </motion.div>
@@ -996,12 +1030,16 @@ const FuelLightFleet = () => {
   );
 };
 
-const Info = ({ label, value }) => (
+const Info = ({ label, value, mono }) => (
   <div className="rounded-xl bg-slate-50 dark:bg-white/[0.03] p-3">
     <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
       {label}
     </p>
-    <p className="font-semibold text-slate-900 dark:text-white capitalize">
+    <p
+      className={`font-semibold text-slate-900 dark:text-white capitalize ${
+        mono ? "font-mono text-orange-600 dark:text-orange-400" : ""
+      }`}
+    >
       {value}
     </p>
   </div>

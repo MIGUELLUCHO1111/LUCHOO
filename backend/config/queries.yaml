@@ -664,27 +664,27 @@
   # ========== FUEL ==========
 
   'createVehiculo': {
-    query: 'INSERT INTO public.vehicle (codigo, nombre, placa, tanque_capacidad_litros) VALUES ($1, $2, $3, $4) RETURNING id, codigo, nombre, placa, tanque_capacidad_litros;',
-    structure_params: { codigo: 'string', nombre: 'string', placa: 'string|null', tanque_capacidad_litros: 'int|null' },
-    orderArray: ['codigo', 'nombre', 'placa', 'tanque_capacidad_litros']
+    query: 'INSERT INTO public.vehicle (code, name, plate, tank_capacity_liters, fleet_type) VALUES ($1, $2, $3, $4, $5) RETURNING id, code, name, plate, tank_capacity_liters, fleet_type;',
+    structure_params: { code: 'string', name: 'string', plate: 'string|null', tank_capacity_liters: 'int|null', fleet_type: 'string|null' },
+    orderArray: ['code', 'name', 'plate', 'tank_capacity_liters', 'fleet_type']
   },
 
   'getVehiculoById': {
-    query: 'SELECT id, codigo, nombre, placa, tanque_capacidad_litros, is_active FROM public.vehicle WHERE id = $1 AND deleted_at IS NULL;',
+    query: 'SELECT id, code, name, plate, tank_capacity_liters, fleet_type, is_active FROM public.vehicle WHERE id = $1 AND deleted_at IS NULL;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
 
   'getAllVehiculos': {
-    query: 'SELECT id, codigo, nombre, placa, tanque_capacidad_litros, is_active FROM public.vehicle WHERE deleted_at IS NULL ORDER BY codigo;',
+    query: 'SELECT id, code, name, plate, tank_capacity_liters, fleet_type, is_active FROM public.vehicle WHERE deleted_at IS NULL ORDER BY code;',
     structure_params: {},
     orderArray: []
   },
 
   'updateVehiculo': {
-    query: 'UPDATE public.vehicle SET nombre = $2, placa = $3, tanque_capacidad_litros = $4, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id, codigo, nombre, placa, tanque_capacidad_litros;',
-    structure_params: { id: 'int', nombre: 'string', placa: 'string|null', tanque_capacidad_litros: 'int|null' },
-    orderArray: ['id', 'nombre', 'placa', 'tanque_capacidad_litros']
+    query: 'UPDATE public.vehicle SET name = $2, plate = $3, tank_capacity_liters = $4, fleet_type = $5, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, name, plate, tank_capacity_liters, fleet_type;',
+    structure_params: { id: 'int', name: 'string', plate: 'string|null', tank_capacity_liters: 'int|null', fleet_type: 'string|null' },
+    orderArray: ['id', 'name', 'plate', 'tank_capacity_liters', 'fleet_type']
   },
 
   'deleteVehiculo': {
@@ -694,31 +694,151 @@
   },
 
   'createCarga': {
-    query: 'INSERT INTO public.fuel_carga (vehicle_id, fecha, litros, tanque_lleno, estacion, odometro, monto, observaciones, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, vehicle_id, fecha, litros, tanque_lleno, estacion, odometro, monto, observaciones;',
-    structure_params: { vehicle_id: 'int', fecha: 'string|null', litros: 'int', tanque_lleno: 'boolean', estacion: 'string|null', odometro: 'int|null', monto: 'int|null', observaciones: 'string|null', created_by: 'int|null' },
-    orderArray: ['vehicle_id', 'fecha', 'litros', 'tanque_lleno', 'estacion', 'odometro', 'monto', 'observaciones', 'created_by']
+    query: 'INSERT INTO public.fuel_carga (vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type;',
+    structure_params: { vehicle_id: 'int', transaction_no: 'string|null', filled_at: 'string|null', liters: 'int', tank_full: 'boolean', station: 'string|null', odometer: 'int|null', amount: 'int|null', notes: 'string|null', responsible_id: 'int|null', fuel_type: 'string|null', created_by: 'int|null' },
+    orderArray: ['vehicle_id', 'transaction_no', 'filled_at', 'liters', 'tank_full', 'station', 'odometer', 'amount', 'notes', 'responsible_id', 'fuel_type', 'created_by']
+  },
+
+  'getCargaById': {
+    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.id = $1 AND c.deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
   },
 
   'getCargasByVehiculo': {
-    query: 'SELECT c.id, c.vehicle_id, v.codigo AS vehiculo_codigo, v.nombre AS vehiculo_nombre, c.fecha, c.litros, c.tanque_lleno, c.estacion, c.odometro, c.monto, c.observaciones FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.vehicle_id = $1 AND c.deleted_at IS NULL ORDER BY c.fecha DESC;',
+    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.vehicle_id = $1 AND c.deleted_at IS NULL ORDER BY c.filled_at DESC;',
     structure_params: { vehicle_id: 'int' },
     orderArray: ['vehicle_id']
   },
 
   'getAllCargas': {
-    query: 'SELECT c.id, c.vehicle_id, v.codigo AS vehiculo_codigo, v.nombre AS vehiculo_nombre, c.fecha, c.litros, c.tanque_lleno, c.estacion, c.odometro, c.monto, c.observaciones FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.deleted_at IS NULL ORDER BY c.fecha DESC;',
+    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.deleted_at IS NULL ORDER BY c.filled_at DESC;',
     structure_params: {},
     orderArray: []
   },
 
   'updateCarga': {
-    query: 'UPDATE public.fuel_carga SET litros = $2, tanque_lleno = $3, estacion = $4, odometro = $5, monto = $6, observaciones = $7 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, fecha, litros, tanque_lleno, estacion, odometro, monto, observaciones;',
-    structure_params: { id: 'int', litros: 'int', tanque_lleno: 'boolean', estacion: 'string|null', odometro: 'int|null', monto: 'int|null', observaciones: 'string|null' },
-    orderArray: ['id', 'litros', 'tanque_lleno', 'estacion', 'odometro', 'monto', 'observaciones']
+    query: 'UPDATE public.fuel_carga SET transaction_no = $2, liters = $3, tank_full = $4, station = $5, odometer = $6, amount = $7, notes = $8, responsible_id = $9, fuel_type = $10 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type;',
+    structure_params: { id: 'int', transaction_no: 'string|null', liters: 'int', tank_full: 'boolean', station: 'string|null', odometer: 'int|null', amount: 'int|null', notes: 'string|null', responsible_id: 'int|null', fuel_type: 'string|null' },
+    orderArray: ['id', 'transaction_no', 'liters', 'tank_full', 'station', 'odometer', 'amount', 'notes', 'responsible_id', 'fuel_type']
   },
 
   'deleteCarga': {
     query: 'UPDATE public.fuel_carga SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Fuel Pesada (heavy fleet) ----------
+
+  'createPesada': {
+    query: 'INSERT INTO public.fuel_pesada (vehicle_id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, vehicle_id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes;',
+    structure_params: { vehicle_id: 'int', transaction_no: 'string|null', filled_at: 'string|null', requester: 'string|null', fuel_type: 'string|null', measurement_value: 'number|null', measurement_type: 'string|null', gallons: 'number', notes: 'string|null', created_by: 'int|null' },
+    orderArray: ['vehicle_id', 'transaction_no', 'filled_at', 'requester', 'fuel_type', 'measurement_value', 'measurement_type', 'gallons', 'notes', 'created_by']
+  },
+
+  'getPesadaById': {
+    query: 'SELECT p.id, p.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, p.transaction_no, p.filled_at, p.requester, p.fuel_type, p.measurement_value, p.measurement_type, p.gallons, p.notes, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.pesada_id = p.id) AS photos FROM public.fuel_pesada p JOIN public.vehicle v ON p.vehicle_id = v.id WHERE p.id = $1 AND p.deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllPesada': {
+    query: 'SELECT p.id, p.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, p.transaction_no, p.filled_at, p.requester, p.fuel_type, p.measurement_value, p.measurement_type, p.gallons, p.notes, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.pesada_id = p.id) AS photos FROM public.fuel_pesada p JOIN public.vehicle v ON p.vehicle_id = v.id WHERE p.deleted_at IS NULL ORDER BY p.filled_at DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'updatePesada': {
+    query: 'UPDATE public.fuel_pesada SET transaction_no = $2, filled_at = $3, requester = $4, fuel_type = $5, measurement_value = $6, measurement_type = $7, gallons = $8, notes = $9 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes;',
+    structure_params: { id: 'int', transaction_no: 'string|null', filled_at: 'string|null', requester: 'string|null', fuel_type: 'string|null', measurement_value: 'number|null', measurement_type: 'string|null', gallons: 'number', notes: 'string|null' },
+    orderArray: ['id', 'transaction_no', 'filled_at', 'requester', 'fuel_type', 'measurement_value', 'measurement_type', 'gallons', 'notes']
+  },
+
+  'deletePesada': {
+    query: 'UPDATE public.fuel_pesada SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Fuel Tanque (tanque de gasoil) ----------
+
+  'createTank': {
+    query: 'INSERT INTO public.fuel_tank (code, name, capacity_liters, min_alert_liters, fuel_type) VALUES ($1, $2, $3, $4, $5) RETURNING id, code, name, capacity_liters, min_alert_liters, fuel_type, is_active;',
+    structure_params: { code: 'string', name: 'string', capacity_liters: 'number', min_alert_liters: 'number', fuel_type: 'string' },
+    orderArray: ['code', 'name', 'capacity_liters', 'min_alert_liters', 'fuel_type']
+  },
+
+  'getAllTanks': {
+    query: 'SELECT t.id, t.code, t.name, t.capacity_liters, t.min_alert_liters, t.fuel_type, t.is_active, COALESCE((SELECT SUM(CASE WHEN m.movement_type = ''in'' THEN m.quantity_liters ELSE -m.quantity_liters END) FROM public.fuel_tank_movement m WHERE m.tank_id = t.id), 0) AS current_level_liters FROM public.fuel_tank t WHERE t.deleted_at IS NULL ORDER BY t.code;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'getTankById': {
+    query: 'SELECT t.id, t.code, t.name, t.capacity_liters, t.min_alert_liters, t.fuel_type, t.is_active, COALESCE((SELECT SUM(CASE WHEN m.movement_type = ''in'' THEN m.quantity_liters ELSE -m.quantity_liters END) FROM public.fuel_tank_movement m WHERE m.tank_id = t.id), 0) AS current_level_liters FROM public.fuel_tank t WHERE t.id = $1 AND t.deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'updateTank': {
+    query: 'UPDATE public.fuel_tank SET name = $2, capacity_liters = $3, min_alert_liters = $4, fuel_type = $5, is_active = $6 WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, name, capacity_liters, min_alert_liters, fuel_type, is_active;',
+    structure_params: { id: 'int', name: 'string', capacity_liters: 'number', min_alert_liters: 'number', fuel_type: 'string', is_active: 'boolean' },
+    orderArray: ['id', 'name', 'capacity_liters', 'min_alert_liters', 'fuel_type', 'is_active']
+  },
+
+  'deleteTank': {
+    query: 'UPDATE public.fuel_tank SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getMovementsByTank': {
+    query: 'SELECT id, tank_id, movement_type, quantity_liters, reference_type, reference_id, notes, created_at FROM public.fuel_tank_movement WHERE tank_id = $1 ORDER BY created_at DESC;',
+    structure_params: { tank_id: 'int' },
+    orderArray: ['tank_id']
+  },
+
+  'createTankMovement': {
+    query: 'INSERT INTO public.fuel_tank_movement (tank_id, movement_type, quantity_liters, reference_type, reference_id, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, tank_id, movement_type, quantity_liters, reference_type, reference_id, notes, created_at;',
+    structure_params: { tank_id: 'int', movement_type: 'string', quantity_liters: 'number', reference_type: 'string|null', reference_id: 'int|null', notes: 'string|null', created_by: 'int|null' },
+    orderArray: ['tank_id', 'movement_type', 'quantity_liters', 'reference_type', 'reference_id', 'notes', 'created_by']
+  },
+
+  'getActiveGasoilTank': {
+    query: 'SELECT t.id, t.capacity_liters, COALESCE((SELECT SUM(CASE WHEN m.movement_type = ''in'' THEN m.quantity_liters ELSE -m.quantity_liters END) FROM public.fuel_tank_movement m WHERE m.tank_id = t.id), 0) AS current_level_liters FROM public.fuel_tank t WHERE t.fuel_type = $1 AND t.is_active AND t.deleted_at IS NULL ORDER BY t.id LIMIT 1;',
+    structure_params: { fuel_type: 'string' },
+    orderArray: ['fuel_type']
+  },
+
+  # ---------- Fuel Foto (subida de fotos de llenado) ----------
+
+  'checkCargaExists': {
+    query: 'SELECT id FROM public.fuel_carga WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'checkPesadaExists': {
+    query: 'SELECT id FROM public.fuel_pesada WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'insertFuelFoto': {
+    query: 'INSERT INTO public.fuel_foto (refuel_id, pesada_id, url, thumbnail_url, mime_type, size_bytes, uploaded_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, refuel_id, pesada_id, url, thumbnail_url, mime_type, size_bytes, uploaded_at;',
+    structure_params: { refuel_id: 'int|null', pesada_id: 'int|null', url: 'string', thumbnail_url: 'string|null', mime_type: 'string|null', size_bytes: 'int|null', uploaded_by: 'int|null' },
+    orderArray: ['refuel_id', 'pesada_id', 'url', 'thumbnail_url', 'mime_type', 'size_bytes', 'uploaded_by']
+  },
+
+  'getFuelFotoById': {
+    query: 'SELECT id, refuel_id, pesada_id, url FROM public.fuel_foto WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'deleteFuelFoto': {
+    query: 'DELETE FROM public.fuel_foto WHERE id = $1 RETURNING id, url;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   }

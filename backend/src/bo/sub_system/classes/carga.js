@@ -10,17 +10,17 @@ class Carga {
     this.dbmsReady = this.dbms.init();
   }
 
-  createCarga = async ({ vehicle_id, fecha, litros, tanque_lleno, estacion, odometro, monto, observaciones, created_by }) => {
+  createCarga = async ({ vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type, created_by }) => {
     await this.dbmsReady;
 
-    if (!vehicle_id || !litros) {
+    if (!vehicle_id || !liters) {
       throw new Error(JSON.stringify({
-        message: "Campos requeridos: 'vehicle_id', 'litros'",
+        message: "Campos requeridos: 'vehicle_id', 'liters'",
         statusCode: STATUS_CODES.BAD_REQUEST,
       }));
     }
 
-    if (litros <= 0) {
+    if (liters <= 0) {
       throw new Error(JSON.stringify({
         message: "Los litros deben ser mayores a 0",
         statusCode: STATUS_CODES.BAD_REQUEST,
@@ -32,13 +32,16 @@ class Carga {
         nameQuery: 'createCarga',
         params: {
           vehicle_id,
-          fecha: fecha || new Date().toISOString(),
-          litros,
-          tanque_lleno: tanque_lleno || false,
-          estacion: estacion || null,
-          odometro: odometro || null,
-          monto: monto || null,
-          observaciones: observaciones || null,
+          transaction_no: transaction_no || null,
+          filled_at: filled_at || new Date().toISOString(),
+          liters,
+          tank_full: tank_full || false,
+          station: station || null,
+          odometer: odometer || null,
+          amount: amount || null,
+          notes: notes || null,
+          responsible_id: responsible_id || null,
+          fuel_type: fuel_type || 'gasolina',
           created_by: created_by || null,
         },
       });
@@ -48,6 +51,32 @@ class Carga {
     } catch (error) {
       throw error;
     }
+  };
+
+  getCargaById = async ({ id }) => {
+    await this.dbmsReady;
+
+    if (!id) {
+      throw new Error(JSON.stringify({
+        message: "Campo requerido: 'id'",
+        statusCode: STATUS_CODES.BAD_REQUEST,
+      }));
+    }
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'getCargaById',
+      params: { id },
+    });
+
+    const carga = result?.rows?.[0];
+    if (!carga) {
+      throw new Error(JSON.stringify({
+        message: `Carga con id ${id} no encontrada`,
+        statusCode: STATUS_CODES.NOT_FOUND,
+      }));
+    }
+
+    return { statusCode: STATUS_CODES.OK, data: carga };
   };
 
   getCargasByVehiculo = async ({ vehicle_id }) => {
@@ -79,7 +108,7 @@ class Carga {
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
   };
 
-  updateCarga = async ({ id, litros, tanque_lleno, estacion, odometro, monto, observaciones }) => {
+  updateCarga = async ({ id, transaction_no, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type }) => {
     await this.dbmsReady;
 
     if (!id) {
@@ -91,7 +120,7 @@ class Carga {
 
     const result = await this.dbms.executeNamedQuery({
       nameQuery: 'updateCarga',
-      params: { id, litros, tanque_lleno: tanque_lleno || false, estacion: estacion || null, odometro: odometro || null, monto: monto || null, observaciones: observaciones || null },
+      params: { id, transaction_no: transaction_no || null, liters, tank_full: tank_full || false, station: station || null, odometer: odometer || null, amount: amount || null, notes: notes || null, responsible_id: responsible_id || null, fuel_type: fuel_type || 'gasolina' },
     });
 
     const carga = result?.rows?.[0];

@@ -477,8 +477,9 @@ No se requieren cambios en el backend para soportar la app nativa.
 |---|---|---|
 | MVP — 3 secciones | **Definido** | Primer lanzamiento: **Administración**, **Combustible** e **Inventario** (ver 11.1 mapeo a subsistemas). |
 | Modelado de datos | **En progreso por el usuario** | Lo irá armando y seccionando por lanzamiento/versión. Hoy `queries.yaml` referencia tablas que `schema.sql` no crea (B7). |
-| Permisos / perfiles | **Pendiente** (el usuario los indicará pronto) | Matriz real de `permission.csv` / `method_profile`. |
+| Permisos / perfiles | **COMPLETADO (31/08/2026)** | Matriz real de `permission.csv` / `method_profile`, **más** permisos por sección de navegación (`Security/Option`). Ver 11.8. |
 | Primer BO piloto | **COMPLETADO (19/08/2026)** | `Security/Person/createPerson` funcionando end-to-end. Ver 11.4 patrón de BO y hallazgos. |
+| Security completo (Person/User/Profile CRUD) | **COMPLETADO (31/08/2026)** | Ver 11.8. |
 | Framework móvil (React Native vs Flutter) | **Pendiente** | Define el contrato de API/token (P21-P22 ya listos). |
 | Auth middleware agnóstico | **COMPLETADO (19/08/2026)** | Ver 11.5: JWT + cookie, login con token, `/me` dual, 401 estructurado. |
 | Frontend services layer | **COMPLETADO (19/08/2026)** | Ver 11.6: api.js, authService.js, personService.js, AuthContext refactorizado. |
@@ -660,12 +661,129 @@ Primera sección funcional del MVP. Backend + frontend completos.
 | 88 | `Fuel/Carga/updateCarga` |
 | 89 | `Fuel/Carga/deleteCarga` |
 
+### 11.8 Security completo + permisos por sección (completado 31/08/2026)
+
+Cierre de la sección Security: CRUD completo de Person/User/Profile, un
+sistema nuevo de permisos por sección de navegación, y una ronda de arreglos
+de seguridad/config. Detalle completo de riesgos de diseño encontrados en el
+camino: `SECURITY_REVIEW.md` (robustez/desacoplamiento/escalamiento — pendiente
+de atacar, no implementado todavía).
+
+**Fixes de seguridad/config:**
+- Sesiones movidas de `MemoryStore` a `connect-pg-simple` (Postgres) — ya
+  sobreviven un reinicio del backend.
+- Rate limiting (`express-rate-limit`) en `/user/login`, `/register`,
+  `/forgot-password`, `/reset-password`.
+- `utils/validator.js`: quitado el bloqueo por palabras clave SQL/puntuación
+  (falsos positivos, sin aporte real ya que las queries están parametrizadas).
+- `/user/login` ya no reutiliza el validador de *fortaleza* de contraseña
+  (pensado para cuando se *establece* una, no para verificar una existente) —
+  bloqueaba el login de cualquier cuenta con contraseña más corta/simple que
+  las reglas de registro, aunque la contraseña fuera la correcta.
+- CORS (`server.js`) acepta una lista de orígenes (`FRONTEND_URL` separado por
+  comas) en vez de uno solo, siempre con `localhost:5173` incluido de base.
+- `.env.example` con placeholders genéricos (tenía credenciales reales de
+  ejemplo); `fs` (dependencia npm superflua, es built-in de Node) eliminada;
+  archivos de diagnóstico sueltos y `package-lock.json` (se estandarizó en
+  pnpm) limpiados.
+- Modal de confirmación propio (`ConfirmProvider`/`useConfirm`, mismo estilo
+  que el modal de detalle de Fuel) reemplazando el `confirm()` nativo del
+  navegador en los 6 flujos de borrado de la app.
+
+**Person — CRUD completo** (`classes/person.js`, tx 1 + 91-94): crear ya
+existía; se agregó listar/obtener/actualizar/eliminar, más el campo
+`department`.
+
+**User — subsistema nuevo** (`bo/sub_system/Users.js` + `classes/usuario.js`,
+tx 31-36): CRUD completo con bcrypt, asignación de perfil, conflicto 409 en
+correo/usuario duplicado. El username ahora es **editable** por el admin
+(antes solo se autogeneraba sin mostrarse en ningún lado) — se sugiere a
+partir de nombre+apellido pero se puede sobrescribir, tanto al crear como al
+editar; requirió agregar `UNIQUE` a `user.name` (migración
+`006_username_unique.sql`).
+
+**Profile — CRUD completo** (`classes/profile.js`, tx 2-4 + 95-100): además
+del alta/asignación que ya existía, se agregó listar/obtener/actualizar y
+**dos acciones separadas** para "eliminar" — el switch "Activo" del formulario
+solo desactiva (`is_active=false`, sigue visible en la lista); el botón
+"Eliminar" borra de verdad en cascada (`user_profile` + `method_profile` +
+`option_profile` + la fila de `profile`).
+
+**Option — sistema nuevo: permisos por sección** (`classes/option.js`, tx
+101-104, migración `005_options_seed.sql`): un perfil ahora puede definir qué
+secciones de la app puede usar (checklist en el formulario de Perfiles),
+aplicado de verdad — no solo cosmético:
+- El frontend dejó de mandar `profile: "admin"` fijo en cada llamada
+  (`api.js`) — usa el perfil real del usuario logueado (`getUser`/`getUserById`
+  ahora devuelven sus perfiles).
+- Asignar/quitar una sección también otorga/revoca los permisos de método
+  (`method_profile`) reales que necesita, no solo la entrada de menú — mapeo
+  en `SECTION_PERMISSIONS` dentro de `option.js` (acoplamiento señalado en
+  `SECURITY_REVIEW.md`).
+- `Sidebar.jsx` filtra el menú a las secciones permitidas; `ProtectedRoute.jsx`
+  redirige a `/dashboard` si se navega a mano a una ruta no permitida.
+- El cache en memoria de `security.js` (permisos/perfiles de usuario) ya no
+  solo se sincroniza al arrancar — se refresca tras cada asignación/cambio de
+  perfil (antes requería reiniciar el backend para que un cambio de perfil
+  surtiera efecto).
+
+Verificado end-to-end con un perfil de prueba limitado a una sola sección:
+menú, rutas y ejecución de transacciones respetan la restricción; se
+revierte solo revocando la sección.
+
+### 11.9 Sección Combustible cerrada (completado 01/09/2026)
+
+Cierre completo de Combustible: Fuel Pesada, Tanque de Gasoil y fotos reales,
+backend + frontend, verificado end-to-end en el navegador. Roadmap detallado
+en `roadmap.md` (§9-§10 actualizados a "cerrado").
+
+**Migraciones:** `003_fuel_english.sql` (aplicada — modelo de Fuel completo
+en inglés, crea `fuel_pesada`), `007_fuel_backend_closeout.sql`
+(`transaction_no` en `fuel_carga`, `fuel_foto.pesada_id` + `refuel_id`
+opcional, crea `fuel_tank`/`fuel_tank_movement` con un tanque semilla),
+`008_fuel_tank_option.sql` (sección `/fuel/tank` en el sistema de permisos).
+
+**Fuel/Pesada** (`classes/pesada.js`, tx 105-109): CRUD completo. `createPesada`
+es la primera operación de la app que usa una **transacción real de BD**
+(`beginTransaction`/`commitTransaction`/`rollbackTransaction`, ya existían en
+`dbms.js` sin usarse — ver `SECURITY_REVIEW.md` punto 1): crea la carga
+pesada y descuenta del tanque de gasoil activo en la misma escritura atómica;
+si el tanque no existe, igual confirma la carga con un aviso en el mensaje,
+en vez de bloquear el registro por un problema de configuración.
+
+**Fuel/Tanque** (`classes/tanque.js`, tx 111-117, página `/fuel/tank`): CRUD
+de tanques + movimientos manuales (entrada/salida) + historial + nivel vía
+subquery `SUM(in) - SUM(out)`.
+
+**Fotos reales** (`src/fuel/fuelPhotoRoutes.js`): ruta aparte del dispatcher
+(mismo espíritu que `sessionRoutes.js`), con `multer` y disco local
+(`backend/uploads/fuel/`), protegida reutilizando los permisos de
+crear/editar la carga o pesada del `target_type` (sin transacción propia en
+`permission.csv`). `getAllCargas`/`getCargaById`/`getAllPesada`/`getPesadaById`
+devuelven las fotos vía subquery `json_agg`, mismo patrón que `user.profiles`
+en `getUser`.
+
+**Bugs reales encontrados y corregidos de paso** (ninguno introducido por
+esta ronda, ambos preexistentes):
+- El formulario de Liviana nunca mandaba `vehicle_id` al crear/editar un
+  llenado — bloqueaba crear cualquier llenado nuevo desde la web (solo había
+  una fila cargada directo en la BD, nunca se probó el formulario real).
+- `STATUS_CODES.CREATED` no existía en `config.js` — todos los `create*` del
+  backend lo referencian, pero como el dispatcher siempre envuelve la
+  respuesta con 200 por fuera, el `undefined` nunca se notó; rompía la ruta
+  de fotos nueva, que sí depende del código real. Se agregó `CREATED: 201`
+  sin cambiar ningún comportamiento existente.
+
+Verificado end-to-end en el navegador: fotos reales en Liviana y Pesada
+(crear, ver en tabla/detalle, precargar y quitar en edición), CRUD de Tanque,
+y el descuento automático del tanque al crear una carga Pesada desde la UI.
+
 ---
 
 **Concurrencia — cómo se resuelve:**
 
 - Node/Express es I/O-concurrente (event loop): miles de conexiones por proceso; la carga típica (CRUD/reportes) es el caso ideal.
-- Límites actuales: 1 proceso (1 núcleo), sesiones en memoria, pool default (10).
+- Límites actuales: 1 proceso (1 núcleo), pool default (10). **Ya no aplica** "sesiones en memoria" — desde el 31/08/2026 usan `connect-pg-simple` (Postgres), ver 11.8.
 - Solución (ya planificada): PM2 cluster (8-12 procesos) + sesiones en Postgres (P14) + pool dimensionado (P25) + NGINX + rate limiting (P17).
 - Capacidad estimada con el R730xd: miles de usuarios concurrentes → sobra para uso interno por años.
 
@@ -678,11 +796,18 @@ Primera sección funcional del MVP. Backend + frontend completos.
 
 ## 12. Conclusión
 
+> **Nota (31/08/2026):** los puntos de abajo describían el estado del 19/08.
+> Los bloqueantes B1-B4 (resolver roto, `src/bo` vacío, dos mecanismos
+> paralelos de BO) están resueltos desde esa misma fecha (ver 11.4-11.7); la
+> sesión persistente y el rate limiting (marcados "pendiente" más abajo) se
+> completaron el 31/08 (ver 11.8). Se deja el texto original como registro
+> histórico de la priorización que se siguió.
+
 - **Base sólida** en ambos lados: ESM + Express 5 + PostgreSQL; Vite + React 19 + Tailwind 4, contextos y componentes `ui/` consistentes.
-- **El esqueleto conceptual soporta BOs grandes** (el modelo transaccional `subsystem/class/method` + dispatcher + permisos es escalable), pero el **estado actual no** por los bloqueantes B1-B4 (resolver roto, `src/bo` vacío, dos mecanismos paralelos).
-- **Prioridad 1**: arreglar resolver (`ERROR_CODES`), elegir `src/bo`, archivar `_legacy`.
-- **Prioridad 2**: primer BO piloto end-to-end (tabla → query por subsistema → clase en `sub_system/` → permiso → consumir desde frontend).
-- **Prioridad 3**: dividir queries, activar validación DBMS, capa de servicios + contrato `/me` en frontend.
-- **Seguridad**: buena base (bcrypt, httpOnly, CORS, permisos), endurecer secret, sesión persistente y rate limiting antes de exponer con BOs reales.
-- **Escalabilidad**: hoy basta con PM2 cluster + sesión en Postgres + NGINX; distribuido/k8s es prematuro a esta carga (medir primero).
+- **El esqueleto conceptual soporta BOs grandes** (el modelo transaccional `subsystem/class/method` + dispatcher + permisos es escalable), pero el **estado actual no** por los bloqueantes B1-B4 (resolver roto, `src/bo` vacío, dos mecanismos paralelos). *(resuelto — ver nota arriba)*
+- **Prioridad 1**: arreglar resolver (`ERROR_CODES`), elegir `src/bo`, archivar `_legacy`. *(resuelto)*
+- **Prioridad 2**: primer BO piloto end-to-end (tabla → query por subsistema → clase en `sub_system/` → permiso → consumir desde frontend). *(resuelto — y ampliado a Person/User/Profile/Option completos, ver 11.8)*
+- **Prioridad 3**: dividir queries, activar validación DBMS, capa de servicios + contrato `/me` en frontend. *(capa de servicios y `/me` resueltos; dividir `queries.yaml` y activar la validación estructural del DBMS siguen sin tocar)*
+- **Seguridad**: buena base (bcrypt, httpOnly, CORS, permisos), endurecer secret, sesión persistente y rate limiting antes de exponer con BOs reales. *(sesión persistente y rate limiting resueltos — ver 11.8; endurecer más allá de eso sigue como trabajo abierto, ver `SECURITY_REVIEW.md`)*
+- **Escalabilidad**: hoy basta con PM2 cluster + sesión en Postgres + NGINX; distribuido/k8s es prematuro a esta carga (medir primero). *(la sesión ya vive en Postgres; el cache de permisos en memoria de `security.js` — nuevo desde 11.8 — **no** está listo para PM2 cluster todavía, ver `SECURITY_REVIEW.md`)*
 - **Móvil (app nativa)**: la capa de negocio (Dispatcher/transacciones/permisos) ya es compatible; la capa de auth con middleware agnóstico cookie/JWT (P21-P22) ya está lista — la app móvil puede autenticarse vía Bearer token. Pendiente: decidir framework (React Native vs Flutter).

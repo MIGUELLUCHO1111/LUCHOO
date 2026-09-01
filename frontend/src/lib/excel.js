@@ -51,3 +51,11 @@ export const fmtTime = (iso) => {
     minute: "2-digit",
   });
 };
+
+/** Hora en formato 24h "HH:mm", el único que acepta <input type="time">. */
+export const fmtTimeInput = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};

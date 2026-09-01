@@ -143,6 +143,7 @@ export const Sidebar = () => {
       children: [
         { title: "Liviana", url: "/fuel" },
         { title: "Pesada", url: "/fuel/heavy" },
+        { title: "Tanque", url: "/fuel/tank" },
         { title: "Unidades", url: "/fuel/vehicles" },
       ],
     },

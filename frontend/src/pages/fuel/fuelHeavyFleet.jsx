@@ -12,8 +12,9 @@ import {
   Gauge,
   Fuel,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth, useConfirm } from "@/context";
-import { fuelService } from "@/services";
+import { fuelService, resolvePhotoUrl } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,38 +28,30 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { exportToExcel, fmtDate, fmtTime } from "@/lib/excel";
+import { exportToExcel, fmtDate, fmtTime, fmtTimeInput } from "@/lib/excel";
 import { TankBar } from "@/components/ui/tankBar";
-import { readJSON, writeJSON, isPendingTransaction } from "@/lib/storage";
 
 const GALLONS_TO_LITERS = 3.78541;
-const FILL_UPS_STORAGE_KEY = "fullpetro_fuel_heavy_local";
-const FLEET_STORAGE_KEY = "fullpetro_vehicle_fleet";
-
-const readFleet = () => readJSON(FLEET_STORAGE_KEY, {});
 
 const emptyForm = {
   transaction_no: "",
   fecha: new Date().toISOString().slice(0, 10),
   hora: "",
-  solicitante: "",
+  requester: "",
   unidad: "",
-  medida_valor: "",
-  medida_tipo: "km",
-  galones: "",
-  nota: "",
+  measurement_value: "",
+  measurement_type: "km",
+  gallons: "",
+  notes: "",
 };
-
-const readLocal = () => readJSON(FILL_UPS_STORAGE_KEY, []);
-
-const writeLocal = (rows) => writeJSON(FILL_UPS_STORAGE_KEY, rows);
 
 const FuelHeavyFleet = () => {
   const { user } = useAuth();
   const confirm = useConfirm();
+  const navigate = useNavigate();
   const [heavyVehicles, setHeavyVehicles] = useState([]);
   const [fillUps, setFillUps] = useState([]);
-  const [localMode, setLocalMode] = useState(false);
+  const [gasoilTank, setGasoilTank] = useState(null);
 
   const [filters, setFilters] = useState({
     from: "",
@@ -75,28 +68,36 @@ const FuelHeavyFleet = () => {
   const [form, setForm] = useState(emptyForm);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [existingPhotoId, setExistingPhotoId] = useState(null);
 
   const [detail, setDetail] = useState(null);
-  const [banner, setBanner] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     loadVehicles();
     loadFillUps();
+    loadGasoilTank();
   }, []);
 
   const loadVehicles = async () => {
     try {
       const res = await fuelService.getAllVehicles();
       const list = Array.isArray(res) ? res : [];
-      const fleet = readFleet();
-      // La columna tipo_flota está pendiente de backend: se recuerda en sesión.
-      setHeavyVehicles(
-        list.filter((v) => v.tipo_flota === "pesada" || fleet[v.id] === "pesada"),
-      );
+      setHeavyVehicles(list.filter((v) => v.fleet_type === "pesada"));
     } catch (err) {
       console.warn("Unidades no disponibles:", err);
+    }
+  };
+
+  const loadGasoilTank = async () => {
+    try {
+      const res = await fuelService.getAllTanks();
+      const list = Array.isArray(res) ? res : [];
+      setGasoilTank(list.find((t) => t.fuel_type === "gasoil" && t.is_active) || null);
+    } catch (err) {
+      console.warn("Tanques no disponibles:", err);
     }
   };
 
@@ -104,35 +105,11 @@ const FuelHeavyFleet = () => {
     try {
       const res = await fuelService.getAllHeavyRefuels();
       setFillUps(Array.isArray(res) ? res : []);
-      setLocalMode(false);
     } catch (err) {
-      if (isPendingTransaction(err)) {
-        setFillUps(readLocal());
-        setLocalMode(true);
-        setBanner(
-          "Modo local: las transacciones 96-100 (Flota Pesada) aún no existen en el backend. Los datos se guardan temporalmente en el navegador.",
-        );
-      } else {
-        console.error(err);
-      }
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  };
-
-  const clearBanner = () => setBanner(null);
-
-  const persistLocal = (rows, err) => {
-    if (isPendingTransaction(err)) {
-      writeLocal(rows);
-      setFillUps(rows);
-      setLocalMode(true);
-      setBanner(
-        "Operación guardada en modo local (backend de pesada pendiente, tx 96-100).",
-      );
-      return true;
-    }
-    return false;
   };
 
   const resetForm = () => {
@@ -141,6 +118,8 @@ const FuelHeavyFleet = () => {
     setShowForm(false);
     setPhoto(null);
     setPhotoPreview(null);
+    setExistingPhotoId(null);
+    setError(null);
   };
 
   const onPhotoChange = (e) => {
@@ -150,79 +129,96 @@ const FuelHeavyFleet = () => {
     setPhotoPreview(file ? URL.createObjectURL(file) : null);
   };
 
+  // Quita la foto actual: si ya estaba subida al backend, la borra de verdad;
+  // si era solo una selección local sin guardar, solo limpia el estado.
+  const handleRemovePhoto = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (existingPhotoId) {
+      try {
+        await fuelService.deleteFuelPhoto(existingPhotoId);
+      } catch (err) {
+        console.error("Error borrando foto:", err);
+      }
+      setExistingPhotoId(null);
+    }
+    if (photoPreview && photo) URL.revokeObjectURL(photoPreview);
+    setPhoto(null);
+    setPhotoPreview(null);
+  };
+
   const handleEdit = (r) => {
     setForm({
       transaction_no: r.transaction_no || "",
-      fecha: new Date(r.fecha).toISOString().slice(0, 10),
-      hora: r.hora || fmtTime(r.fecha),
-      solicitante: r.solicitante || "",
+      fecha: new Date(r.filled_at).toISOString().slice(0, 10),
+      hora: fmtTimeInput(r.filled_at),
+      requester: r.requester || "",
       unidad: String(r.vehicle_id),
-      medida_valor: r.medida_valor ?? "",
-      medida_tipo: r.medida_tipo || "km",
-      galones: String(r.galones ?? ""),
-      nota: r.nota || "",
+      measurement_value: r.measurement_value ?? "",
+      measurement_type: r.measurement_type || "km",
+      gallons: String(r.gallons ?? ""),
+      notes: r.notes || "",
     });
     setEditingId(r.id);
     setPhoto(null);
-    setPhotoPreview(r.fotoUrl || null);
+    setPhotoPreview(getPhotoUrl(r));
+    setExistingPhotoId(r.photos?.at(-1)?.id ?? null);
     setShowForm(true);
+    setError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setError(null);
     try {
+      const filledAtISO = form.hora
+        ? new Date(`${form.fecha}T${form.hora}`).toISOString()
+        : new Date(form.fecha).toISOString();
+
       const payload = {
-        fecha: form.hora
-          ? new Date(`${form.fecha}T${form.hora}`).toISOString()
-          : new Date(form.fecha).toISOString(),
-        hora: form.hora,
-        solicitante: form.solicitante || null,
+        transaction_no: form.transaction_no || null,
+        filled_at: filledAtISO,
+        requester: form.requester || null,
         vehicle_id: parseInt(form.unidad),
-        combustible: "gasoil",
-        medida_valor: form.medida_valor ? parseFloat(form.medida_valor) : null,
-        medida_tipo: form.medida_tipo,
-        galones: parseFloat(form.galones),
-        nota: form.nota || null,
+        fuel_type: "gasoil",
+        measurement_value: form.measurement_value ? parseFloat(form.measurement_value) : null,
+        measurement_type: form.measurement_type,
+        gallons: parseFloat(form.gallons),
+        notes: form.notes || null,
         created_by: parseInt(user?.id),
       };
 
+      let recordId = editingId;
       if (editingId) {
         await fuelService.updateHeavyRefuel(editingId, payload);
-        setBanner(null);
       } else {
         const res = await fuelService.createHeavyRefuel(payload);
-        if (res?.id) payload.id = res.id;
+        recordId = res?.id;
+      }
+
+      let photoWarning = null;
+      if (recordId && photo) {
+        try {
+          await fuelService.uploadFuelPhoto({ targetType: "pesada", targetId: recordId, file: photo });
+        } catch (photoErr) {
+          const photoMsg =
+            photoErr.response?.data?.message || photoErr.message || "error desconocido";
+          photoWarning = `Carga guardada, pero la foto no se pudo subir: ${photoMsg}`;
+        }
       }
 
       resetForm();
       loadFillUps();
+      loadGasoilTank();
+      if (photoWarning) setError(photoWarning);
     } catch (err) {
-      if (isPendingTransaction(err)) {
-        const row = {
-          id: editingId || Date.now(),
-          transaction_no: form.transaction_no || "",
-          fecha: new Date(`${form.fecha}T${form.hora || "00:00"}`).toISOString(),
-          hora: form.hora,
-          solicitante: form.solicitante,
-          vehicle_id: parseInt(form.unidad),
-          galones: parseFloat(form.galones),
-          medida_valor: form.medida_valor ? parseFloat(form.medida_valor) : null,
-          medida_tipo: form.medida_tipo,
-          nota: form.nota,
-          combustible: "gasoil",
-          fotoUrl: photoPreview || null,
-          created_by: parseInt(user?.id),
-        };
-        let rows = readLocal();
-        if (editingId) rows = rows.map((r) => (r.id === editingId ? row : r));
-        else rows.push(row);
-        persistLocal(rows, err);
-        resetForm();
-      } else {
-        console.error("Error al guardar:", err);
-        alert("No se pudo guardar. Revise la consola.");
-      }
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error?.message ||
+        err.message ||
+        "Error al guardar";
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -230,25 +226,22 @@ const FuelHeavyFleet = () => {
 
   const handleDelete = async (r) => {
     const ok = await confirm(
-      `¿Eliminar la carga de la unidad ${r.vehiculo_codigo || r.vehicle_id}?`,
+      `¿Eliminar la carga de la unidad ${r.vehicle_code || r.vehicle_id}?`,
       { title: "Eliminar carga" },
     );
     if (!ok) return;
     try {
       await fuelService.deleteHeavyRefuel(r.id);
-      setBanner(null);
+      loadFillUps();
     } catch (err) {
-      if (isPendingTransaction(err)) {
-        writeLocal(readLocal().filter((x) => x.id !== r.id));
-        setFillUps(readLocal());
-      }
+      console.error("Error eliminando:", err);
     }
   };
 
   // ---------- Filters ----------
   const filteredFillUps = useMemo(() => {
     return fillUps.filter((r) => {
-      const d = new Date(r.fecha);
+      const d = new Date(r.filled_at);
       if (filters.from && d < new Date(filters.from)) return false;
       if (filters.to) {
         const to = new Date(filters.to);
@@ -257,14 +250,14 @@ const FuelHeavyFleet = () => {
       }
       if (filters.unitIds.length && !filters.unitIds.includes(Number(r.vehicle_id)))
         return false;
-      if (filters.requester && r.solicitante !== filters.requester) return false;
+      if (filters.requester && r.requester !== filters.requester) return false;
       return true;
     });
   }, [fillUps, filters]);
 
   const totals = useMemo(() => {
     let gallons = 0;
-    for (const r of filteredFillUps) gallons += parseFloat(r.galones) || 0;
+    for (const r of filteredFillUps) gallons += parseFloat(r.gallons) || 0;
     return {
       gallons: +gallons.toFixed(2),
       liters: +(gallons * GALLONS_TO_LITERS).toFixed(2),
@@ -284,11 +277,13 @@ const FuelHeavyFleet = () => {
 
   const vehicleName = (id) => {
     const v = heavyVehicles.find((x) => String(x.id) === String(id));
-    return v ? `${v.codigo} - ${v.nombre}` : `Unidad ${id}`;
+    return v ? `${v.code} - ${v.name}` : `Unidad ${id}`;
   };
 
   const getMeasurement = (r) =>
-    `${r.medida_valor ?? "-"} ${r.medida_tipo || ""}`;
+    `${r.measurement_value ?? "-"} ${r.measurement_type || ""}`;
+
+  const getPhotoUrl = (r) => resolvePhotoUrl(r.photos?.at(-1)?.url);
 
   // ---------- Excel ----------
   const exportExcel = async () => {
@@ -310,18 +305,18 @@ const FuelHeavyFleet = () => {
         sheetName: "Flota Pesada",
         headers,
         rows: filteredFillUps.map((r) => {
-          const gal = parseFloat(r.galones) || 0;
+          const gal = parseFloat(r.gallons) || 0;
           return [
             r.transaction_no || "",
-            fmtDate(r.fecha),
-            r.hora || fmtTime(r.fecha),
-            r.solicitante || "",
+            fmtDate(r.filled_at),
+            fmtTime(r.filled_at) || "-",
+            r.requester || "",
             vehicleName(r.vehicle_id),
-            r.combustible || "gasoil",
+            r.fuel_type || "gasoil",
             getMeasurement(r),
             gal,
             (gal * GALLONS_TO_LITERS).toFixed(2),
-            r.nota || "",
+            r.notes || "",
           ];
         }),
         totals: [
@@ -343,12 +338,6 @@ const FuelHeavyFleet = () => {
     }
   };
 
-  // ---------- Tanque gasoil (fase 2) ----------
-  const totalGasoil = fillUps.reduce(
-    (acc, r) => acc + (parseFloat(r.galones) || 0),
-    0,
-  );
-
   return (
     <PageLayout
       icon={Truck}
@@ -356,14 +345,11 @@ const FuelHeavyFleet = () => {
       subtitle={`GASOIL • ${new Date().toLocaleDateString()}`}
       accentColor="amber"
     >
-      {/* ---------- Banner modo local / aviso backend ---------- */}
-      {banner && (
-        <div className="mb-6 p-3 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm flex items-center justify-between gap-4">
-          <span>{banner}</span>
-          <button
-            onClick={clearBanner}
-            className="shrink-0 hover:opacity-70"
-          >
+      {/* ---------- Aviso de error ---------- */}
+      {error && (
+        <div className="mb-6 p-3 rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm flex items-center justify-between gap-4">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="shrink-0 hover:opacity-70">
             <X size={16} />
           </button>
         </div>
@@ -469,7 +455,7 @@ const FuelHeavyFleet = () => {
                             onChange={() => toggleUnitFilter(Number(v.id))}
                             className="accent-amber-500"
                           />
-                          {v.codigo} - {v.nombre}
+                          {v.code} - {v.name}
                         </label>
                       ))}
                       {heavyVehicles.length === 0 && (
@@ -504,35 +490,43 @@ const FuelHeavyFleet = () => {
         </CardContent>
       </Card>
 
-      {/* ---------- Estado del tanque de gasoil (fase 2) ---------- */}
+      {/* ---------- Estado del tanque de gasoil activo ---------- */}
       <Card className="mb-6">
         <CardContent className="p-5 flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-3">
             <Fuel size={26} className="text-amber-500 shrink-0" />
             <div>
               <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Tanque de gasoil
+                {gasoilTank ? gasoilTank.name : "Tanque de gasoil"}
               </p>
               <p className="text-lg font-black text-slate-900 dark:text-white">
-                {unit === "galones"
-                  ? `${totalGasoil.toFixed(2)} gal`
-                  : `${(totalGasoil * GALLONS_TO_LITERS).toFixed(2)} L`}{" "}
-                <span className="text-xs font-semibold text-slate-400">
-                  consumidos hasta ahora
-                </span>
+                {gasoilTank ? (
+                  <>
+                    {Math.round(gasoilTank.current_level_liters)} / {Math.round(gasoilTank.capacity_liters)} L
+                  </>
+                ) : (
+                  <span className="text-sm font-semibold text-slate-400">
+                    Sin tanque activo configurado
+                  </span>
+                )}
               </p>
             </div>
           </div>
-          <div className="flex-1 min-w-[200px]">
-            <TankBar
-              level={totalGasoil}
-              capacity={Math.max(totalGasoil * 1.4, 1)}
-            />
-          </div>
-          <p className="text-xs text-slate-400 max-w-[220px]">
-            Los abastecimientos (entradas) y el nivel disponible llegarán con el
-            módulo de tanque en la fase 2.
-          </p>
+          {gasoilTank && (
+            <div className="flex-1 min-w-[200px]">
+              <TankBar
+                level={gasoilTank.current_level_liters}
+                capacity={gasoilTank.capacity_liters}
+              />
+            </div>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => navigate("/fuel/tank")}
+            className="rounded-xl text-sm ml-auto"
+          >
+            Ver Tanque de Gasoil
+          </Button>
         </CardContent>
       </Card>
 
@@ -607,9 +601,9 @@ const FuelHeavyFleet = () => {
                     <Input
                       required
                       placeholder="Quién lo solicitó"
-                      value={form.solicitante}
+                      value={form.requester}
                       onChange={(e) =>
-                        setForm({ ...form, solicitante: e.target.value })
+                        setForm({ ...form, requester: e.target.value })
                       }
                     />
                   </div>
@@ -625,7 +619,7 @@ const FuelHeavyFleet = () => {
                       <option value="">Seleccionar...</option>
                       {heavyVehicles.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.codigo} - {v.nombre}
+                          {v.code} - {v.name}
                         </option>
                       ))}
                     </select>
@@ -649,15 +643,15 @@ const FuelHeavyFleet = () => {
                         type="number"
                         min="0"
                         placeholder="Ej: 12000"
-                        value={form.medida_valor}
+                        value={form.measurement_value}
                         onChange={(e) =>
-                          setForm({ ...form, medida_valor: e.target.value })
+                          setForm({ ...form, measurement_value: e.target.value })
                         }
                       />
                       <select
-                        value={form.medida_tipo}
+                        value={form.measurement_type}
                         onChange={(e) =>
-                          setForm({ ...form, medida_tipo: e.target.value })
+                          setForm({ ...form, measurement_type: e.target.value })
                         }
                         className="px-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
                       >
@@ -675,13 +669,13 @@ const FuelHeavyFleet = () => {
                       min="0"
                       step="0.01"
                       placeholder="Ej: 12.5"
-                      value={form.galones}
-                      onChange={(e) => setForm({ ...form, galones: e.target.value })}
+                      value={form.gallons}
+                      onChange={(e) => setForm({ ...form, gallons: e.target.value })}
                     />
-                    {form.galones && (
+                    {form.gallons && (
                       <p className="text-[11px] text-slate-400 flex items-center gap-1">
                         <Gauge size={12} />
-                        {(parseFloat(form.galones) * GALLONS_TO_LITERS).toFixed(2)} L
+                        {(parseFloat(form.gallons) * GALLONS_TO_LITERS).toFixed(2)} L
                       </p>
                     )}
                   </div>
@@ -690,20 +684,30 @@ const FuelHeavyFleet = () => {
                     <Label className="text-sm font-bold">Nota</Label>
                     <Input
                       placeholder="Detalle adicional..."
-                      value={form.nota}
-                      onChange={(e) => setForm({ ...form, nota: e.target.value })}
+                      value={form.notes}
+                      onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Foto (opcional)</Label>
-                    <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-amber-400 transition-colors overflow-hidden">
+                    <label className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-amber-400 transition-colors overflow-hidden">
                       {photoPreview ? (
-                        <img
-                          src={photoPreview}
-                          alt="Ticket"
-                          className="h-full w-full object-cover"
-                        />
+                        <>
+                          <img
+                            src={photoPreview}
+                            alt="Ticket"
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemovePhoto}
+                            title="Quitar foto"
+                            className="absolute top-1 right-1 h-6 w-6 flex items-center justify-center rounded-full bg-black/60 text-white hover:bg-red-600 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </>
                       ) : (
                         <>
                           <Camera size={22} className="text-slate-400" />
@@ -762,19 +766,20 @@ const FuelHeavyFleet = () => {
               <TableHead>Medida</TableHead>
               <TableHead>Combustible</TableHead>
               <TableHead>Galones</TableHead>
+              <TableHead>Foto</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={10} className="text-center py-8 text-slate-400">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : filteredFillUps.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={10} className="text-center py-8 text-slate-400">
                   No hay cargas pesadas registradas
                 </TableCell>
               </TableRow>
@@ -791,20 +796,32 @@ const FuelHeavyFleet = () => {
                   <TableCell className="text-sm font-mono text-amber-600 dark:text-amber-400">
                     {r.transaction_no || "—"}
                   </TableCell>
-                  <TableCell className="text-sm">{fmtDate(r.fecha)}</TableCell>
+                  <TableCell className="text-sm">{fmtDate(r.filled_at)}</TableCell>
                   <TableCell className="text-sm font-mono">
-                    {r.hora || fmtTime(r.fecha) || "-"}
+                    {fmtTime(r.filled_at) || "-"}
                   </TableCell>
-                  <TableCell className="text-sm">{r.solicitante || "-"}</TableCell>
+                  <TableCell className="text-sm">{r.requester || "-"}</TableCell>
                   <TableCell className="text-sm">{vehicleName(r.vehicle_id)}</TableCell>
                   <TableCell className="text-sm">{getMeasurement(r)}</TableCell>
                   <TableCell className="text-sm capitalize">
-                    {r.combustible || "gasoil"}
+                    {r.fuel_type || "gasoil"}
                   </TableCell>
                   <TableCell className="font-bold text-slate-900 dark:text-white text-sm">
                     {unit === "galones"
-                      ? `${r.galones} gal`
-                      : `${(parseFloat(r.galones) * GALLONS_TO_LITERS).toFixed(2)} L`}
+                      ? `${r.gallons} gal`
+                      : `${(parseFloat(r.gallons) * GALLONS_TO_LITERS).toFixed(2)} L`}
+                  </TableCell>
+                  <TableCell>
+                    {getPhotoUrl(r) ? (
+                      <img
+                        src={getPhotoUrl(r)}
+                        alt="Ticket"
+                        className="h-9 w-9 rounded-lg object-cover cursor-pointer"
+                        onClick={() => setDetail(r)}
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -878,36 +895,33 @@ const FuelHeavyFleet = () => {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <Info label="Transaction ID" value={detail.transaction_no || "-"} mono />
                 <Info label="Unidad" value={vehicleName(detail.vehicle_id)} />
-                <Info label="Fecha" value={fmtDate(detail.fecha)} />
-                <Info label="Hora" value={detail.hora || fmtTime(detail.fecha) || "-"} />
-                <Info label="Solicitante" value={detail.solicitante || "-"} />
-                <Info label="Combustible" value={detail.combustible || "gasoil"} />
+                <Info label="Fecha" value={fmtDate(detail.filled_at)} />
+                <Info label="Hora" value={fmtTime(detail.filled_at) || "-"} />
+                <Info label="Solicitante" value={detail.requester || "-"} />
+                <Info label="Combustible" value={detail.fuel_type || "gasoil"} />
                 <Info label="Medida" value={getMeasurement(detail)} />
                 <Info
                   label="Cantidad"
-                  value={`${detail.galones} gal (${(parseFloat(detail.galones) * GALLONS_TO_LITERS).toFixed(2)} L)`}
+                  value={`${detail.gallons} gal (${(parseFloat(detail.gallons) * GALLONS_TO_LITERS).toFixed(2)} L)`}
                 />
               </div>
 
-              {detail.nota && (
+              {detail.notes && (
                 <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                  <b>Nota:</b> {detail.nota}
+                  <b>Nota:</b> {detail.notes}
                 </p>
               )}
 
-              {detail.fotoUrl && (
-                <a
-                  href={detail.fotoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-4 block"
-                >
+              {getPhotoUrl(detail) ? (
+                <a href={getPhotoUrl(detail)} target="_blank" rel="noreferrer" className="mt-4 block">
                   <img
-                    src={detail.fotoUrl}
+                    src={getPhotoUrl(detail)}
                     alt="Ticket"
                     className="w-full max-h-72 object-contain rounded-2xl border border-slate-200 dark:border-slate-700"
                   />
                 </a>
+              ) : (
+                <p className="mt-4 text-xs text-slate-400">Sin foto adjunta</p>
               )}
             </motion.div>
           </motion.div>
