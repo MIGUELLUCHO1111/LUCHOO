@@ -15,14 +15,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password"];
+
 // Interceptor: maneja errores globales
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     const status = err.response?.status;
+    const isPublicRoute = PUBLIC_ROUTES.includes(window.location.pathname);
 
-    // Token expirado o inválido → limpiar y redirigir
-    if (status === 401 && localStorage.getItem("token")) {
+    // Sesión vencida o inválida (cookie o token) → mandar al login en vez de
+    // dejar la pantalla mostrando datos vacíos sin explicación. No aplica en
+    // rutas públicas: ahí un 401 es un intento de login fallido normal, que
+    // ya maneja su propio formulario.
+    if (status === 401 && !isPublicRoute) {
       localStorage.removeItem("token");
       window.location.href = "/login";
     }
