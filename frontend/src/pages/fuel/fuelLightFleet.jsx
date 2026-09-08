@@ -34,12 +34,6 @@ import { readJSON } from "@/lib/storage";
 
 const PEOPLE_STORAGE_KEY = "fullpetro_persons_local";
 
-const unwrapList = (res) => {
-  const d = res?.data;
-  const payload = d?.data !== undefined ? d.data : d;
-  return Array.isArray(payload) ? payload : payload?.rows || [];
-};
-
 const emptyForm = {
   vehicle_id: "",
   transaction_no: "",
@@ -107,7 +101,8 @@ const FuelLightFleet = () => {
   const loadPersons = async () => {
     try {
       const res = await personService.getAll();
-      setPersons(unwrapList(res));
+      const list = Array.isArray(res) ? res : [];
+      setPersons(list.map((p) => ({ ...p, id: p.id ?? p.person_id })));
     } catch (err) {
       console.warn("Personas no disponibles (backend pendiente):", err);
       // Fallback: registros locales creados desde Seguridad → Personas.
@@ -377,12 +372,13 @@ const FuelLightFleet = () => {
     }
   };
 
+  // Aproximación: el nivel actual = litros del último llenado registrado
+  // (refuels ya viene ordenado por fecha desc). No resta consumo entre
+  // llenados — cuando se lleve el kilometraje por unidad se podrá afinar.
   const getTankLevel = (vehicleId) => {
     const vehicle = vehicles.find((v) => v.id === vehicleId);
     const capacity = parseFloat(vehicle?.tank_capacity_liters || 0);
-    const lastRefuel = refuels.find(
-      (r) => r.vehicle_id === vehicleId && r.tank_full,
-    );
+    const lastRefuel = refuels.find((r) => r.vehicle_id === vehicleId);
     const liters = lastRefuel ? parseFloat(lastRefuel.liters) : 0;
     return { level: liters, capacity };
   };

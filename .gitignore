@@ -6,3 +6,6 @@ boot.log
 boot.err.log
 _tmp_diag2.mjs
 backend/uploads/
+
+# Trae credenciales reales del proveedor GPS (Foresight) en texto plano.
+ForesightFlexAPIv3_Consultas_Especificacion_Tecnica*.docx

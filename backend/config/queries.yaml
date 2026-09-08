@@ -841,5 +841,19 @@
     query: 'DELETE FROM public.fuel_foto WHERE id = $1 RETURNING id, url;',
     structure_params: { id: 'int' },
     orderArray: ['id']
+  },
+
+  # ---------- Reportes (resumen de combustible) ----------
+
+  'getFuelSummaryLiviana': {
+    query: 'SELECT c.vehicle_id, v.code, v.name, SUM(c.liters) AS liters, SUM(c.amount) AS amount, COUNT(*) AS count FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.filled_at BETWEEN $1 AND $2 AND c.deleted_at IS NULL GROUP BY c.vehicle_id, v.code, v.name ORDER BY v.code;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
+  },
+
+  'getFuelSummaryPesada': {
+    query: 'SELECT p.vehicle_id, v.code, v.name, SUM(p.gallons) AS gallons, COUNT(*) AS count FROM public.fuel_pesada p JOIN public.vehicle v ON p.vehicle_id = v.id WHERE p.filled_at BETWEEN $1 AND $2 AND p.deleted_at IS NULL GROUP BY p.vehicle_id, v.code, v.name ORDER BY v.code;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
   }
 }

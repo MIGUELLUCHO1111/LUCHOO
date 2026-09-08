@@ -24,6 +24,7 @@ const TX = {
   DELETE_TANK: 115,
   GET_MOVEMENTS_BY_TANK: 116,
   REGISTER_MOVEMENT: 117,
+  GET_FUEL_SUMMARY: 118,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -114,6 +115,11 @@ const fuelService = {
   },
   registerMovement(data) {
     return executeTransaction(TX.REGISTER_MOVEMENT, data).then(unwrap);
+  },
+
+  // ---------- Reportes (Fuel.Reporte, tx 118) ----------
+  getFuelSummary({ from, to }) {
+    return executeTransaction(TX.GET_FUEL_SUMMARY, { from, to }).then(unwrap);
   },
 
   // ---------- Fotos de llenado (fuera del dispatcher, multipart real) ----------

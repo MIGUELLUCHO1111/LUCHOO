@@ -79,8 +79,9 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Fuel', class_name: 'Vehiculo', method_name: 'updateVehiculo' },
     { sub_system: 'Fuel', class_name: 'Vehiculo', method_name: 'deleteVehiculo' },
   ],
-  // Reportes es 100% datos mock en el frontend hoy — sin BO que autorizar.
-  '/reports': [],
+  '/reports': [
+    { sub_system: 'Fuel', class_name: 'Reporte', method_name: 'getFuelSummary' },
+  ],
 };
 
 export class Option {
