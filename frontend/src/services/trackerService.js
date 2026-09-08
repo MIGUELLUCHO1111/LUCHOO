@@ -1,19 +1,22 @@
 import api, { executeTransaction, getCurrentProfile } from "./api";
 
+// Ids reales verificados contra la BD compartida tras mezclar con Fuel.Reporte
+// (tx 118, ya existente) -- todo se corrió +1 respecto a la rama original
+// (ver INTEGRACION_GPS_FORESIGHT.md / notas de merge del 08/09/2026).
 const TX = {
-  CREATE_UNIDAD: 118,
-  GET_ALL_UNIDADES: 119,
-  GET_UNIDAD_BY_ID: 120,
-  UPDATE_UNIDAD: 121,
-  DELETE_UNIDAD: 122,
-  GET_LATEST_SNAPSHOTS: 123,
-  SYNC_NOW: 124,
-  GET_RECENT_ALERTS: 125,
-  GENERAR_REPORTE: 126,
-  ARCHIVAR_AHORA: 127,
-  GET_ANALISIS_DEL_DIA: 128,
-  NOTIFICAR_CIERRE_DE_TURNO: 129,
-  VERIFICAR_ANEXO_SEGURIDAD: 130,
+  CREATE_UNIDAD: 119,
+  GET_ALL_UNIDADES: 120,
+  GET_UNIDAD_BY_ID: 121,
+  UPDATE_UNIDAD: 122,
+  DELETE_UNIDAD: 123,
+  GET_LATEST_SNAPSHOTS: 124,
+  SYNC_NOW: 125,
+  GET_RECENT_ALERTS: 126,
+  GENERAR_REPORTE: 127,
+  ARCHIVAR_AHORA: 128,
+  GET_ANALISIS_DEL_DIA: 129,
+  NOTIFICAR_CIERRE_DE_TURNO: 130,
+  VERIFICAR_ANEXO_SEGURIDAD: 131,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
