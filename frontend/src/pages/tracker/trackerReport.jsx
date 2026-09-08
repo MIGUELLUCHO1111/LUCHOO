@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { FileSpreadsheet, Download, Archive, BarChart3, Paperclip, Upload, Trash2, ExternalLink, Send } from "lucide-react";
-import { trackerService, resolveAttachmentUrl } from "@/services";
+import { FileSpreadsheet, Download, Archive, BarChart3, Paperclip, Upload, Trash2, ExternalLink, Send, FolderClock, RefreshCw } from "lucide-react";
+import { trackerService, resolveAttachmentUrl, resolveReportFileUrl } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { BarList } from "@/components/ui/barList";
@@ -43,6 +43,9 @@ const TrackerReport = () => {
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
 
+  const [reportFiles, setReportFiles] = useState([]);
+  const [loadingReportFiles, setLoadingReportFiles] = useState(true);
+
   const isNocturno = turno === "NOCTURNO";
 
   const loadReport = useCallback(async () => {
@@ -77,6 +80,22 @@ const TrackerReport = () => {
     setAnalisisError(null);
     loadAttachments();
   }, [fecha, loadAttachments]);
+
+  const loadReportFiles = useCallback(async () => {
+    setLoadingReportFiles(true);
+    try {
+      const res = await trackerService.listarReportesGenerados({ limit: 30 });
+      setReportFiles(Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error("Error cargando el historial de reportes:", err);
+    } finally {
+      setLoadingReportFiles(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReportFiles();
+  }, [loadReportFiles]);
 
   const handleGenerarAnalisis = async () => {
     setLoadingAnalisis(true);
@@ -113,7 +132,8 @@ const TrackerReport = () => {
     setNotifyMessage(null);
     try {
       const res = await trackerService.notificarCierreDeTurno({ fecha, turno });
-      setNotifyMessage(res.sent ? "Enviado a Telegram ✓" : `No se pudo enviar: ${res.reason || "desconocido"}`);
+      setNotifyMessage(res.sent ? "Enviado a Telegram ✓ (con el reporte adjunto)" : `No se pudo enviar: ${res.reason || "desconocido"}`);
+      await loadReportFiles();
     } catch (err) {
       setNotifyMessage(err.response?.data?.message || err.message || "Error al notificar");
     } finally {
@@ -302,6 +322,75 @@ const TrackerReport = () => {
         </>
       ) : null}
 
+      <div className="mt-10 pt-6 border-t border-slate-200 dark:border-white/10">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+            <FolderClock size={16} className="text-orange-500" />
+            Reportes generados
+          </h3>
+          <Button onClick={loadReportFiles} variant="outline" className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 text-sm">
+            <RefreshCw size={14} />
+            Actualizar
+          </Button>
+        </div>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mb-4 max-w-2xl">
+          Al cerrarse cada turno (9:05am, 2:05pm, 9:05pm) el Excel de ese cierre se genera y se guarda solo, aquí
+          mismo -- no hace falta reconstruirlo a mano para verlo o mandarlo: ya viene listo para descargar por
+          fecha, y llega adjunto en el mismo aviso de Telegram.
+        </p>
+
+        <Card className="w-full overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Turno</TableHead>
+                <TableHead>Total / Activas / Estac.</TableHead>
+                <TableHead>Generado</TableHead>
+                <TableHead>Telegram</TableHead>
+                <TableHead className="text-right">Descargar</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingReportFiles ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                </TableRow>
+              ) : reportFiles.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                    Todavía no se ha generado ningún reporte automático -- aparecerán aquí en cuanto cierre el próximo turno
+                  </TableCell>
+                </TableRow>
+              ) : (
+                reportFiles.map((f, i) => (
+                  <TableRow key={f.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+                    <TableCell className="text-sm font-mono">{formatFechaISO(f.fecha)}</TableCell>
+                    <TableCell className="text-sm font-bold">{TURNOS[f.turno]?.label || f.turno}</TableCell>
+                    <TableCell className="text-sm text-slate-500 dark:text-slate-400">
+                      {f.total} / {f.activas} / {f.estacionadas}
+                    </TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{formatHora(f.generated_at)}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${f.telegram_sent ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-500"}`}>
+                        {f.telegram_sent ? "Enviado" : "No enviado"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <a href={resolveReportFileUrl(f.url)} target="_blank" rel="noreferrer">
+                        <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg">
+                          <Download size={14} />
+                        </Button>
+                      </a>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
+
       {isNocturno && (
         <div className="mt-10 pt-6 border-t border-slate-200 dark:border-white/10">
           <div className="flex items-center justify-between mb-2">
@@ -465,7 +554,7 @@ const TrackerReport = () => {
         </div>
 
         <p className="text-xs text-slate-400 dark:text-slate-500 mt-6 mb-3 max-w-2xl">
-          Al cierre de cada turno (10:05am, 3:05pm, 10:05pm) se envía solo un resumen a Telegram, y a las
+          Al cierre de cada turno (9:05am, 2:05pm, 9:05pm) se envía solo un resumen a Telegram, y a las
           10:15pm un recordatorio si falta subir el PDF de seguridad. Estos botones son solo para probarlo ahora mismo.
         </p>
         <div className="flex flex-wrap items-center gap-3">

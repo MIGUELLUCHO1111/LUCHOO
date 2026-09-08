@@ -14,12 +14,16 @@ const TX = {
   GET_ANALISIS_DEL_DIA: 128,
   NOTIFICAR_CIERRE_DE_TURNO: 129,
   VERIFICAR_ANEXO_SEGURIDAD: 130,
+  LISTAR_REPORTES_GENERADOS: 131,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 /** Los anexos vienen como ruta relativa (`/tracker/attachments/file/...`); arma la URL completa. */
 export const resolveAttachmentUrl = (url) => (url ? `${API_BASE_URL}${url}` : null);
+
+/** Igual que resolveAttachmentUrl, para los Excel de reporte ya generados. */
+export const resolveReportFileUrl = (url) => (url ? `${API_BASE_URL}${url}` : null);
 
 const unwrap = (res) => {
   const d = res?.data;
@@ -65,6 +69,12 @@ const trackerService = {
 
   /** Envía por Telegram un recordatorio si falta subir el PDF de seguridad del día. */
   verificarAnexoSeguridad: async ({ fecha } = {}) => unwrap(await executeTransaction(TX.VERIFICAR_ANEXO_SEGURIDAD, { fecha })),
+
+  /**
+   * Historial de reportes de turno generados automáticamente (uno por
+   * fecha+turno al cerrarse cada turno), listos para descargar en un clic.
+   */
+  listarReportesGenerados: async ({ limit } = {}) => unwrap(await executeTransaction(TX.LISTAR_REPORTES_GENERADOS, { limit })),
 
   // ---------- Anexos del reporte diario (fuera del dispatcher, multipart real) ----------
 

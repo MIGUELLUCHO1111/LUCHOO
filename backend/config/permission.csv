@@ -129,3 +129,4 @@ id;sub_system;class;method;profile
 128;Tracker;Comportamiento;getAnalisisDelDia;admin
 129;Tracker;Notificador;notificarCierreDeTurno;admin
 130;Tracker;Notificador;verificarAnexoSeguridad;admin
+131;Tracker;ReporteArchivo;listar;admin

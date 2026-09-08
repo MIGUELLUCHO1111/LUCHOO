@@ -943,6 +943,32 @@
     orderArray: ['id']
   },
 
+  # ---------- Tracker GPS (archivos de reporte generados automaticamente) ----------
+
+  'upsertTrackerReportFile': {
+    query: 'INSERT INTO public.tracker_report_file (fecha, turno, filename, url, mime_type, size_bytes, total, activas, estacionadas, telegram_sent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (fecha, turno) DO UPDATE SET filename = EXCLUDED.filename, url = EXCLUDED.url, mime_type = EXCLUDED.mime_type, size_bytes = EXCLUDED.size_bytes, total = EXCLUDED.total, activas = EXCLUDED.activas, estacionadas = EXCLUDED.estacionadas, telegram_sent = EXCLUDED.telegram_sent, generated_at = NOW() RETURNING id, fecha, turno, filename, url, mime_type, size_bytes, total, activas, estacionadas, telegram_sent, generated_at;',
+    structure_params: { fecha: 'string', turno: 'string', filename: 'string', url: 'string', mime_type: 'string', size_bytes: 'int|null', total: 'int|null', activas: 'int|null', estacionadas: 'int|null', telegram_sent: 'boolean' },
+    orderArray: ['fecha', 'turno', 'filename', 'url', 'mime_type', 'size_bytes', 'total', 'activas', 'estacionadas', 'telegram_sent']
+  },
+
+  'getTrackerReportFiles': {
+    query: 'SELECT id, fecha, turno, filename, url, size_bytes, total, activas, estacionadas, telegram_sent, generated_at FROM public.tracker_report_file ORDER BY fecha DESC, turno ASC LIMIT $1;',
+    structure_params: { limit: 'int' },
+    orderArray: ['limit']
+  },
+
+  'getTrackerReportFileByFechaTurno': {
+    query: 'SELECT id, fecha, turno, filename, url, mime_type FROM public.tracker_report_file WHERE fecha = $1 AND turno = $2;',
+    structure_params: { fecha: 'string', turno: 'string' },
+    orderArray: ['fecha', 'turno']
+  },
+
+  'markTrackerReportFileNotified': {
+    query: 'UPDATE public.tracker_report_file SET telegram_sent = TRUE WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
   # ---------- Tracker GPS (retencion / archivado) ----------
 
   'getDistinctOldSnapshotDates': {

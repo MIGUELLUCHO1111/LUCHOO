@@ -93,9 +93,9 @@ export function startTrackerScheduler() {
   const notificador = new Notificador();
 
   const NOTIFY_CRON_DEFAULTS = {
-    MATUTINO: '5 10 * * *', // 10:05am -- 5 min después de cerrar la ventana 9-10am
-    VESPERTINO: '5 15 * * *', // 3:05pm
-    NOCTURNO: '5 22 * * *', // 10:05pm
+    MATUTINO: '5 9 * * *', // 9:05am
+    VESPERTINO: '5 14 * * *', // 2:05pm
+    NOCTURNO: '5 21 * * *', // 9:05pm
   };
 
   for (const turno of Object.keys(TURNOS)) {

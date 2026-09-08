@@ -1,7 +1,7 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import TelegramClient from '../../../tracker/telegramClient.js';
-import Reporte from './reporte.js';
+import ReporteArchivo from './reporteArchivo.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -15,31 +15,36 @@ class Notificador {
     this.dbms = new DBMS();
     this.dbmsReady = this.dbms.init();
     this.telegram = new TelegramClient();
-    this.reporte = new Reporte();
+    this.reporteArchivo = new ReporteArchivo();
   }
 
-  // Se llama al cierre de cada ventana de turno (10:05am, 3:05pm, 10:05pm
+  // Se llama al cierre de cada ventana de turno (9:05am, 2:05pm, 9:05pm
   // hora Venezuela, ver scheduler.js). También expuesta por el dispatcher
-  // para poder probarla a mano sin esperar al horario real.
+  // para poder probarla a mano sin esperar al horario real. Genera y guarda
+  // el Excel del turno (queda en el historial, ver ReporteArchivo) y lo
+  // manda adjunto en el mismo mensaje de Telegram.
   notificarCierreDeTurno = async ({ turno, fecha } = {}) => {
     await this.dbmsReady;
 
     const resolvedFecha = fecha || veDateISO();
-    const resultado = await this.reporte.generarReporte({ fecha: resolvedFecha, turno });
-    const r = resultado.data;
+    const { archivo, reporte: r, buffer } = await this.reporteArchivo.generarYGuardar({ fecha: resolvedFecha, turno });
 
     const mensaje =
       `📋 Reporte ${r.turno} listo (${r.fecha})\n` +
       `Total: ${r.total} · Activas: ${r.activas} · Estacionadas: ${r.estacionadas}\n` +
       `Corte: ${r.turno_label}\n` +
-      `Ábrelo en la app para el detalle completo.`;
+      `El Excel va adjunto -- también queda guardado en Reporte de Turno → Reportes generados.`;
 
-    const notifyResult = await this.telegram.sendMessage(mensaje);
+    const notifyResult = await this.telegram.sendDocument({ buffer, filename: archivo?.filename, caption: mensaje });
+
+    if (notifyResult.sent && archivo?.id) {
+      await this.dbms.executeNamedQuery({ nameQuery: 'markTrackerReportFileNotified', params: { id: archivo.id } });
+    }
 
     return {
       statusCode: STATUS_CODES.OK,
-      data: { ...notifyResult, mensaje },
-      message: notifyResult.sent ? 'Notificación de cierre de turno enviada' : 'No se pudo enviar la notificación',
+      data: { ...notifyResult, mensaje, archivo },
+      message: notifyResult.sent ? 'Notificación de cierre de turno enviada (con el reporte adjunto)' : 'No se pudo enviar la notificación',
     };
   };
 
