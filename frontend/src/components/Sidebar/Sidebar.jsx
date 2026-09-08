@@ -153,7 +153,7 @@ export const Sidebar = () => {
       label: "Tracker GPS",
       children: [
         { title: "Estado", url: "/tracker" },
-        { title: "Alertas", url: "/tracker/alerts" },
+        { title: "Notificaciones", url: "/tracker/alerts" },
         { title: "Mapa en vivo", url: "/tracker/map" },
         { title: "Reporte de Turno", url: "/tracker/report" },
       ],

@@ -1017,7 +1017,7 @@
   },
 
   'getRecentTrackerAlerts': {
-    query: 'SELECT a.id, a.unit_id, u.code AS unit_code, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id ORDER BY a.triggered_at DESC LIMIT 100;',
+    query: 'SELECT a.id, a.unit_id, u.code AS unit_code, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at, s.latitude, s.longitude FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id LEFT JOIN public.tracker_snapshot s ON s.id = a.snapshot_id ORDER BY a.triggered_at DESC LIMIT 100;',
     structure_params: {},
     orderArray: []
   },
