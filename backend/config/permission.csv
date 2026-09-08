@@ -116,3 +116,16 @@ id;sub_system;class;method;profile
 115;Fuel;Tanque;deleteTank;admin
 116;Fuel;Tanque;getMovementsByTank;admin
 117;Fuel;Tanque;registerMovement;admin
+118;Tracker;Unidad;createUnidad;admin
+119;Tracker;Unidad;getAllUnidades;admin
+120;Tracker;Unidad;getUnidadById;admin
+121;Tracker;Unidad;updateUnidad;admin
+122;Tracker;Unidad;deleteUnidad;admin
+123;Tracker;Snapshot;getLatestSnapshots;admin
+124;Tracker;Snapshot;syncNow;admin
+125;Tracker;Alerta;getRecentAlerts;admin
+126;Tracker;Reporte;generarReporte;admin
+127;Tracker;Archivo;archivarAhora;admin
+128;Tracker;Comportamiento;getAnalisisDelDia;admin
+129;Tracker;Notificador;notificarCierreDeTurno;admin
+130;Tracker;Notificador;verificarAnexoSeguridad;admin

@@ -841,5 +841,157 @@
     query: 'DELETE FROM public.fuel_foto WHERE id = $1 RETURNING id, url;',
     structure_params: { id: 'int' },
     orderArray: ['id']
+  },
+
+  # ---------- Tracker GPS (Fase 1: motor de datos) ----------
+
+  'createTrackerUnit': {
+    query: 'INSERT INTO public.tracker_unit (code, plate, driver_name) VALUES ($1, $2, $3) RETURNING id, code, plate, driver_name, is_active;',
+    structure_params: { code: 'string', plate: 'string|null', driver_name: 'string|null' },
+    orderArray: ['code', 'plate', 'driver_name']
+  },
+
+  'getTrackerUnitById': {
+    query: 'SELECT id, code, plate, driver_name, is_active FROM public.tracker_unit WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllTrackerUnits': {
+    query: 'SELECT id, code, plate, driver_name, is_active FROM public.tracker_unit WHERE deleted_at IS NULL ORDER BY code;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'updateTrackerUnit': {
+    query: 'UPDATE public.tracker_unit SET plate = $2, driver_name = $3, is_active = $4 WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, plate, driver_name, is_active;',
+    structure_params: { id: 'int', plate: 'string|null', driver_name: 'string|null', is_active: 'boolean' },
+    orderArray: ['id', 'plate', 'driver_name', 'is_active']
+  },
+
+  'deleteTrackerUnit': {
+    query: 'UPDATE public.tracker_unit SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getLocationCategory': {
+    query: 'SELECT location_text, category FROM public.tracker_location_category WHERE location_text = $1;',
+    structure_params: { location_text: 'string' },
+    orderArray: ['location_text']
+  },
+
+  'upsertLocationCategoryAsOtras': {
+    query: "INSERT INTO public.tracker_location_category (location_text, category) VALUES ($1, 'OTRAS') ON CONFLICT (location_text) DO NOTHING;",
+    structure_params: { location_text: 'string' },
+    orderArray: ['location_text']
+  },
+
+  'getAllLocationCategories': {
+    query: 'SELECT id, location_text, category FROM public.tracker_location_category ORDER BY category, location_text;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'insertTrackerSnapshot': {
+    query: 'INSERT INTO public.tracker_snapshot (unit_id, plate, gps_name, location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, raw_response) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb) RETURNING id;',
+    structure_params: { unit_id: 'int|null', plate: 'string|null', gps_name: 'string|null', location_text: 'string|null', latitude: 'number|null', longitude: 'number|null', speed: 'number|null', ignition: 'boolean|null', status: 'string', is_stale: 'boolean', last_report_at: 'string|null', raw_response: 'string|null' },
+    orderArray: ['unit_id', 'plate', 'gps_name', 'location_text', 'latitude', 'longitude', 'speed', 'ignition', 'status', 'is_stale', 'last_report_at', 'raw_response']
+  },
+
+  'getLatestSnapshots': {
+    query: 'SELECT DISTINCT ON (s.plate) s.id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, ''OTRAS'') AS location_category FROM public.tracker_snapshot s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = s.location_text ORDER BY s.plate, s.fetched_at DESC;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'getActivePlatesForDate': {
+    query: "SELECT DISTINCT plate FROM public.tracker_snapshot WHERE (fetched_at AT TIME ZONE 'America/Caracas')::date = $1 AND is_stale = FALSE AND plate IS NOT NULL;",
+    structure_params: { fecha: 'string' },
+    orderArray: ['fecha']
+  },
+
+  # ---------- Tracker GPS (anexos del reporte diario) ----------
+
+  'insertTrackerAttachment': {
+    query: 'INSERT INTO public.tracker_daily_attachment (fecha, tipo, filename, url, mime_type, size_bytes, uploaded_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, fecha, tipo, filename, url, mime_type, size_bytes, uploaded_at;',
+    structure_params: { fecha: 'string', tipo: 'string', filename: 'string', url: 'string', mime_type: 'string|null', size_bytes: 'int|null', uploaded_by: 'int|null' },
+    orderArray: ['fecha', 'tipo', 'filename', 'url', 'mime_type', 'size_bytes', 'uploaded_by']
+  },
+
+  'getTrackerAttachmentsByFecha': {
+    query: 'SELECT id, fecha, tipo, filename, url, mime_type, size_bytes, uploaded_at FROM public.tracker_daily_attachment WHERE fecha = $1 ORDER BY uploaded_at DESC;',
+    structure_params: { fecha: 'string' },
+    orderArray: ['fecha']
+  },
+
+  'getTrackerAttachmentById': {
+    query: 'SELECT id, fecha, tipo, filename, url, mime_type, size_bytes FROM public.tracker_daily_attachment WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'deleteTrackerAttachment': {
+    query: 'DELETE FROM public.tracker_daily_attachment WHERE id = $1 RETURNING id, url;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Tracker GPS (retencion / archivado) ----------
+
+  'getDistinctOldSnapshotDates': {
+    query: "SELECT DISTINCT (fetched_at AT TIME ZONE 'America/Caracas')::date AS fecha FROM public.tracker_snapshot WHERE fetched_at < $1 ORDER BY fecha;",
+    structure_params: { cutoff: 'string' },
+    orderArray: ['cutoff']
+  },
+
+  'deleteOldSnapshots': {
+    query: 'DELETE FROM public.tracker_snapshot WHERE fetched_at < $1;',
+    structure_params: { cutoff: 'string' },
+    orderArray: ['cutoff']
+  },
+
+  'upsertSnapshotSummary': {
+    query: 'INSERT INTO public.tracker_snapshot_summary (fecha, turno, unit_id, plate, gps_name, location_text, location_category, latitude, longitude, speed, ignition, status, is_stale, last_report_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT (fecha, turno, plate) DO UPDATE SET unit_id = EXCLUDED.unit_id, gps_name = EXCLUDED.gps_name, location_text = EXCLUDED.location_text, location_category = EXCLUDED.location_category, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, speed = EXCLUDED.speed, ignition = EXCLUDED.ignition, status = EXCLUDED.status, is_stale = EXCLUDED.is_stale, last_report_at = EXCLUDED.last_report_at, archived_at = NOW();',
+    structure_params: { fecha: 'string', turno: 'string', unit_id: 'int|null', plate: 'string|null', gps_name: 'string|null', location_text: 'string|null', location_category: 'string|null', latitude: 'number|null', longitude: 'number|null', speed: 'number|null', ignition: 'boolean|null', status: 'string|null', is_stale: 'boolean|null', last_report_at: 'string|null' },
+    orderArray: ['fecha', 'turno', 'unit_id', 'plate', 'gps_name', 'location_text', 'location_category', 'latitude', 'longitude', 'speed', 'ignition', 'status', 'is_stale', 'last_report_at']
+  },
+
+  'getSnapshotSummary': {
+    query: "SELECT s.id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(s.location_category, 'OTRAS') AS location_category FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL WHERE s.fecha = $1 AND s.turno = $2 ORDER BY s.plate;",
+    structure_params: { fecha: 'string', turno: 'string' },
+    orderArray: ['fecha', 'turno']
+  },
+
+  'getSnapshotsInWindow': {
+    query: 'SELECT DISTINCT ON (s.plate) s.id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, ''OTRAS'') AS location_category FROM public.tracker_snapshot s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = s.location_text WHERE s.fetched_at BETWEEN $1 AND $2 ORDER BY s.plate, s.fetched_at DESC;',
+    structure_params: { window_start: 'string', window_end: 'string' },
+    orderArray: ['window_start', 'window_end']
+  },
+
+  # ---------- Tracker GPS (Fase 2: alertas) ----------
+
+  'getOpenTrackerAlert': {
+    query: 'SELECT id FROM public.tracker_alert WHERE unit_id IS NOT DISTINCT FROM $1 AND plate IS NOT DISTINCT FROM $2 AND alert_type = $3 AND resolved_at IS NULL ORDER BY triggered_at DESC LIMIT 1;',
+    structure_params: { unit_id: 'int|null', plate: 'string|null', alert_type: 'string' },
+    orderArray: ['unit_id', 'plate', 'alert_type']
+  },
+
+  'createTrackerAlert': {
+    query: 'INSERT INTO public.tracker_alert (unit_id, plate, alert_type, message, snapshot_id, notified, notify_error) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;',
+    structure_params: { unit_id: 'int|null', plate: 'string|null', alert_type: 'string', message: 'string', snapshot_id: 'int|null', notified: 'boolean', notify_error: 'string|null' },
+    orderArray: ['unit_id', 'plate', 'alert_type', 'message', 'snapshot_id', 'notified', 'notify_error']
+  },
+
+  'resolveOpenTrackerAlerts': {
+    query: 'UPDATE public.tracker_alert SET resolved_at = NOW() WHERE unit_id IS NOT DISTINCT FROM $1 AND plate IS NOT DISTINCT FROM $2 AND alert_type = $3 AND resolved_at IS NULL;',
+    structure_params: { unit_id: 'int|null', plate: 'string|null', alert_type: 'string' },
+    orderArray: ['unit_id', 'plate', 'alert_type']
+  },
+
+  'getRecentTrackerAlerts': {
+    query: 'SELECT a.id, a.unit_id, u.code AS unit_code, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id ORDER BY a.triggered_at DESC LIMIT 100;',
+    structure_params: {},
+    orderArray: []
   }
 }

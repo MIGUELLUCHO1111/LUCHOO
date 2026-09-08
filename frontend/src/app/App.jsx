@@ -12,7 +12,10 @@ import {
   FuelLightFleet,
   FuelHeavyFleet,
   FuelTank,
-  Vehicles
+  Vehicles,
+  Tracker,
+  TrackerMapPage,
+  TrackerReport
 } from "@/pages";
 
 import { AuthProvider, ConfirmProvider } from "@/context";
@@ -37,6 +40,9 @@ function App() {
             <Route path="/fuel/heavy" element={<FuelHeavyFleet />} />
             <Route path="/fuel/tank" element={<FuelTank />} />
             <Route path="/fuel/vehicles" element={<Vehicles />} />
+            <Route path="/tracker" element={<Tracker />} />
+            <Route path="/tracker/map" element={<TrackerMapPage />} />
+            <Route path="/tracker/report" element={<TrackerReport />} />
             <Route path="/reports" element={<Reports />} />
           </Route>
 
