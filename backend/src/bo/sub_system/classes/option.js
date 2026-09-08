@@ -79,6 +79,30 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Fuel', class_name: 'Vehiculo', method_name: 'updateVehiculo' },
     { sub_system: 'Fuel', class_name: 'Vehiculo', method_name: 'deleteVehiculo' },
   ],
+  '/tracker': [
+    { sub_system: 'Tracker', class_name: 'Unidad', method_name: 'createUnidad' },
+    { sub_system: 'Tracker', class_name: 'Unidad', method_name: 'getAllUnidades' },
+    { sub_system: 'Tracker', class_name: 'Unidad', method_name: 'getUnidadById' },
+    { sub_system: 'Tracker', class_name: 'Unidad', method_name: 'updateUnidad' },
+    { sub_system: 'Tracker', class_name: 'Unidad', method_name: 'deleteUnidad' },
+    { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'getLatestSnapshots' },
+    { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'syncNow' },
+    { sub_system: 'Tracker', class_name: 'Alerta', method_name: 'getRecentAlerts' },
+  ],
+  '/tracker/alerts': [
+    { sub_system: 'Tracker', class_name: 'Alerta', method_name: 'getRecentAlerts' },
+  ],
+  '/tracker/map': [
+    { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'getLatestSnapshots' },
+    { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'syncNow' },
+  ],
+  '/tracker/report': [
+    { sub_system: 'Tracker', class_name: 'Reporte', method_name: 'generarReporte' },
+    { sub_system: 'Tracker', class_name: 'Archivo', method_name: 'archivarAhora' },
+    { sub_system: 'Tracker', class_name: 'Comportamiento', method_name: 'getAnalisisDelDia' },
+    { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'notificarCierreDeTurno' },
+    { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'verificarAnexoSeguridad' },
+  ],
   '/reports': [
     { sub_system: 'Fuel', class_name: 'Reporte', method_name: 'getFuelSummary' },
   ],

@@ -7,6 +7,7 @@ import {
   X,
   ChevronDown,
   Fuel,
+  Radio,
 } from "lucide-react";
 import { useAuth } from "@/context";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -145,6 +146,16 @@ export const Sidebar = () => {
         { title: "Pesada", url: "/fuel/heavy" },
         { title: "Tanque", url: "/fuel/tank" },
         { title: "Unidades", url: "/fuel/vehicles" },
+      ],
+    },
+    {
+      icon: Radio,
+      label: "Tracker GPS",
+      children: [
+        { title: "Estado", url: "/tracker" },
+        { title: "Alertas", url: "/tracker/alerts" },
+        { title: "Mapa en vivo", url: "/tracker/map" },
+        { title: "Reporte de Turno", url: "/tracker/report" },
       ],
     },
     { icon: BarChart3, label: "Reportes", url: "/reports" },

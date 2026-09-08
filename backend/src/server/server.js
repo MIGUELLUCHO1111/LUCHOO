@@ -10,7 +10,9 @@ import userRouter from '../session/sessionRoutes.js';
 import Security from '../security/security.js';
 import dispatcherRouter from '../dispatcher/dispatcherRoutes.js';
 import fuelPhotoRouter from '../fuel/fuelPhotoRoutes.js';
+import trackerAttachmentRouter from '../tracker/trackerAttachmentRoutes.js';
 import authMiddleware from '../auth/authMiddleware.js';
+import { startTrackerScheduler } from '../tracker/scheduler.js';
 
 dotenv.config();
 
@@ -76,6 +78,7 @@ class Server {
     this.app.use('/', dispatcherRouter);
     this.app.use('/user', userRouter);
     this.app.use('/fuel', fuelPhotoRouter);
+    this.app.use('/tracker', trackerAttachmentRouter);
   }
 
   async init() {
@@ -83,6 +86,7 @@ class Server {
     await this.security.syncPermissions();
     await this.security.syncTransactions();
     await this.security.syncUserProfiles();
+    startTrackerScheduler();
   }
 
   start() {
