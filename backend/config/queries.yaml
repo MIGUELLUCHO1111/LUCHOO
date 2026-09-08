@@ -899,8 +899,14 @@
     orderArray: ['unit_id', 'plate', 'gps_name', 'location_text', 'latitude', 'longitude', 'speed', 'ignition', 'status', 'is_stale', 'last_report_at', 'raw_response']
   },
 
+  # "Total" = flota que la API confirma con GPS funcionando (is_stale = false)
+  # ahora mismo -- 100% automático, no depende de que la tabla interna de
+  # unidades tenga la placa correcta. Esa tabla solo se usa aquí para
+  # "enriquecer" con el código interno (FP-XXX) y el conductor cuando la
+  # placa sí coincide; si no coincide, la unidad igual aparece ("sin
+  # registrar") mientras tenga GPS real y reciente.
   'getLatestSnapshots': {
-    query: 'SELECT DISTINCT ON (s.plate) s.id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, ''OTRAS'') AS location_category FROM public.tracker_snapshot s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = s.location_text ORDER BY s.plate, s.fetched_at DESC;',
+    query: "WITH latest AS (SELECT DISTINCT ON (plate) * FROM public.tracker_snapshot WHERE is_stale = FALSE ORDER BY plate, fetched_at DESC) SELECT l.id, l.plate, l.gps_name, l.location_text, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, 'OTRAS') AS location_category FROM latest l LEFT JOIN public.tracker_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = l.location_text ORDER BY u.code NULLS LAST, l.plate;",
     structure_params: {},
     orderArray: []
   },
@@ -958,13 +964,13 @@
   },
 
   'getSnapshotSummary': {
-    query: "SELECT s.id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(s.location_category, 'OTRAS') AS location_category FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL WHERE s.fecha = $1 AND s.turno = $2 ORDER BY s.plate;",
+    query: "SELECT s.id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(s.location_category, 'OTRAS') AS location_category FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL WHERE s.fecha = $1 AND s.turno = $2 AND s.is_stale = FALSE ORDER BY u.code NULLS LAST, s.plate;",
     structure_params: { fecha: 'string', turno: 'string' },
     orderArray: ['fecha', 'turno']
   },
 
   'getSnapshotsInWindow': {
-    query: 'SELECT DISTINCT ON (s.plate) s.id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, ''OTRAS'') AS location_category FROM public.tracker_snapshot s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = s.location_text WHERE s.fetched_at BETWEEN $1 AND $2 ORDER BY s.plate, s.fetched_at DESC;',
+    query: "WITH win AS (SELECT DISTINCT ON (plate) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 AND is_stale = FALSE ORDER BY plate, fetched_at DESC) SELECT w.id, w.plate, w.gps_name, w.location_text, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, 'OTRAS') AS location_category FROM win w LEFT JOIN public.tracker_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = w.location_text ORDER BY u.code NULLS LAST, w.plate;",
     structure_params: { window_start: 'string', window_end: 'string' },
     orderArray: ['window_start', 'window_end']
   },

@@ -14,6 +14,7 @@ import {
   FuelTank,
   Vehicles,
   Tracker,
+  TrackerAlerts,
   TrackerMapPage,
   TrackerReport
 } from "@/pages";
@@ -41,6 +42,7 @@ function App() {
             <Route path="/fuel/tank" element={<FuelTank />} />
             <Route path="/fuel/vehicles" element={<Vehicles />} />
             <Route path="/tracker" element={<Tracker />} />
+            <Route path="/tracker/alerts" element={<TrackerAlerts />} />
             <Route path="/tracker/map" element={<TrackerMapPage />} />
             <Route path="/tracker/report" element={<TrackerReport />} />
             <Route path="/reports" element={<Reports />} />

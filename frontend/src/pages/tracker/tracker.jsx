@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Radio, RefreshCw, Plus, X, Pencil, Trash2, BellRing } from "lucide-react";
+import { Radio, RefreshCw, Plus, X, Pencil, Trash2 } from "lucide-react";
 import { trackerService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
-import { CATEGORY_STYLES, formatHora } from "@/lib/trackerFormat";
+import { CATEGORY_STYLES, formatHora, statusBadgeClass, statusLabel } from "@/lib/trackerFormat";
 
 const Tracker = () => {
   const confirm = useConfirm();
@@ -33,23 +33,10 @@ const Tracker = () => {
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ code: "", plate: "", driver_name: "" });
 
-  const [alerts, setAlerts] = useState([]);
-  const [showAlerts, setShowAlerts] = useState(false);
-
   useEffect(() => {
     loadSnapshots();
     loadUnidades();
-    loadAlerts();
   }, []);
-
-  const loadAlerts = async () => {
-    try {
-      const res = await trackerService.getRecentAlerts();
-      setAlerts(Array.isArray(res) ? res : []);
-    } catch (err) {
-      console.error("Error cargando alertas:", err);
-    }
-  };
 
   const loadSnapshots = async () => {
     try {
@@ -80,7 +67,6 @@ const Tracker = () => {
         `${res?.total_recibidas ?? 0} unidades recibidas de la API · ${res?.cruzadas_con_tabla_interna ?? 0} cruzadas con la tabla interna`
       );
       await loadSnapshots();
-      await loadAlerts();
     } catch (err) {
       setSyncMessage(err.response?.data?.message || err.message || "Error al sincronizar");
     } finally {
@@ -154,8 +140,8 @@ const Tracker = () => {
   return (
     <PageLayout
       icon={Radio}
-      title="Tracker GPS de Flota"
-      subtitle={`ÚLTIMA LECTURA GUARDADA • ${new Date().toLocaleDateString()}`}
+      title="Estado de Flota"
+      subtitle={`TRACKER GPS • ÚLTIMA LECTURA GUARDADA • ${new Date().toLocaleDateString()}`}
       accentColor="orange"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -212,7 +198,7 @@ const Tracker = () => {
               </TableRow>
             ) : (
               snapshots.map((s, i) => (
-                <TableRow key={s.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+                <TableRow key={s.unit_id ?? `p-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
                   <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
                     {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
                   </TableCell>
@@ -235,8 +221,8 @@ const Tracker = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${s.status === "ACTIVO" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
-                      {s.status}
+                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${statusBadgeClass(s.status)}`}>
+                      {statusLabel(s.status)}
                     </span>
                   </TableCell>
                 </TableRow>
@@ -245,67 +231,6 @@ const Tracker = () => {
           </TableBody>
         </Table>
       </Card>
-
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-          <BellRing size={18} className="text-orange-500" />
-          Alertas recientes
-        </h3>
-        <Button variant="outline" onClick={() => setShowAlerts(!showAlerts)} className="rounded-xl text-sm">
-          {showAlerts ? "Ocultar" : `Ver (${alerts.length})`}
-        </Button>
-      </div>
-
-      {showAlerts && (
-        <Card className="w-full overflow-hidden mb-8">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Unidad</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Mensaje</TableHead>
-                <TableHead>Notificada</TableHead>
-                <TableHead>Estado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {alerts.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-slate-400">
-                    Sin alertas registradas todavía
-                  </TableCell>
-                </TableRow>
-              ) : (
-                alerts.map((a, i) => (
-                  <TableRow key={a.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
-                    <TableCell className="text-sm whitespace-nowrap">{formatHora(a.triggered_at)}</TableCell>
-                    <TableCell className="text-sm">{a.unit_code || a.plate || "-"}</TableCell>
-                    <TableCell className="text-sm">
-                      <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-orange-500/10 text-orange-600">
-                        {a.alert_type === "fuera_de_horario" ? "Fuera de horario" : "Fuera de zona"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-xs max-w-md whitespace-pre-line text-slate-500 dark:text-slate-400">
-                      {a.message}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${a.notified ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
-                        {a.notified ? "Sí" : "No"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${a.resolved_at ? "bg-slate-500/10 text-slate-500" : "bg-red-500/10 text-red-600"}`}>
-                        {a.resolved_at ? "Resuelta" : "Activa"}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
 
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-slate-900 dark:text-white">

@@ -8,6 +8,25 @@ export const CATEGORY_STYLES = {
   OTRAS: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
 };
 
+// Estado de cada unidad frente al total de la flota registrada: ACTIVO/
+// ESTACIONADO vienen de una lectura real; SIN_DATOS es una unidad registrada
+// que no reportó nada en la ventana consultada (no cuenta como estacionada:
+// simplemente no hay información).
+export const STATUS_LABELS = {
+  ACTIVO: "ACTIVO",
+  ESTACIONADO: "ESTACIONADO",
+  SIN_DATOS: "SIN DATOS",
+};
+
+export const STATUS_BADGE_STYLES = {
+  ACTIVO: "bg-emerald-500/10 text-emerald-600",
+  ESTACIONADO: "bg-red-500/10 text-red-600",
+  SIN_DATOS: "bg-slate-500/10 text-slate-500",
+};
+
+export const statusBadgeClass = (status) => STATUS_BADGE_STYLES[status] || STATUS_BADGE_STYLES.SIN_DATOS;
+export const statusLabel = (status) => STATUS_LABELS[status] || status;
+
 export const formatHora = (iso) => {
   if (!iso) return "-";
   try {
@@ -49,4 +68,18 @@ export function detectTurnoActual(date = new Date()) {
 /** Fecha de hoy en Venezuela, formato YYYY-MM-DD (para <input type="date">). */
 export function veTodayISO(date = new Date()) {
   return date.toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
+}
+
+/**
+ * Formatea una fecha "pura" YYYY-MM-DD (sin hora) a DD/MM/YYYY.
+ * A propósito NO usa `new Date(fechaStr)`: eso la interpreta como medianoche
+ * UTC y `toLocaleDateString` la vuelve a convertir a la hora local del
+ * navegador, lo que puede mostrar el día anterior según la zona horaria de
+ * la máquina. Aquí se recorta el texto directamente, sin pasar por Date.
+ */
+export function formatFechaISO(fechaStr) {
+  if (!fechaStr) return "-";
+  const [y, m, d] = String(fechaStr).slice(0, 10).split("-");
+  if (!y || !m || !d) return fechaStr;
+  return `${d}/${m}/${y}`;
 }

@@ -152,7 +152,8 @@ export const Sidebar = () => {
       icon: Radio,
       label: "Tracker GPS",
       children: [
-        { title: "Estado y Alertas", url: "/tracker" },
+        { title: "Estado", url: "/tracker" },
+        { title: "Alertas", url: "/tracker/alerts" },
         { title: "Mapa en vivo", url: "/tracker/map" },
         { title: "Reporte de Turno", url: "/tracker/report" },
       ],

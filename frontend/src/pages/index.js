@@ -12,5 +12,6 @@ export { default as FuelHeavyFleet } from "./fuel/fuelHeavyFleet.jsx";
 export { default as FuelTank } from "./fuel/fuelTank.jsx";
 export { default as Vehicles } from "./vehicles/vehicles.jsx";
 export { default as Tracker } from "./tracker/tracker.jsx";
+export { default as TrackerAlerts } from "./tracker/trackerAlerts.jsx";
 export { default as TrackerMapPage } from "./tracker/trackerMap.jsx";
 export { default as TrackerReport } from "./tracker/trackerReport.jsx";

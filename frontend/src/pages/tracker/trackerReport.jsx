@@ -14,8 +14,8 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { CATEGORY_STYLES, formatHora, TURNOS, detectTurnoActual, veTodayISO } from "@/lib/trackerFormat";
-import { exportToExcel, fmtDate } from "@/lib/excel";
+import { CATEGORY_STYLES, formatHora, formatFechaISO, statusBadgeClass, statusLabel, TURNOS, detectTurnoActual, veTodayISO } from "@/lib/trackerFormat";
+import { exportToExcel } from "@/lib/excel";
 import { useConfirm } from "@/context";
 
 const TrackerReport = () => {
@@ -233,7 +233,7 @@ const TrackerReport = () => {
               🚚 TRACKER DE FLOTA — REPORTE {report.turno}
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              FECHA: {fmtDate(report.fecha)} · CORTE: TURNO {report.turno} ({TURNOS[report.turno]?.ventana})
+              FECHA: {formatFechaISO(report.fecha)} · CORTE: TURNO {report.turno} ({TURNOS[report.turno]?.ventana})
             </p>
           </div>
 
@@ -273,7 +273,7 @@ const TrackerReport = () => {
                   </TableRow>
                 ) : (
                   report.unidades.map((u, i) => (
-                    <TableRow key={u.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+                    <TableRow key={u.unit_id ?? `p-${u.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
                       <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
                         {u.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
                       </TableCell>
@@ -289,8 +289,8 @@ const TrackerReport = () => {
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatHora(u.last_report_at)}</TableCell>
                       <TableCell>
-                        <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${u.status === "ACTIVO" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
-                          {u.status}
+                        <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${statusBadgeClass(u.status)}`}>
+                          {statusLabel(u.status)}
                         </span>
                       </TableCell>
                     </TableRow>

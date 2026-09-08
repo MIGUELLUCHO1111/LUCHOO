@@ -89,6 +89,9 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'syncNow' },
     { sub_system: 'Tracker', class_name: 'Alerta', method_name: 'getRecentAlerts' },
   ],
+  '/tracker/alerts': [
+    { sub_system: 'Tracker', class_name: 'Alerta', method_name: 'getRecentAlerts' },
+  ],
   '/tracker/map': [
     { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'getLatestSnapshots' },
     { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'syncNow' },
