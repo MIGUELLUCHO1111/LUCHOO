@@ -134,8 +134,9 @@ const Tracker = () => {
   };
 
   const total = snapshots.length;
-  const activas = snapshots.filter((s) => s.status === "ACTIVO").length;
-  const estacionadas = snapshots.filter((s) => s.status === "ESTACIONADO").length;
+  const activas = snapshots.filter((s) => s.status === "ACTIVO" && !s.is_stale).length;
+  const estacionadas = snapshots.filter((s) => s.status === "ESTACIONADO" && !s.is_stale).length;
+  const sinSenal = snapshots.filter((s) => s.is_stale).length;
 
   return (
     <PageLayout
@@ -157,6 +158,10 @@ const Tracker = () => {
           <Card className="px-5 py-3 border-red-200 dark:border-red-500/20">
             <div className="text-[11px] font-bold text-red-600 uppercase">Estacionadas</div>
             <div className="text-2xl font-black text-red-600">{estacionadas}</div>
+          </Card>
+          <Card className="px-5 py-3 border-slate-200 dark:border-slate-500/20">
+            <div className="text-[11px] font-bold text-slate-400 uppercase">Sin señal reciente</div>
+            <div className="text-2xl font-black text-slate-500">{sinSenal}</div>
           </Card>
         </div>
 

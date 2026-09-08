@@ -66,6 +66,7 @@ class Snapshot {
         nameQuery: 'insertTrackerSnapshot',
         params: {
           unit_id: unit ? unit.id : null,
+          gps_unit_id: raw.ID ?? null,
           plate: raw.PlateNo || null,
           gps_name: raw.Name || null,
           location_text: locationText,

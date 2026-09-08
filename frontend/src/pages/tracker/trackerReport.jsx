@@ -269,7 +269,7 @@ const TrackerReport = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Fecha</TableHead>
-              <TableHead>Total / Activas / Estac.</TableHead>
+              <TableHead>Total / Activas / Estac. / Sin Señal</TableHead>
               <TableHead>Generado</TableHead>
               <TableHead>Telegram</TableHead>
               <TableHead className="text-right">Descargar</TableHead>
@@ -295,7 +295,7 @@ const TrackerReport = () => {
                     <TableRow className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
                       <TableCell className="text-sm font-mono">{formatFechaISO(f.fecha)}</TableCell>
                       <TableCell className="text-sm text-slate-500 dark:text-slate-400">
-                        {f.total} / {f.activas} / {f.estacionadas}
+                        {f.total} / {f.activas} / {f.estacionadas} / {f.sin_senal}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatHora(f.generated_at)}</TableCell>
                       <TableCell>

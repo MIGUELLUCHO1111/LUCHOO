@@ -30,13 +30,14 @@ export function buildReportHtml(r) {
       const unitCell = u.unit_code
         ? `<span class="mono strong">${escapeHtml(u.unit_code)}</span>`
         : `<span class="unregistered">sin registrar</span>`;
+      const staleTag = u.is_stale ? `<br><span class="badge stale">SIN SEÑAL RECIENTE</span>` : '';
       return `
         <tr class="${i % 2 === 0 ? '' : 'alt'}">
           <td>${unitCell}</td>
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
           <td>${escapeHtml(u.driver_name || '-')}</td>
           <td>${escapeHtml(u.location_text || '-')}</td>
-          <td class="mono">${formatHora(u.last_report_at)}</td>
+          <td class="mono">${formatHora(u.last_report_at)}${staleTag}</td>
           <td><span class="badge ${statusClass}">${statusLabel}</span></td>
         </tr>`;
     })
@@ -69,6 +70,8 @@ export function buildReportHtml(r) {
   .kpi.activas .value { color: #059669; }
   .kpi.estacionadas { border-color: #fca5a5; background: #fef2f2; }
   .kpi.estacionadas .value { color: #dc2626; }
+  .kpi.sinsenal { border-color: #cbd5e1; background: #f1f5f9; }
+  .kpi.sinsenal .value { color: #64748b; }
 
   table { width: 100%; border-collapse: collapse; }
   th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #94a3b8; padding: 0 12px 9px; border-bottom: 2px solid #e2e8f0; }
@@ -82,6 +85,7 @@ export function buildReportHtml(r) {
   .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; }
   .badge.activo { background: #d1fae5; color: #059669; }
   .badge.estacionado { background: #fee2e2; color: #dc2626; }
+  .badge.stale { background: #f1f5f9; color: #64748b; font-size: 8.5px; }
 
   .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
 </style></head>
@@ -105,6 +109,7 @@ export function buildReportHtml(r) {
       <div class="kpi total"><div class="label">Total Unidades</div><div class="value">${r.total}</div></div>
       <div class="kpi activas"><div class="label">Activas</div><div class="value">${r.activas}</div></div>
       <div class="kpi estacionadas"><div class="label">Estacionadas</div><div class="value">${r.estacionadas}</div></div>
+      <div class="kpi sinsenal"><div class="label">Sin Señal Reciente</div><div class="value">${r.sin_senal ?? 0}</div></div>
     </div>
 
     <table>

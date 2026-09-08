@@ -28,11 +28,13 @@ const FILL = {
   total: 'FFFFF7ED',
   activas: 'FFECFDF5',
   estacionadas: 'FFFEF2F2',
+  sinSenal: 'FFF1F5F9',
 };
 const TEXT = {
   total: 'FFEA580C',
   activas: 'FF059669',
   estacionadas: 'FFDC2626',
+  sinSenal: 'FF64748B',
 };
 
 /**
@@ -70,6 +72,7 @@ class ReporteArchivo {
       { col: 'A', label: 'TOTAL UNIDADES', value: r.total, key: 'total' },
       { col: 'B', label: 'ACTIVAS', value: r.activas, key: 'activas' },
       { col: 'C', label: 'ESTACIONADAS', value: r.estacionadas, key: 'estacionadas' },
+      { col: 'D', label: 'SIN SEÑAL RECIENTE', value: r.sin_senal, key: 'sinSenal' },
     ];
     for (const k of kpis) {
       const labelCell = ws.getCell(`${k.col}4`);
@@ -161,6 +164,7 @@ class ReporteArchivo {
         total: r.total,
         activas: r.activas,
         estacionadas: r.estacionadas,
+        sin_senal: r.sin_senal,
         telegram_sent: false,
       },
     });

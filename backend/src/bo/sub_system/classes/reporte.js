@@ -81,9 +81,14 @@ class Reporte {
       });
       unidades = summaryResult?.rows || [];
     }
+    // Activas/Estacionadas/Sin señal son mutuamente excluyentes (suman el
+    // total): una unidad sin reporte reciente (is_stale) cuenta como "sin
+    // señal" en vez de activa o estacionada, aunque su tabla siga mostrando
+    // su último estado conocido.
     const total = unidades.length;
-    const activas = unidades.filter((r) => r.status === 'ACTIVO').length;
-    const estacionadas = unidades.filter((r) => r.status === 'ESTACIONADO').length;
+    const activas = unidades.filter((r) => r.status === 'ACTIVO' && !r.is_stale).length;
+    const estacionadas = unidades.filter((r) => r.status === 'ESTACIONADO' && !r.is_stale).length;
+    const sinSenal = unidades.filter((r) => r.is_stale).length;
 
     return {
       statusCode: STATUS_CODES.OK,
@@ -96,6 +101,7 @@ class Reporte {
         total,
         activas,
         estacionadas,
+        sin_senal: sinSenal,
         unidades,
       },
     };

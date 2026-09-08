@@ -32,7 +32,7 @@ class Notificador {
 
     const mensaje =
       `📋 Reporte ${r.turno} listo (${r.fecha})\n` +
-      `Total: ${r.total} · Activas: ${r.activas} · Estacionadas: ${r.estacionadas}\n` +
+      `Total: ${r.total} · Activas: ${r.activas} · Estacionadas: ${r.estacionadas} · Sin señal: ${r.sin_senal}\n` +
       `Corte: ${r.turno_label}\n` +
       `El PDF va adjunto -- también queda en Excel e imagen en Reportes de Turno Generados.`;
 

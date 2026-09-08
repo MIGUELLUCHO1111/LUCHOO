@@ -49,6 +49,7 @@ const TrackerMapPage = () => {
   const withCoords = snapshots.filter((s) => s.latitude != null && s.longitude != null);
   const activas = snapshots.filter((s) => s.status === "ACTIVO" && !s.is_stale).length;
   const estacionadas = snapshots.filter((s) => s.status === "ESTACIONADO" && !s.is_stale).length;
+  const sinSenal = snapshots.filter((s) => s.is_stale).length;
 
   return (
     <PageLayout icon={Map} title="Mapa en Vivo" subtitle="TRACKER GPS DE FLOTA" accentColor="orange">
@@ -61,7 +62,7 @@ const TrackerMapPage = () => {
             <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Estacionadas ({estacionadas})
           </span>
           <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> Sin señal reciente
+            <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> Sin señal reciente ({sinSenal})
           </span>
           <span className="text-slate-400">
             {withCoords.length} de {snapshots.length} unidades con coordenadas

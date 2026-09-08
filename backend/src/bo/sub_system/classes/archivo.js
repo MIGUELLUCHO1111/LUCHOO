@@ -59,6 +59,7 @@ class Archivo {
               fecha,
               turno,
               unit_id: row.unit_id ?? null,
+              gps_unit_id: row.gps_unit_id ?? null,
               plate: row.plate ?? null,
               gps_name: row.gps_name ?? null,
               location_text: row.location_text ?? null,
