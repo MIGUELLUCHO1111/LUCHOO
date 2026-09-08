@@ -1,5 +1,5 @@
 import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { FileSpreadsheet, Download, Archive, BarChart3, Paperclip, Upload, Trash2, ExternalLink, Send, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { FileSpreadsheet, Archive, BarChart3, Paperclip, Upload, Trash2, ExternalLink, Send, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { trackerService, resolveAttachmentUrl, resolveReportFileUrl } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -304,11 +304,21 @@ const TrackerReport = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <a href={resolveReportFileUrl(f.url)} target="_blank" rel="noreferrer">
-                          <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg">
-                            <Download size={14} />
-                          </Button>
-                        </a>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {[
+                            { key: "xlsx", label: "Excel", url: f.url_xlsx },
+                            { key: "pdf", label: "PDF", url: f.url_pdf },
+                            { key: "png", label: "Imagen", url: f.url_png },
+                          ].map((fmt) =>
+                            fmt.url ? (
+                              <a key={fmt.key} href={resolveReportFileUrl(fmt.url)} target="_blank" rel="noreferrer" title={`Descargar como ${fmt.label}`}>
+                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg text-[9px] font-bold">
+                                  {fmt.key === "xlsx" ? "XLS" : fmt.key === "pdf" ? "PDF" : "IMG"}
+                                </Button>
+                              </a>
+                            ) : null
+                          )}
+                        </div>
                       </TableCell>
                       {isNocturno && (
                         <TableCell className="text-right">

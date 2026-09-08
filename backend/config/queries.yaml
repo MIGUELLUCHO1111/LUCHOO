@@ -946,21 +946,15 @@
   # ---------- Tracker GPS (archivos de reporte generados automaticamente) ----------
 
   'upsertTrackerReportFile': {
-    query: 'INSERT INTO public.tracker_report_file (fecha, turno, filename, url, mime_type, size_bytes, total, activas, estacionadas, telegram_sent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (fecha, turno) DO UPDATE SET filename = EXCLUDED.filename, url = EXCLUDED.url, mime_type = EXCLUDED.mime_type, size_bytes = EXCLUDED.size_bytes, total = EXCLUDED.total, activas = EXCLUDED.activas, estacionadas = EXCLUDED.estacionadas, telegram_sent = EXCLUDED.telegram_sent, generated_at = NOW() RETURNING id, fecha, turno, filename, url, mime_type, size_bytes, total, activas, estacionadas, telegram_sent, generated_at;',
-    structure_params: { fecha: 'string', turno: 'string', filename: 'string', url: 'string', mime_type: 'string', size_bytes: 'int|null', total: 'int|null', activas: 'int|null', estacionadas: 'int|null', telegram_sent: 'boolean' },
-    orderArray: ['fecha', 'turno', 'filename', 'url', 'mime_type', 'size_bytes', 'total', 'activas', 'estacionadas', 'telegram_sent']
+    query: 'INSERT INTO public.tracker_report_file (fecha, turno, filename_xlsx, url_xlsx, size_bytes_xlsx, filename_pdf, url_pdf, size_bytes_pdf, filename_png, url_png, size_bytes_png, total, activas, estacionadas, telegram_sent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) ON CONFLICT (fecha, turno) DO UPDATE SET filename_xlsx = EXCLUDED.filename_xlsx, url_xlsx = EXCLUDED.url_xlsx, size_bytes_xlsx = EXCLUDED.size_bytes_xlsx, filename_pdf = EXCLUDED.filename_pdf, url_pdf = EXCLUDED.url_pdf, size_bytes_pdf = EXCLUDED.size_bytes_pdf, filename_png = EXCLUDED.filename_png, url_png = EXCLUDED.url_png, size_bytes_png = EXCLUDED.size_bytes_png, total = EXCLUDED.total, activas = EXCLUDED.activas, estacionadas = EXCLUDED.estacionadas, telegram_sent = EXCLUDED.telegram_sent, generated_at = NOW() RETURNING id, fecha, turno, filename_xlsx, url_xlsx, size_bytes_xlsx, filename_pdf, url_pdf, size_bytes_pdf, filename_png, url_png, size_bytes_png, total, activas, estacionadas, telegram_sent, generated_at;',
+    structure_params: { fecha: 'string', turno: 'string', filename_xlsx: 'string', url_xlsx: 'string', size_bytes_xlsx: 'int|null', filename_pdf: 'string', url_pdf: 'string', size_bytes_pdf: 'int|null', filename_png: 'string', url_png: 'string', size_bytes_png: 'int|null', total: 'int|null', activas: 'int|null', estacionadas: 'int|null', telegram_sent: 'boolean' },
+    orderArray: ['fecha', 'turno', 'filename_xlsx', 'url_xlsx', 'size_bytes_xlsx', 'filename_pdf', 'url_pdf', 'size_bytes_pdf', 'filename_png', 'url_png', 'size_bytes_png', 'total', 'activas', 'estacionadas', 'telegram_sent']
   },
 
   'getTrackerReportFiles': {
-    query: 'SELECT id, fecha, turno, filename, url, size_bytes, total, activas, estacionadas, telegram_sent, generated_at FROM public.tracker_report_file ORDER BY fecha DESC, turno ASC LIMIT $1;',
+    query: 'SELECT id, fecha, turno, filename_xlsx, url_xlsx, size_bytes_xlsx, filename_pdf, url_pdf, size_bytes_pdf, filename_png, url_png, size_bytes_png, total, activas, estacionadas, telegram_sent, generated_at FROM public.tracker_report_file ORDER BY fecha DESC, turno ASC LIMIT $1;',
     structure_params: { limit: 'int' },
     orderArray: ['limit']
-  },
-
-  'getTrackerReportFileByFechaTurno': {
-    query: 'SELECT id, fecha, turno, filename, url, mime_type FROM public.tracker_report_file WHERE fecha = $1 AND turno = $2;',
-    structure_params: { fecha: 'string', turno: 'string' },
-    orderArray: ['fecha', 'turno']
   },
 
   'markTrackerReportFileNotified': {

@@ -21,21 +21,22 @@ class Notificador {
   // Se llama al cierre de cada ventana de turno (9:05am, 2:05pm, 9:05pm
   // hora Venezuela, ver scheduler.js). También expuesta por el dispatcher
   // para poder probarla a mano sin esperar al horario real. Genera y guarda
-  // el Excel del turno (queda en el historial, ver ReporteArchivo) y lo
-  // manda adjunto en el mismo mensaje de Telegram.
+  // el reporte en sus tres formatos (Excel/PDF/imagen -- queda en el
+  // historial, ver ReporteArchivo) y manda solo el PDF adjunto por
+  // Telegram, para no saturar el chat con los tres archivos.
   notificarCierreDeTurno = async ({ turno, fecha } = {}) => {
     await this.dbmsReady;
 
     const resolvedFecha = fecha || veDateISO();
-    const { archivo, reporte: r, buffer } = await this.reporteArchivo.generarYGuardar({ fecha: resolvedFecha, turno });
+    const { archivo, reporte: r, pdfBuffer } = await this.reporteArchivo.generarYGuardar({ fecha: resolvedFecha, turno });
 
     const mensaje =
       `📋 Reporte ${r.turno} listo (${r.fecha})\n` +
       `Total: ${r.total} · Activas: ${r.activas} · Estacionadas: ${r.estacionadas}\n` +
       `Corte: ${r.turno_label}\n` +
-      `El Excel va adjunto -- también queda guardado en Reporte de Turno → Reportes generados.`;
+      `El PDF va adjunto -- también queda en Excel e imagen en Reportes de Turno Generados.`;
 
-    const notifyResult = await this.telegram.sendDocument({ buffer, filename: archivo?.filename, caption: mensaje });
+    const notifyResult = await this.telegram.sendDocument({ buffer: pdfBuffer, filename: archivo?.filename_pdf, caption: mensaje });
 
     if (notifyResult.sent && archivo?.id) {
       await this.dbms.executeNamedQuery({ nameQuery: 'markTrackerReportFileNotified', params: { id: archivo.id } });
