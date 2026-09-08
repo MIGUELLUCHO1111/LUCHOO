@@ -999,5 +999,25 @@
     query: 'SELECT a.id, a.unit_id, u.code AS unit_code, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id ORDER BY a.triggered_at DESC LIMIT 100;',
     structure_params: {},
     orderArray: []
+  },
+
+  # ---------- Tracker GPS (suscriptores del bot de Telegram) ----------
+
+  'upsertTelegramSubscriber': {
+    query: 'INSERT INTO public.tracker_telegram_subscriber (chat_id, username, first_name) VALUES ($1, $2, $3) ON CONFLICT (chat_id) DO UPDATE SET username = EXCLUDED.username, first_name = EXCLUDED.first_name;',
+    structure_params: { chat_id: 'string', username: 'string|null', first_name: 'string|null' },
+    orderArray: ['chat_id', 'username', 'first_name']
+  },
+
+  'getActiveTelegramSubscribers': {
+    query: 'SELECT id, chat_id, username, first_name, created_at FROM public.tracker_telegram_subscriber WHERE is_active = TRUE ORDER BY created_at;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'setTelegramSubscriberActive': {
+    query: 'UPDATE public.tracker_telegram_subscriber SET is_active = $2 WHERE id = $1 RETURNING id, chat_id, is_active;',
+    structure_params: { id: 'int', is_active: 'boolean' },
+    orderArray: ['id', 'is_active']
   }
 }

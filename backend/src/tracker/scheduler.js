@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import Snapshot from '../bo/sub_system/classes/snapshot.js';
 import Archivo from '../bo/sub_system/classes/archivo.js';
 import Notificador from '../bo/sub_system/classes/notificador.js';
+import TelegramSubscriberSync from './telegramSubscriberSync.js';
 import { TURNOS } from '../bo/sub_system/classes/reporte.js';
 
 /**
@@ -26,6 +27,24 @@ export function startTrackerScheduler() {
   if (instanceId !== undefined && instanceId !== '0') {
     console.log(`[Tracker] Cron del Tracker omitido en esta instancia (NODE_APP_INSTANCE=${instanceId}, solo corre en la 0)`);
     return;
+  }
+
+  // Suscriptores del bot de Telegram: independiente de TRACKER_AUTO_SYNC
+  // (es sobre gente escribiéndole al bot, no sobre la flota) -- revisa cada
+  // minuto para que alguien nuevo quede activo casi al instante.
+  if (process.env.TELEGRAM_BOT_TOKEN) {
+    const subscriberSync = new TelegramSubscriberSync();
+    cron.schedule('* * * * *', async () => {
+      try {
+        const result = await subscriberSync.pollForNewSubscribers();
+        if (result.nuevos > 0) {
+          console.log(`[Tracker] ${result.nuevos} mensaje(s) nuevo(s) de Telegram procesado(s) (suscriptores)`);
+        }
+      } catch (error) {
+        console.error('[Tracker] Error revisando suscriptores de Telegram:', error?.message || error);
+      }
+    });
+    console.log('[Tracker] Registro automático de suscriptores de Telegram programado (cada minuto)');
   }
 
   if (process.env.TRACKER_AUTO_SYNC === 'false') {
