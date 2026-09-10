@@ -7,13 +7,23 @@ import TelegramSubscriberSync from './telegramSubscriberSync.js';
 import { TURNOS } from '../bo/sub_system/classes/reporte.js';
 
 /**
- * Arranca la sincronización automática del Tracker GPS (Fase 2) y el
- * archivado diario de retención. Corren dentro del mismo proceso del
+ * Arranca la sincronización automática del Tracker GPS (Fase 2), sus alertas
+ * y el archivado diario de retención. Corren dentro del mismo proceso del
  * backend -- no requieren un servidor aparte ni un Task Scheduler externo
  * mientras el backend esté encendido.
  *
- * TRACKER_AUTO_SYNC=false desactiva ambos cron sin tocar código (útil en
- * entornos de desarrollo donde no se quiere golpear la API real).
+ * Dos interruptores independientes (pedido de gerencia, 10/09/2026: mientras
+ * se resuelven dudas sobre el acceso a la API del proveedor, solo las
+ * alertas de seguridad deben seguir siendo automáticas -- el resto se genera
+ * a mano hasta nuevo aviso):
+ *   - TRACKER_AUTO_SYNC=false desactiva la sincronización y, con ella, las
+ *     alertas de fuera de horario/fuera de zona (se evalúan justo después de
+ *     cada sincronización, ver Alerta.evaluateSnapshots).
+ *   - TRACKER_AUTO_REPORTS distinto de 'true' desactiva TODO lo demás
+ *     (archivado de retención, reportes de turno por Telegram, recordatorio
+ *     de anexo de seguridad y el análisis diario de comportamiento) sin
+ *     tocar código -- se generan con los botones manuales de la pantalla de
+ *     Reportes.
  *
  * IMPORTANTE para producción con PM2 en modo clúster (varios procesos del
  * mismo backend, ver DEPLOYMENT.md): PM2 numera cada proceso con
@@ -49,19 +59,26 @@ export function startTrackerScheduler() {
   }
 
   if (process.env.TRACKER_AUTO_SYNC === 'false') {
-    console.log('[Tracker] Sincronización automática desactivada (TRACKER_AUTO_SYNC=false)');
-    return;
+    console.log('[Tracker] Sincronización automática y alertas de fuera de horario desactivadas (TRACKER_AUTO_SYNC=false)');
+  } else {
+    const syncExpression = process.env.TRACKER_SYNC_CRON || '*/10 * * * *';
+    if (!cron.validate(syncExpression)) {
+      console.error(`[Tracker] TRACKER_SYNC_CRON inválido: '${syncExpression}' -- cron no iniciado`);
+    } else {
+      const snapshot = new Snapshot();
+      cron.schedule(syncExpression, () => snapshot.runScheduledSync());
+      console.log(`[Tracker] Sincronización y alertas de fuera de horario programadas (${syncExpression})`);
+    }
   }
 
-  const syncExpression = process.env.TRACKER_SYNC_CRON || '*/10 * * * *';
-  if (!cron.validate(syncExpression)) {
-    console.error(`[Tracker] TRACKER_SYNC_CRON inválido: '${syncExpression}' -- cron no iniciado`);
+  // Reportes de turno, análisis de comportamiento y archivado: desactivados
+  // por separado de la sincronización/alertas de arriba (ver comentario del
+  // encabezado) -- se generan a mano desde los botones de la pantalla de
+  // Reportes hasta que TRACKER_AUTO_REPORTS=true.
+  if (process.env.TRACKER_AUTO_REPORTS !== 'true') {
+    console.log('[Tracker] Reportes de turno, análisis diario y archivado automáticos desactivados (TRACKER_AUTO_REPORTS != true) -- usar los botones manuales de Reportes');
     return;
   }
-
-  const snapshot = new Snapshot();
-  cron.schedule(syncExpression, () => snapshot.runScheduledSync());
-  console.log(`[Tracker] Sincronización automática programada (${syncExpression})`);
 
   // Retención: resume a tracker_snapshot_summary y borra el detalle crudo
   // más viejo que TRACKER_RETENTION_MONTHS. Corre una vez al día de
