@@ -61,13 +61,31 @@ export function startTrackerScheduler() {
   if (process.env.TRACKER_AUTO_SYNC === 'false') {
     console.log('[Tracker] Sincronización automática y alertas de fuera de horario desactivadas (TRACKER_AUTO_SYNC=false)');
   } else {
-    const syncExpression = process.env.TRACKER_SYNC_CRON || '*/10 * * * *';
-    if (!cron.validate(syncExpression)) {
-      console.error(`[Tracker] TRACKER_SYNC_CRON inválido: '${syncExpression}' -- cron no iniciado`);
+    // TRACKER_SYNC_CRON admite varios horarios separados por ';' (pedido de
+    // gerencia, 10/09/2026: en vez de sincronizar cada 10 minutos todo el
+    // día, solo unas pocas veces alrededor del horario límite -- menos
+    // llamadas automáticas a la API del proveedor, pero igual cubre la
+    // ventana en que puede dispararse la alerta de fuera de horario).
+    const syncExpressions = String(process.env.TRACKER_SYNC_CRON || '*/10 * * * *')
+      .split(';')
+      .map((expr) => expr.trim())
+      .filter(Boolean);
+
+    const snapshot = new Snapshot();
+    const programados = [];
+    for (const expr of syncExpressions) {
+      if (!cron.validate(expr)) {
+        console.error(`[Tracker] TRACKER_SYNC_CRON inválido: '${expr}' -- ese horario no se programó`);
+        continue;
+      }
+      cron.schedule(expr, () => snapshot.runScheduledSync(), { timezone: 'America/Caracas' });
+      programados.push(expr);
+    }
+
+    if (programados.length > 0) {
+      console.log(`[Tracker] Sincronización y alertas de fuera de horario programadas (${programados.join(' | ')}, America/Caracas)`);
     } else {
-      const snapshot = new Snapshot();
-      cron.schedule(syncExpression, () => snapshot.runScheduledSync());
-      console.log(`[Tracker] Sincronización y alertas de fuera de horario programadas (${syncExpression})`);
+      console.error('[Tracker] Ningún horario válido en TRACKER_SYNC_CRON -- sincronización automática no programada');
     }
   }
 
