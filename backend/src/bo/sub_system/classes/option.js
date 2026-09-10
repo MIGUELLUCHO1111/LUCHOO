@@ -100,6 +100,7 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Tracker', class_name: 'Reporte', method_name: 'generarReporte' },
     { sub_system: 'Tracker', class_name: 'Archivo', method_name: 'archivarAhora' },
     { sub_system: 'Tracker', class_name: 'Comportamiento', method_name: 'getAnalisisDelDia' },
+    { sub_system: 'Tracker', class_name: 'Comportamiento', method_name: 'getAnalisisGuardado' },
     { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'notificarCierreDeTurno' },
     { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'verificarAnexoSeguridad' },
   ],

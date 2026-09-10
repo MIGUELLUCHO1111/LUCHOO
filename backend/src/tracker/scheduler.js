@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import Snapshot from '../bo/sub_system/classes/snapshot.js';
 import Archivo from '../bo/sub_system/classes/archivo.js';
 import Notificador from '../bo/sub_system/classes/notificador.js';
+import Comportamiento from '../bo/sub_system/classes/comportamiento.js';
 import TelegramSubscriberSync from './telegramSubscriberSync.js';
 import { TURNOS } from '../bo/sub_system/classes/reporte.js';
 
@@ -137,5 +138,32 @@ export function startTrackerScheduler() {
     console.log(`[Tracker] Recordatorio de anexo de seguridad programado (${anexoExpression}, America/Caracas)`);
   } else {
     console.error(`[Tracker] TRACKER_NOTIFY_ANEXO_CRON inválido: '${anexoExpression}' -- recordatorio no programado`);
+  }
+
+  // Análisis Operativo y Comportamiento de Conductores: antes solo se podía
+  // generar a mano desde la pantalla de Reportes (tarda 1-2 min por el
+  // límite de peticiones del proveedor). Se corre solo una vez, ya terminado
+  // el turno Nocturno, y queda guardado (ver Comportamiento.getAnalisisDelDia)
+  // para que la pantalla lo muestre sin que nadie tenga que pedirlo.
+  const comportamiento = new Comportamiento();
+  const analisisExpression = process.env.TRACKER_ANALISIS_CRON || '30 23 * * *';
+  if (cron.validate(analisisExpression)) {
+    cron.schedule(
+      analisisExpression,
+      async () => {
+        try {
+          const result = await comportamiento.getAnalisisDelDia({});
+          console.log(
+            `[Tracker] Análisis del día generado automáticamente: ${result.data.unidades_consultadas} unidad(es), ${result.data.total_viajes} viaje(s), ${result.data.errores.length} error(es)`,
+          );
+        } catch (error) {
+          console.error('[Tracker] Error generando el análisis del día automáticamente:', error?.message || error);
+        }
+      },
+      { timezone: 'America/Caracas' },
+    );
+    console.log(`[Tracker] Análisis diario de comportamiento programado (${analisisExpression}, America/Caracas)`);
+  } else {
+    console.error(`[Tracker] TRACKER_ANALISIS_CRON inválido: '${analisisExpression}' -- análisis diario no programado`);
   }
 }

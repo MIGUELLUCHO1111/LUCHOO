@@ -1,39 +1,24 @@
 import axios from 'axios';
 
 /**
- * Cliente de la API ForesightFlexAPIv3 (plataforma de rastreo GPS).
- * Doble autenticación requerida por la especificación técnica:
+ * Cliente de la API de Foresight GPS -- el mismo backend que usa el panel web
+ * GEvolution (cloud.ve.trackergps.com). Doble autenticación:
  *   1. Basic Auth HTTP (usuario/contraseña de servicio)
- *   2. Credenciales de plataforma dentro del cuerpo JSON (conncode/wsuser/wspassword)
+ *   2. userid/companyid de la cuenta dentro del cuerpo JSON (identificadores
+ *      internos de la plataforma, no secretos -- ver getCurrentUnitsStatus).
  */
 export default class ForesightClient {
   constructor() {
-    this.baseURL = process.env.FORESIGHT_API_URL;
     this.basicUser = process.env.FORESIGHT_BASIC_USER;
     this.basicPassword = process.env.FORESIGHT_BASIC_PASSWORD;
     this.conncode = process.env.FORESIGHT_CONNCODE;
-    this.wsuser = process.env.FORESIGHT_WSUSER;
-    this.wspassword = process.env.FORESIGHT_WSPASSWORD;
-
-    // Mismo proveedor (Foresight), pero el método que usa el panel web
-    // GEvolution (cloud.ve.trackergps.com) para listar la flota -- se
-    // autentica distinto (userid/companyid de la cuenta, no wsuser/wspassword)
-    // y sí devuelve las ~70 unidades reales, no el subconjunto que ve la
-    // cuenta de servicio de abajo. Ver getCurrentUnitsStatus().
     this.platformURL = process.env.FORESIGHT_PLATFORM_API_URL;
     this.userId = process.env.FORESIGHT_USERID;
     this.companyId = process.env.FORESIGHT_COMPANYID;
+    this.reportIdComportamiento = process.env.FORESIGHT_REPORT_ID_COMPORTAMIENTO;
   }
 
-  credentialsBody() {
-    return {
-      conncode: this.conncode,
-      wsuser: this.wsuser,
-      wspassword: this.wspassword,
-    };
-  }
-
-  async post(body, url = this.baseURL) {
+  async post(body, url) {
     const response = await axios.post(url, body, {
       auth: { username: this.basicUser, password: this.basicPassword },
       headers: { 'Content-Type': 'application/json' },
@@ -108,27 +93,30 @@ export default class ForesightClient {
     }));
   }
 
-  // wsGetTripsSummary_v1: resumen de viajes de una unidad en un rango de
-  // fechas (diurnos/nocturnos/mixtos, horas trabajadas, ralentí, distancia).
-  // A diferencia de GetCurrentUnitsStatus, esta operación sí requiere 'plateno'
-  // (se confirmó que sin él no devuelve nada) -- se llama una vez por unidad.
-  async getTripsSummary({ plateno, startdate, enddate }) {
-    const body = { method: 'wsGetTripsSummary_v1', ...this.credentialsBody(), plateno, startdate, enddate };
-    const data = await this.post(body);
-    return this.extractRows(data);
-  }
+  // REPORT_EXECUTE (reportid 134, "Comportamiento del Conductor" guardado en
+  // la cuenta): mismo reporte que el panel web genera de un solo golpe para
+  // TODAS las unidades con actividad en el rango de fechas -- viajes,
+  // distancia, ralentí y también exceso de velocidad/aceleraciones/frenadas/
+  // giros bruscos (esto último nunca lo devolvía wsGetTripsSummary_v1 +
+  // GetEventsNotifications, el método anterior de una llamada por unidad).
+  // Descubierto igual que usersearchplatform: captura de red real del panel
+  // GEvolution mientras la usuaria generaba este reporte a mano.
+  async getComportamientoDelDia({ startdate, enddate }) {
+    const body = {
+      method: 'REPORT_EXECUTE',
+      conncode: this.conncode,
+      reportid: this.reportIdComportamiento,
+      userid: this.userId,
+      prefix: true,
+      parameter: '@LIST_VEHICLE_IDS|@STARTDATEANDTIME|@ENDDATEANDTIME|@UserID|@TIMEGROUP|@IsCompany|@IsSubfleet|@IsGroup',
+      value: `-1|${startdate}|${enddate}|${this.userId}|1|${this.companyId}|0|0`,
+    };
 
-  // GetEventsNotifications: eventos de la unidad en un rango de fechas
-  // (excesos de velocidad, frenadas/giros/aceleraciones bruscas...).
-  // NOTA (07/09/2026): algunas placas devuelven vacío para esta cuenta (puede
-  // ser normal -- sin eventos ese día -- o el mismo límite de peticiones que
-  // extractRows() ahora detecta). El Dashboard de Seguridad de la plataforma
-  // sí muestra datos reales del día vía su propio panel (fuera de esta API);
-  // ver el anexo de PDF de seguridad como respaldo mientras se confirma el
-  // mapeo exacto de campos de tipo de evento con datos reales.
-  async getEventsNotifications({ plateno, startdate, enddate }) {
-    const body = { method: 'GetEventsNotifications', ...this.credentialsBody(), plateno, startdate, enddate };
-    const data = await this.post(body);
-    return this.extractRows(data);
+    const data = await this.post(body, this.platformURL);
+    const rows = data?.ForesightFlexAPI?.DATA1;
+    if (!Array.isArray(rows)) {
+      throw new Error('Respuesta inesperada del reporte de Comportamiento del Conductor (sin campo DATA1)');
+    }
+    return rows;
   }
 }

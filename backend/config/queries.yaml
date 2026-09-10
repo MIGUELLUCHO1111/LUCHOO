@@ -912,8 +912,16 @@
     orderArray: []
   },
 
-  'getActivePlatesForDate': {
-    query: "SELECT DISTINCT plate FROM public.tracker_snapshot WHERE (fetched_at AT TIME ZONE 'America/Caracas')::date = $1 AND is_stale = FALSE AND plate IS NOT NULL;",
+  # ---------- Tracker GPS (analisis diario de comportamiento, guardado) ----------
+
+  'upsertTrackerDailyAnalysis': {
+    query: 'INSERT INTO public.tracker_daily_analysis (fecha, unidades_consultadas, total_viajes, viajes_diurnos, viajes_nocturnos, viajes_mixtos, top_distancia, top_ralenti, eventos_totales, top_excesos_velocidad, eventos_por_tipo, errores) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10::jsonb, $11::jsonb, $12::jsonb) ON CONFLICT (fecha) DO UPDATE SET unidades_consultadas = EXCLUDED.unidades_consultadas, total_viajes = EXCLUDED.total_viajes, viajes_diurnos = EXCLUDED.viajes_diurnos, viajes_nocturnos = EXCLUDED.viajes_nocturnos, viajes_mixtos = EXCLUDED.viajes_mixtos, top_distancia = EXCLUDED.top_distancia, top_ralenti = EXCLUDED.top_ralenti, eventos_totales = EXCLUDED.eventos_totales, top_excesos_velocidad = EXCLUDED.top_excesos_velocidad, eventos_por_tipo = EXCLUDED.eventos_por_tipo, errores = EXCLUDED.errores, generated_at = NOW() RETURNING id, fecha, generated_at;',
+    structure_params: { fecha: 'string', unidades_consultadas: 'int', total_viajes: 'int', viajes_diurnos: 'int', viajes_nocturnos: 'int', viajes_mixtos: 'int', top_distancia: 'string', top_ralenti: 'string', eventos_totales: 'int', top_excesos_velocidad: 'string', eventos_por_tipo: 'string', errores: 'string' },
+    orderArray: ['fecha', 'unidades_consultadas', 'total_viajes', 'viajes_diurnos', 'viajes_nocturnos', 'viajes_mixtos', 'top_distancia', 'top_ralenti', 'eventos_totales', 'top_excesos_velocidad', 'eventos_por_tipo', 'errores']
+  },
+
+  'getTrackerDailyAnalysisByFecha': {
+    query: 'SELECT fecha, unidades_consultadas, total_viajes, viajes_diurnos, viajes_nocturnos, viajes_mixtos, top_distancia, top_ralenti, eventos_totales, top_excesos_velocidad, eventos_por_tipo, errores, generated_at FROM public.tracker_daily_analysis WHERE fecha = $1;',
     structure_params: { fecha: 'string' },
     orderArray: ['fecha']
   },

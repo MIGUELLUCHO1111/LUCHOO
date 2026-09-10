@@ -95,11 +95,18 @@ const TrackerReport = () => {
 
   // Análisis y anexos son del reporte que esté expandido (Nocturno) -- al
   // cambiar de fila expandida, se limpia lo anterior y se recarga lo de esta.
+  // El análisis se intenta traer ya guardado (lo deja listo el cron de
+  // madrugada) para no obligar a tocar "Generar análisis del día" cada vez.
   useEffect(() => {
     setAnalisis(null);
     setAnalisisError(null);
     setAttachments([]);
-    if (expandedFecha) loadAttachments(expandedFecha);
+    if (!expandedFecha) return;
+    loadAttachments(expandedFecha);
+    trackerService
+      .getAnalisisGuardado({ fecha: expandedFecha })
+      .then((res) => setAnalisis(res || null))
+      .catch((err) => console.error("Error cargando el análisis guardado:", err));
   }, [expandedFecha, loadAttachments]);
 
   const handleToggleExpand = (fileId) => {

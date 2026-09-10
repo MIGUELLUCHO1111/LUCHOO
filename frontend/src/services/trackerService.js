@@ -15,6 +15,7 @@ const TX = {
   NOTIFICAR_CIERRE_DE_TURNO: 129,
   VERIFICAR_ANEXO_SEGURIDAD: 130,
   LISTAR_REPORTES_GENERADOS: 131,
+  GET_ANALISIS_GUARDADO: 132,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -63,6 +64,9 @@ const trackerService = {
    * registrada, puede tardar 1-2 minutos con toda la flota.
    */
   getAnalisisDelDia: async ({ fecha } = {}) => unwrap(await executeTransaction(TX.GET_ANALISIS_DEL_DIA, { fecha })),
+
+  /** Trae el análisis ya calculado y guardado de una fecha (sin volver a consultar la API). Devuelve null si aún no se ha generado. */
+  getAnalisisGuardado: async ({ fecha } = {}) => unwrap(await executeTransaction(TX.GET_ANALISIS_GUARDADO, { fecha })),
 
   /** Envía por Telegram el resumen de cierre de un turno (esto ya corre solo, este método es para probarlo a mano). */
   notificarCierreDeTurno: async ({ fecha, turno }) => unwrap(await executeTransaction(TX.NOTIFICAR_CIERRE_DE_TURNO, { fecha, turno })),
