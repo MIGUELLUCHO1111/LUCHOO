@@ -161,15 +161,16 @@ const TrackerReport = () => {
   };
 
   // Respaldo manual: genera (o regenera) el reporte del turno/fecha elegidos
-  // sin esperar a la hora programada -- mismo camino que corre solo al
-  // cerrarse el turno (guarda el Excel, lo deja en el historial y lo manda
-  // por Telegram).
+  // a cualquier hora del día, sin esperar a que cierre la ventana del turno
+  // -- sincroniza primero (enVivo) y usa la última lectura de cada unidad,
+  // luego lo guarda en el historial y lo manda por Telegram, igual que el
+  // automático de las 9:05am/2:05pm/9:05pm.
   const handleGenerarAhora = async () => {
     setGenerating(true);
     setGenerateMessage(null);
     try {
       const fecha = fechaFiltro || veTodayISO();
-      const res = await trackerService.notificarCierreDeTurno({ fecha, turno });
+      const res = await trackerService.notificarCierreDeTurno({ fecha, turno, enVivo: true });
       setGenerateMessage(
         res.sent
           ? "Generado y enviado a Telegram ✓"

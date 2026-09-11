@@ -2,6 +2,7 @@ import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import TelegramClient from '../../../tracker/telegramClient.js';
 import ReporteArchivo from './reporteArchivo.js';
+import Snapshot from './snapshot.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -16,19 +17,32 @@ class Notificador {
     this.dbmsReady = this.dbms.init();
     this.telegram = new TelegramClient();
     this.reporteArchivo = new ReporteArchivo();
+    this.snapshot = new Snapshot();
   }
 
   // Se llama al cierre de cada ventana de turno (9:05am, 2:05pm, 9:05pm
-  // hora Venezuela, ver scheduler.js). También expuesta por el dispatcher
-  // para poder probarla a mano sin esperar al horario real. Genera y guarda
-  // el reporte en sus tres formatos (Excel/PDF/imagen -- queda en el
-  // historial, ver ReporteArchivo) y manda solo el PDF adjunto por
-  // Telegram, para no saturar el chat con los tres archivos.
-  notificarCierreDeTurno = async ({ turno, fecha } = {}) => {
+  // hora Venezuela, ver scheduler.js) -- ahí SIEMPRE respeta la ventana fija
+  // del turno (enVivo no se pasa, default false), para que ese reporte
+  // oficial no cambie si se consulta más tarde.
+  //
+  // También expuesta por el dispatcher para el botón "Generar ahora": con
+  // `enVivo: true` (pedido de gerencia, 11/09/2026) sirve a cualquier hora
+  // del día -- sincroniza primero para asegurar datos frescos y arma el
+  // reporte con la última lectura de cada unidad en vez de exigir que se
+  // esté justo dentro de la ventana de 1 hora del turno.
+  notificarCierreDeTurno = async ({ turno, fecha, enVivo = false } = {}) => {
     await this.dbmsReady;
 
+    if (enVivo) {
+      try {
+        await this.snapshot.syncNow();
+      } catch (error) {
+        console.error('[Tracker] No se pudo sincronizar antes de "Generar ahora":', error?.message || error);
+      }
+    }
+
     const resolvedFecha = fecha || veDateISO();
-    const { archivo, reporte: r, pdfBuffer } = await this.reporteArchivo.generarYGuardar({ fecha: resolvedFecha, turno });
+    const { archivo, reporte: r, pdfBuffer } = await this.reporteArchivo.generarYGuardar({ fecha: resolvedFecha, turno, enVivo });
 
     const mensaje =
       `📋 Reporte ${r.turno} listo (${r.fecha})\n` +

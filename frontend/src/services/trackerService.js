@@ -68,8 +68,14 @@ const trackerService = {
   /** Trae el análisis ya calculado y guardado de una fecha (sin volver a consultar la API). Devuelve null si aún no se ha generado. */
   getAnalisisGuardado: async ({ fecha } = {}) => unwrap(await executeTransaction(TX.GET_ANALISIS_GUARDADO, { fecha })),
 
-  /** Envía por Telegram el resumen de cierre de un turno (esto ya corre solo, este método es para probarlo a mano). */
-  notificarCierreDeTurno: async ({ fecha, turno }) => unwrap(await executeTransaction(TX.NOTIFICAR_CIERRE_DE_TURNO, { fecha, turno })),
+  /**
+   * Envía por Telegram el resumen de cierre de un turno (esto ya corre solo
+   * a las 9:05am/2:05pm/9:05pm). `enVivo: true` es lo que usa el botón
+   * "Generar ahora": sincroniza primero y usa la última lectura de cada
+   * unidad, para poder generarlo a cualquier hora del día (no solo dentro
+   * de la ventana fija de 1 hora del turno).
+   */
+  notificarCierreDeTurno: async ({ fecha, turno, enVivo }) => unwrap(await executeTransaction(TX.NOTIFICAR_CIERRE_DE_TURNO, { fecha, turno, enVivo })),
 
   /** Envía por Telegram un recordatorio si falta subir el PDF de seguridad del día. */
   verificarAnexoSeguridad: async ({ fecha } = {}) => unwrap(await executeTransaction(TX.VERIFICAR_ANEXO_SEGURIDAD, { fecha })),

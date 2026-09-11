@@ -125,10 +125,10 @@ class ReporteArchivo {
     return wb.xlsx.writeBuffer();
   }
 
-  async generarYGuardar({ fecha, turno } = {}) {
+  async generarYGuardar({ fecha, turno, enVivo = false } = {}) {
     await this.dbmsReady;
 
-    const resultado = await this.reporte.generarReporte({ fecha, turno });
+    const resultado = await this.reporte.generarReporte({ fecha, turno, enVivo });
     const r = resultado.data;
 
     const [xlsxBuffer, html] = [await this.buildExcelBuffer(r), buildReportHtml(r)];
