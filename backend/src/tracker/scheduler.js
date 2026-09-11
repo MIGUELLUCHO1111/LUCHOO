@@ -12,18 +12,20 @@ import { TURNOS } from '../bo/sub_system/classes/reporte.js';
  * backend -- no requieren un servidor aparte ni un Task Scheduler externo
  * mientras el backend esté encendido.
  *
- * Dos interruptores independientes (pedido de gerencia, 10/09/2026: mientras
- * se resuelven dudas sobre el acceso a la API del proveedor, solo las
- * alertas de seguridad deben seguir siendo automáticas -- el resto se genera
- * a mano hasta nuevo aviso):
+ * Tres interruptores independientes (pedido de gerencia, 10/09/2026: mientras
+ * se resuelven dudas sobre el acceso a la API del proveedor, cada pieza se
+ * puede prender o apagar por separado sin tocar código):
  *   - TRACKER_AUTO_SYNC=false desactiva la sincronización y, con ella, las
  *     alertas de fuera de horario/fuera de zona (se evalúan justo después de
  *     cada sincronización, ver Alerta.evaluateSnapshots).
- *   - TRACKER_AUTO_REPORTS distinto de 'true' desactiva TODO lo demás
- *     (archivado de retención, reportes de turno por Telegram, recordatorio
- *     de anexo de seguridad y el análisis diario de comportamiento) sin
- *     tocar código -- se generan con los botones manuales de la pantalla de
- *     Reportes.
+ *   - TRACKER_AUTO_REPORTES_TURNO=true activa los 3 reportes de turno
+ *     (Excel/PDF/imagen, guardados en el historial y enviados por Telegram)
+ *     al cierre de cada turno -- 11/09/2026: gerencia pidió reactivar esto
+ *     específicamente, quedando aparte del resto.
+ *   - TRACKER_AUTO_REPORTS distinto de 'true' desactiva el archivado de
+ *     retención, el recordatorio de anexo de seguridad y el análisis diario
+ *     de comportamiento -- se generan con los botones manuales de la
+ *     pantalla de Reportes.
  *
  * IMPORTANTE para producción con PM2 en modo clúster (varios procesos del
  * mismo backend, ver DEPLOYMENT.md): PM2 numera cada proceso con
@@ -89,12 +91,49 @@ export function startTrackerScheduler() {
     }
   }
 
-  // Reportes de turno, análisis de comportamiento y archivado: desactivados
-  // por separado de la sincronización/alertas de arriba (ver comentario del
+  // Reportes de turno por Telegram: guarda Excel/PDF/imagen en el historial
+  // y manda el PDF al cerrar cada turno. Aparte del resto (ver encabezado) --
+  // gerencia lo pidió reactivar puntualmente el 11/09/2026.
+  if (process.env.TRACKER_AUTO_REPORTES_TURNO === 'true') {
+    const notificador = new Notificador();
+
+    const NOTIFY_CRON_DEFAULTS = {
+      MATUTINO: '5 9 * * *', // 9:05am
+      VESPERTINO: '5 14 * * *', // 2:05pm
+      NOCTURNO: '5 21 * * *', // 9:05pm
+    };
+
+    for (const turno of Object.keys(TURNOS)) {
+      const envKey = `TRACKER_NOTIFY_${turno}_CRON`;
+      const expression = process.env[envKey] || NOTIFY_CRON_DEFAULTS[turno];
+      if (!cron.validate(expression)) {
+        console.error(`[Tracker] ${envKey} inválido: '${expression}' -- aviso de ${turno} no programado`);
+        continue;
+      }
+      cron.schedule(
+        expression,
+        async () => {
+          try {
+            const result = await notificador.notificarCierreDeTurno({ turno });
+            console.log(`[Tracker] Aviso de cierre ${turno}: ${result.message}`);
+          } catch (error) {
+            console.error(`[Tracker] Error en aviso de cierre ${turno}:`, error?.message || error);
+          }
+        },
+        { timezone: 'America/Caracas' },
+      );
+      console.log(`[Tracker] Aviso de cierre de turno ${turno} programado (${expression}, America/Caracas)`);
+    }
+  } else {
+    console.log('[Tracker] Reportes de turno automáticos desactivados (TRACKER_AUTO_REPORTES_TURNO != true) -- usar "Generar ahora" en Reportes');
+  }
+
+  // Archivado de retención, recordatorio de anexo de seguridad y análisis
+  // diario de comportamiento: desactivados por separado de lo de arriba (ver
   // encabezado) -- se generan a mano desde los botones de la pantalla de
   // Reportes hasta que TRACKER_AUTO_REPORTS=true.
   if (process.env.TRACKER_AUTO_REPORTS !== 'true') {
-    console.log('[Tracker] Reportes de turno, análisis diario y archivado automáticos desactivados (TRACKER_AUTO_REPORTS != true) -- usar los botones manuales de Reportes');
+    console.log('[Tracker] Análisis diario y archivado automáticos desactivados (TRACKER_AUTO_REPORTS != true) -- usar los botones manuales de Reportes');
     return;
   }
 
@@ -123,46 +162,16 @@ export function startTrackerScheduler() {
   );
   console.log(`[Tracker] Archivado de retención programado (${archiveExpression}, America/Caracas)`);
 
-  // Avisos por Telegram: cierra el círculo de "hay que entrar a la app a
-  // revisar" -- un mensaje al cierre de cada turno, y un recordatorio si al
-  // final del día no se subió el PDF del Dashboard de Seguridad.
-  const notificador = new Notificador();
-
-  const NOTIFY_CRON_DEFAULTS = {
-    MATUTINO: '5 9 * * *', // 9:05am
-    VESPERTINO: '5 14 * * *', // 2:05pm
-    NOCTURNO: '5 21 * * *', // 9:05pm
-  };
-
-  for (const turno of Object.keys(TURNOS)) {
-    const envKey = `TRACKER_NOTIFY_${turno}_CRON`;
-    const expression = process.env[envKey] || NOTIFY_CRON_DEFAULTS[turno];
-    if (!cron.validate(expression)) {
-      console.error(`[Tracker] ${envKey} inválido: '${expression}' -- aviso de ${turno} no programado`);
-      continue;
-    }
-    cron.schedule(
-      expression,
-      async () => {
-        try {
-          const result = await notificador.notificarCierreDeTurno({ turno });
-          console.log(`[Tracker] Aviso de cierre ${turno}: ${result.message}`);
-        } catch (error) {
-          console.error(`[Tracker] Error en aviso de cierre ${turno}:`, error?.message || error);
-        }
-      },
-      { timezone: 'America/Caracas' },
-    );
-    console.log(`[Tracker] Aviso de cierre de turno ${turno} programado (${expression}, America/Caracas)`);
-  }
-
+  // Recordatorio de anexo de seguridad: si al final del día no se subió el
+  // PDF del Dashboard de Seguridad.
+  const notificadorAnexo = new Notificador();
   const anexoExpression = process.env.TRACKER_NOTIFY_ANEXO_CRON || '15 22 * * *';
   if (cron.validate(anexoExpression)) {
     cron.schedule(
       anexoExpression,
       async () => {
         try {
-          const result = await notificador.verificarAnexoSeguridad({});
+          const result = await notificadorAnexo.verificarAnexoSeguridad({});
           console.log(`[Tracker] Verificación de anexo de seguridad: ${result.message}`);
         } catch (error) {
           console.error('[Tracker] Error verificando anexo de seguridad:', error?.message || error);
