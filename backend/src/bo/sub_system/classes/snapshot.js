@@ -45,7 +45,14 @@ class Snapshot {
     let matched = 0;
 
     for (const raw of units) {
-      const plateKey = raw.PlateNo ? String(raw.PlateNo).trim().toUpperCase() : null;
+      // Se recorta aqui (no solo para esta comparacion) porque el mismo
+      // valor se guarda tal cual en tracker_snapshot.plate, y las consultas
+      // de lectura (getLatestSnapshots, getSnapshotsInWindow) cruzan por
+      // igualdad exacta de SQL contra tracker_unit.plate -- un espacio de
+      // mas que trajera la API (visto en una unidad real) rompia ese cruce
+      // aunque el matching de aqui arriba ya lo tolerara.
+      const plate = raw.PlateNo ? String(raw.PlateNo).trim() : null;
+      const plateKey = plate ? plate.toUpperCase() : null;
       const unit = plateKey ? byPlate.get(plateKey) : null;
       if (unit) matched += 1;
 
@@ -67,7 +74,7 @@ class Snapshot {
         params: {
           unit_id: unit ? unit.id : null,
           gps_unit_id: raw.ID ?? null,
-          plate: raw.PlateNo || null,
+          plate,
           gps_name: raw.Name || null,
           location_text: locationText,
           latitude: raw.yLat ?? null,
