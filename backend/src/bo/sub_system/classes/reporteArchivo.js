@@ -88,7 +88,7 @@ class ReporteArchivo {
 
     const headerRowIdx = 7;
     const headerRow = ws.getRow(headerRowIdx);
-    headerRow.values = ['Unidad', 'Placa', 'Conductor', 'Ubicación', 'Categoría', 'Hora', 'Estado'];
+    headerRow.values = ['Unidad', 'Placa', 'Conductor', 'Ubicación', 'Categoría', 'Hora de revisión', 'Estado'];
     headerRow.font = { bold: true, size: 10, color: { argb: 'FF64748B' } };
     headerRow.eachCell((cell) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
@@ -110,7 +110,7 @@ class ReporteArchivo {
           u.driver_name || '-',
           u.location_text || '-',
           u.location_category || '-',
-          formatHora(u.last_report_at),
+          formatHora(u.fetched_at),
           u.status === 'ACTIVO' ? 'Activo' : 'Estacionado',
         ];
         if (i % 2 === 1) {

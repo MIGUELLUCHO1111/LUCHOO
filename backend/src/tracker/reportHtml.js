@@ -65,7 +65,7 @@ export function buildReportHtml(r) {
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
           <td>${escapeHtml(u.driver_name || '-')}</td>
           <td>${escapeHtml(u.location_text || '-')}</td>
-          <td class="mono">${formatHora(u.last_report_at)}${staleTag}</td>
+          <td class="mono">${formatHora(u.fetched_at)}${staleTag}</td>
           <td><span class="badge ${statusClass}">${statusLabel}</span></td>
         </tr>`;
     })
@@ -179,7 +179,7 @@ export function buildReportHtml(r) {
     </div>
 
     <table>
-      <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Hora</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Hora de revisión</th><th>Estado</th></tr></thead>
       <tbody>${rows || emptyRow}</tbody>
     </table>
     ${staleSection}
