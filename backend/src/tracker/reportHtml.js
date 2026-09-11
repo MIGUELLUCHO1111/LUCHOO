@@ -177,12 +177,12 @@ export function buildReportHtml(r) {
       <div class="kpi estacionadas"><div class="label">Estacionadas</div><div class="value">${r.estacionadas}</div></div>
       <div class="kpi sinsenal"><div class="label">Sin Señal Reciente</div><div class="value">${r.sin_senal ?? 0}</div></div>
     </div>
+    ${staleSection}
 
     <table>
       <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Hora de revisión</th><th>Estado</th></tr></thead>
       <tbody>${rows || emptyRow}</tbody>
     </table>
-    ${staleSection}
 
     <div class="footer">
       <span>Generado automáticamente por el Tracker GPS de Flota</span>
