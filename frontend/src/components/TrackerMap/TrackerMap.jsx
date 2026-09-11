@@ -7,7 +7,7 @@ const STATUS_COLOR = {
   ACTIVO: "#10b981", // verde: en movimiento / encendida
   ESTACIONADO: "#ef4444", // rojo: apagada / detenida
 };
-const STALE_COLOR = "#94a3b8"; // gris: sin señal reciente
+const STALE_COLOR = "#f59e0b"; // amarillo: sin señal reciente -- revisar en sitio
 
 // Centro por defecto: Zulia, Venezuela (zona de operación de la flota).
 const DEFAULT_CENTER = [10.35, -71.6];

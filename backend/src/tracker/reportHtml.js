@@ -22,6 +22,34 @@ const formatFechaLarga = (fecha) => {
   return `${d}/${m}/${y}`;
 };
 
+const formatFechaHora = (iso) => {
+  if (!iso) return '-';
+  return new Date(iso).toLocaleString('es-VE', {
+    timeZone: 'America/Caracas',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+// Horas transcurridas desde la última posición conocida hasta que se generó
+// el reporte -- para poder priorizar cuáles unidades "sin señal" revisar
+// primero en sitio (una con 3 horas no es lo mismo que una con 4 días).
+const horasSinConexion = (iso) => {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return ms / (1000 * 60 * 60);
+};
+
+const formatHoras = (horas) => {
+  if (horas == null) return 'sin datos';
+  if (horas < 48) return `${horas.toFixed(1)} h`;
+  return `${(horas / 24).toFixed(1)} días`;
+};
+
 export function buildReportHtml(r) {
   const rows = r.unidades
     .map((u, i) => {
@@ -44,6 +72,38 @@ export function buildReportHtml(r) {
     .join('');
 
   const emptyRow = `<tr><td colspan="6" class="empty">Sin lecturas registradas en esta ventana de turno</td></tr>`;
+
+  // Unidades "sin señal reciente": aparte de contarlas, se detallan una por
+  // una (última conexión + horas sin conexión) para que la revisión en sitio
+  // se base en datos reales y no en "está estacionada, no importa".
+  const staleUnits = r.unidades.filter((u) => u.is_stale);
+  const staleRows = staleUnits
+    .slice()
+    .sort((a, b) => new Date(a.last_report_at || 0) - new Date(b.last_report_at || 0))
+    .map((u, i) => {
+      const unitCell = u.unit_code
+        ? `<span class="mono strong">${escapeHtml(u.unit_code)}</span>`
+        : `<span class="unregistered">sin registrar</span>`;
+      return `
+        <tr class="${i % 2 === 0 ? '' : 'alt'}">
+          <td>${unitCell}</td>
+          <td class="mono">${escapeHtml(u.plate || '-')}</td>
+          <td class="mono">${formatFechaHora(u.last_report_at)}</td>
+          <td><span class="badge stale">${formatHoras(horasSinConexion(u.last_report_at))}</span></td>
+        </tr>`;
+    })
+    .join('');
+
+  const staleSection = staleUnits.length
+    ? `
+    <div class="stale-section">
+      <div class="stale-title">&#9888; Unidades sin señal reciente &mdash; revisar en sitio</div>
+      <table>
+        <thead><tr><th>Unidad</th><th>Placa</th><th>Última conexión</th><th>Horas sin conexión</th></tr></thead>
+        <tbody>${staleRows}</tbody>
+      </table>
+    </div>`
+    : '';
 
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8">
@@ -70,8 +130,8 @@ export function buildReportHtml(r) {
   .kpi.activas .value { color: #059669; }
   .kpi.estacionadas { border-color: #fca5a5; background: #fef2f2; }
   .kpi.estacionadas .value { color: #dc2626; }
-  .kpi.sinsenal { border-color: #cbd5e1; background: #f1f5f9; }
-  .kpi.sinsenal .value { color: #64748b; }
+  .kpi.sinsenal { border-color: #fde68a; background: #fffbeb; }
+  .kpi.sinsenal .value { color: #b45309; }
 
   table { width: 100%; border-collapse: collapse; }
   th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #94a3b8; padding: 0 12px 9px; border-bottom: 2px solid #e2e8f0; }
@@ -85,7 +145,13 @@ export function buildReportHtml(r) {
   .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; }
   .badge.activo { background: #d1fae5; color: #059669; }
   .badge.estacionado { background: #fee2e2; color: #dc2626; }
-  .badge.stale { background: #f1f5f9; color: #64748b; font-size: 8.5px; }
+  .badge.stale { background: #fef3c7; color: #b45309; font-size: 8.5px; }
+
+  .stale-section { margin-top: 22px; padding: 16px 18px; border-radius: 14px; border: 1px solid #fde68a; background: #fffbeb; }
+  .stale-title { font-size: 12px; font-weight: 800; color: #b45309; margin-bottom: 10px; }
+  .stale-section th { border-bottom-color: #fde68a; }
+  .stale-section td { border-bottom-color: #fef3c7; }
+  .stale-section tr.alt td { background: #fef9ec; }
 
   .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
 </style></head>
@@ -116,6 +182,7 @@ export function buildReportHtml(r) {
       <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Hora</th><th>Estado</th></tr></thead>
       <tbody>${rows || emptyRow}</tbody>
     </table>
+    ${staleSection}
 
     <div class="footer">
       <span>Generado automáticamente por el Tracker GPS de Flota</span>

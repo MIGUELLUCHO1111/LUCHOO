@@ -159,9 +159,9 @@ const Tracker = () => {
             <div className="text-[11px] font-bold text-red-600 uppercase">Estacionadas</div>
             <div className="text-2xl font-black text-red-600">{estacionadas}</div>
           </Card>
-          <Card className="px-5 py-3 border-slate-200 dark:border-slate-500/20">
-            <div className="text-[11px] font-bold text-slate-400 uppercase">Sin señal reciente</div>
-            <div className="text-2xl font-black text-slate-500">{sinSenal}</div>
+          <Card className="px-5 py-3 border-amber-200 dark:border-amber-500/20">
+            <div className="text-[11px] font-bold text-amber-600 uppercase">Sin señal reciente</div>
+            <div className="text-2xl font-black text-amber-600">{sinSenal}</div>
           </Card>
         </div>
 
@@ -220,7 +220,7 @@ const Tracker = () => {
                   <TableCell className="text-sm whitespace-nowrap">
                     {formatHora(s.last_report_at)}
                     {s.is_stale && (
-                      <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-500">
+                      <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600">
                         SIN SEÑAL RECIENTE
                       </span>
                     )}

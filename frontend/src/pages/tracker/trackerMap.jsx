@@ -62,7 +62,7 @@ const TrackerMapPage = () => {
             <span className="w-3 h-3 rounded-full bg-red-500 inline-block" /> Estacionadas ({estacionadas})
           </span>
           <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> Sin señal reciente ({sinSenal})
+            <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" /> Sin señal reciente ({sinSenal})
           </span>
           <span className="text-slate-400">
             {withCoords.length} de {snapshots.length} unidades con coordenadas
