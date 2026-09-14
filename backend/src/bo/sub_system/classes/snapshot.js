@@ -56,7 +56,12 @@ class Snapshot {
       const unit = plateKey ? byPlate.get(plateKey) : null;
       if (unit) matched += 1;
 
-      const locationText = raw.Location ? String(raw.Location).trim() : null;
+      // El proveedor a veces devuelve literalmente "False" en vez de una
+      // direccion (falla puntual de su lado, confirmado contra la respuesta
+      // cruda de la API) -- se descarta para no mostrar "FALSE" como si
+      // fuera un lugar real.
+      let locationText = raw.Location ? String(raw.Location).trim() : null;
+      if (locationText && /^(false|true)$/i.test(locationText)) locationText = null;
       if (locationText) {
         await this.dbms.executeNamedQuery({
           nameQuery: 'upsertLocationCategoryAsOtras',
