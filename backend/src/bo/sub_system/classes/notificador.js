@@ -2,7 +2,6 @@ import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import TelegramClient from '../../../tracker/telegramClient.js';
 import ReporteArchivo from './reporteArchivo.js';
-import Snapshot from './snapshot.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -17,7 +16,6 @@ class Notificador {
     this.dbmsReady = this.dbms.init();
     this.telegram = new TelegramClient();
     this.reporteArchivo = new ReporteArchivo();
-    this.snapshot = new Snapshot();
   }
 
   // Se llama al cierre de cada ventana de turno (9:05am, 2:05pm, 9:05pm
@@ -27,19 +25,11 @@ class Notificador {
   //
   // También expuesta por el dispatcher para el botón "Generar ahora": con
   // `enVivo: true` (pedido de gerencia, 11/09/2026) sirve a cualquier hora
-  // del día -- sincroniza primero para asegurar datos frescos y arma el
-  // reporte con la última lectura de cada unidad en vez de exigir que se
-  // esté justo dentro de la ventana de 1 hora del turno.
+  // del día. La sincronización previa vive en Reporte.generarReporte (no
+  // aquí), para que CUALQUIER camino que pida un reporte en vivo -- este,
+  // o uno futuro -- tenga la misma garantía de datos frescos.
   notificarCierreDeTurno = async ({ turno, fecha, enVivo = false } = {}) => {
     await this.dbmsReady;
-
-    if (enVivo) {
-      try {
-        await this.snapshot.syncNow();
-      } catch (error) {
-        console.error('[Tracker] No se pudo sincronizar antes de "Generar ahora":', error?.message || error);
-      }
-    }
 
     const resolvedFecha = fecha || veDateISO();
     const { archivo, reporte: r, pdfBuffer } = await this.reporteArchivo.generarYGuardar({ fecha: resolvedFecha, turno, enVivo });

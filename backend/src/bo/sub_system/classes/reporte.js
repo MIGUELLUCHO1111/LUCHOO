@@ -1,5 +1,6 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
+import Snapshot from './snapshot.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -42,6 +43,7 @@ class Reporte {
   constructor() {
     this.dbms = new DBMS();
     this.dbmsReady = this.dbms.init();
+    this.snapshot = new Snapshot();
   }
 
   // Reporte de turno (igual formato que el Excel manual): toma la última
@@ -52,12 +54,21 @@ class Reporte {
   //
   // `enVivo: true` (pedido de gerencia, 11/09/2026 -- "Generar ahora" debe
   // servir a cualquier hora, no solo dentro de la ventana de 1 hora del
-  // turno) se salta esa ventana y usa la última lectura de cada unidad en
-  // general, como el Mapa en Vivo. Es exclusivo del botón manual: los cron
-  // automáticos de scheduler.js nunca pasan este flag, así que su
-  // comportamiento no cambia.
+  // turno) se salta esa ventana, sincroniza primero (así "Hora de revisión"
+  // siempre refleja el momento real en que se generó el reporte, no una
+  // sincronización vieja) y usa la última lectura de cada unidad, como el
+  // Mapa en Vivo. Es exclusivo del botón manual: los cron automáticos de
+  // scheduler.js nunca pasan este flag, así que su comportamiento no cambia.
   generarReporte = async ({ fecha, turno, enVivo = false } = {}) => {
     await this.dbmsReady;
+
+    if (enVivo) {
+      try {
+        await this.snapshot.syncNow();
+      } catch (error) {
+        console.error('[Tracker] No se pudo sincronizar antes de generar el reporte en vivo:', error?.message || error);
+      }
+    }
 
     const resolvedTurno = (turno || detectTurnoActual() || '').toUpperCase();
     const turnoDef = TURNOS[resolvedTurno];
