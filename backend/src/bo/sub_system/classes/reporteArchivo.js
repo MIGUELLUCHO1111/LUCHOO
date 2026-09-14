@@ -111,7 +111,7 @@ class ReporteArchivo {
           u.location_text || '-',
           u.location_category || '-',
           formatHora(u.fetched_at),
-          u.status === 'ACTIVO' ? 'Activo' : 'Estacionado',
+          u.status === 'ACTIVO' ? 'ACTIVO' : 'ESTACIONADO',
         ];
         if (i % 2 === 1) {
           row.eachCell((cell) => {

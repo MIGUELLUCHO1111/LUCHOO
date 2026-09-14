@@ -54,7 +54,7 @@ export function buildReportHtml(r) {
   const rows = r.unidades
     .map((u, i) => {
       const statusClass = u.status === 'ACTIVO' ? 'activo' : 'estacionado';
-      const statusLabel = u.status === 'ACTIVO' ? 'Activo' : 'Estacionado';
+      const statusLabel = u.status === 'ACTIVO' ? 'ACTIVO' : 'ESTACIONADO';
       const unitCell = u.unit_code
         ? `<span class="mono strong">${escapeHtml(u.unit_code)}</span>`
         : `<span class="unregistered">sin registrar</span>`;
