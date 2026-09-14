@@ -893,6 +893,26 @@
     orderArray: []
   },
 
+  # ---------- Tracker GPS (alias de ubicacion para reportes) ----------
+
+  'getAllLocationAliases': {
+    query: 'SELECT id, match_text, alias, created_at FROM public.tracker_location_alias ORDER BY alias;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'upsertLocationAlias': {
+    query: 'INSERT INTO public.tracker_location_alias (match_text, alias) VALUES ($1, $2) ON CONFLICT (match_text) DO UPDATE SET alias = EXCLUDED.alias RETURNING id, match_text, alias;',
+    structure_params: { match_text: 'string', alias: 'string' },
+    orderArray: ['match_text', 'alias']
+  },
+
+  'deleteLocationAlias': {
+    query: 'DELETE FROM public.tracker_location_alias WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
   'insertTrackerSnapshot': {
     query: 'INSERT INTO public.tracker_snapshot (unit_id, gps_unit_id, plate, gps_name, location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, raw_response) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb) RETURNING id;',
     structure_params: { unit_id: 'int|null', gps_unit_id: 'int|null', plate: 'string|null', gps_name: 'string|null', location_text: 'string|null', latitude: 'number|null', longitude: 'number|null', speed: 'number|null', ignition: 'boolean|null', status: 'string', is_stale: 'boolean', last_report_at: 'string|null', raw_response: 'string|null' },
@@ -907,7 +927,7 @@
   # reciente" cuando el último reporte de esa unidad es viejo, para que se
   # vea la diferencia sin esconder la unidad.
   'getLatestSnapshots': {
-    query: "WITH latest AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot ORDER BY gps_unit_id, fetched_at DESC) SELECT l.id, l.gps_unit_id, l.plate, l.gps_name, l.location_text, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, 'OTRAS') AS location_category FROM latest l LEFT JOIN public.tracker_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = l.location_text ORDER BY u.code NULLS LAST, l.plate;",
+    query: "WITH latest AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot ORDER BY gps_unit_id, fetched_at DESC) SELECT l.id, l.gps_unit_id, l.plate, l.gps_name, UPPER(COALESCE(tla.alias, l.location_text)) AS location_text, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, 'OTRAS') AS location_category FROM latest l LEFT JOIN public.tracker_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = l.location_text LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE l.location_text ILIKE '%' || match_text || '%' ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE ORDER BY u.code NULLS LAST, l.plate;",
     structure_params: {},
     orderArray: []
   },
@@ -993,13 +1013,13 @@
   },
 
   'getSnapshotSummary': {
-    query: "SELECT s.id, s.gps_unit_id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(s.location_category, 'OTRAS') AS location_category FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL WHERE s.fecha = $1 AND s.turno = $2 ORDER BY u.code NULLS LAST, s.plate;",
+    query: "SELECT s.id, s.gps_unit_id, s.plate, s.gps_name, UPPER(COALESCE(tla.alias, s.location_text)) AS location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(s.location_category, 'OTRAS') AS location_category FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE s.location_text ILIKE '%' || match_text || '%' ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE WHERE s.fecha = $1 AND s.turno = $2 ORDER BY u.code NULLS LAST, s.plate;",
     structure_params: { fecha: 'string', turno: 'string' },
     orderArray: ['fecha', 'turno']
   },
 
   'getSnapshotsInWindow': {
-    query: "WITH win AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 ORDER BY gps_unit_id, fetched_at DESC) SELECT w.id, w.gps_unit_id, w.plate, w.gps_name, w.location_text, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, 'OTRAS') AS location_category FROM win w LEFT JOIN public.tracker_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = w.location_text ORDER BY u.code NULLS LAST, w.plate;",
+    query: "WITH win AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 ORDER BY gps_unit_id, fetched_at DESC) SELECT w.id, w.gps_unit_id, w.plate, w.gps_name, UPPER(COALESCE(tla.alias, w.location_text)) AS location_text, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, 'OTRAS') AS location_category FROM win w LEFT JOIN public.tracker_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = w.location_text LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE w.location_text ILIKE '%' || match_text || '%' ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE ORDER BY u.code NULLS LAST, w.plate;",
     structure_params: { window_start: 'string', window_end: 'string' },
     orderArray: ['window_start', 'window_end']
   },
