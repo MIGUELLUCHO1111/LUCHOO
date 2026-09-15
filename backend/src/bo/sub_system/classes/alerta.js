@@ -39,15 +39,25 @@ class Alerta {
         ...key,
         alertType: 'fuera_de_horario',
         isViolation: isCurfew && s.status === 'ACTIVO',
+        // Un solo momento (el de la deteccion, "ahora") para fecha y hora --
+        // antes se mezclaba con la hora del ultimo reporte del GPS
+        // (s.last_report_at), que casi nunca coincide con el momento real
+        // de la revision y confundia mostrando dos horas distintas.
         buildMessage: () => {
-          const mapsLink =
-            s.latitude != null && s.longitude != null ? `\nVer en mapa: https://www.google.com/maps?q=${s.latitude},${s.longitude}` : '';
+          const ahora = new Date();
+          const fecha = ahora.toLocaleDateString('es-VE', { timeZone: 'America/Caracas' });
+          const hora = ahora.toLocaleTimeString('es-VE', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          const mapa = s.latitude != null && s.longitude != null ? `https://www.google.com/maps?q=${s.latitude},${s.longitude}` : 'no disponible';
           return (
             `⚠ ALERTA - Fuera de horario\n` +
-            `Unidad: ${s.unit_code || 'sin registrar'} / Placa: ${s.plate || '(sin placa)'} / Conductor: ${s.driver_name || 'sin registrar'}\n` +
-            `Hora: ${new Date(s.last_report_at || Date.now()).toLocaleString('es-VE', { timeZone: 'America/Caracas' })}\n` +
-            `Ubicación: ${s.location_text || 'desconocida'}${mapsLink}\n` +
-            `Motivo: Unidad circulando fuera de horario a las ${new Date().toLocaleTimeString('es-VE', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' })}`
+            `Unidad: ${s.unit_code || 'sin registrar'}\n` +
+            `Placa: ${s.plate || '(sin placa)'}\n` +
+            `Conductor: ${s.driver_name || 'sin registrar'}\n` +
+            `Fecha: ${fecha}\n` +
+            `Hora: ${hora}\n` +
+            `Ubicación: ${s.location_text || 'desconocida'}\n` +
+            `Mapa: ${mapa}\n` +
+            `Motivo: Unidad circulando fuera de horario`
           );
         },
         snapshotId: s.id,
