@@ -13,7 +13,7 @@ class Unidad {
     this.dbmsReady = this.dbms.init();
   }
 
-  createUnidad = async ({ code, plate, driver_name }) => {
+  createUnidad = async ({ code, plate, driver_name, fleet_type }) => {
     await this.dbmsReady;
 
     if (!code) {
@@ -26,7 +26,7 @@ class Unidad {
     try {
       const result = await this.dbms.executeNamedQuery({
         nameQuery: 'createTrackerUnit',
-        params: { code, plate: plate || null, driver_name: driver_name || null },
+        params: { code, plate: plate || null, driver_name: driver_name || null, fleet_type: fleet_type || null },
       });
 
       return { statusCode: STATUS_CODES.CREATED, data: result?.rows?.[0], message: 'Unidad creada exitosamente' };
@@ -79,7 +79,7 @@ class Unidad {
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
   };
 
-  updateUnidad = async ({ id, plate, driver_name, is_active = true }) => {
+  updateUnidad = async ({ id, plate, driver_name, is_active = true, fleet_type }) => {
     await this.dbmsReady;
 
     if (!id) {
@@ -91,7 +91,7 @@ class Unidad {
 
     const result = await this.dbms.executeNamedQuery({
       nameQuery: 'updateTrackerUnit',
-      params: { id, plate: plate || null, driver_name: driver_name || null, is_active },
+      params: { id, plate: plate || null, driver_name: driver_name || null, is_active, fleet_type: fleet_type || null },
     });
 
     const unidad = result?.rows?.[0];

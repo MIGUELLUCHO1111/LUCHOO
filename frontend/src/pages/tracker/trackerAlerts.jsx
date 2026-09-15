@@ -12,7 +12,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { formatHora, formatFechaISO, TURNOS } from "@/lib/trackerFormat";
+import { formatHora, formatFechaISO, TURNOS, fleetTypeLabel, fleetTypeBadgeClass } from "@/lib/trackerFormat";
 
 // Dos apartados de la misma pantalla de Notificaciones: lo que se generó
 // como Alarma y lo que se generó como Reporte de Turno enviado a Telegram
@@ -115,6 +115,7 @@ const TrackerAlerts = () => {
                 <TableRow>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Unidad</TableHead>
+                  <TableHead>Flota</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Mensaje</TableHead>
                   <TableHead>Ubicación</TableHead>
@@ -125,11 +126,11 @@ const TrackerAlerts = () => {
               <TableBody>
                 {loadingAlerts ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                    <TableCell colSpan={8} className="text-center py-8 text-slate-400">Cargando...</TableCell>
                   </TableRow>
                 ) : alerts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-slate-400">
+                    <TableCell colSpan={8} className="text-center py-8 text-slate-400">
                       Sin alertas registradas todavía
                     </TableCell>
                   </TableRow>
@@ -138,6 +139,11 @@ const TrackerAlerts = () => {
                     <TableRow key={a.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
                       <TableCell className="text-sm whitespace-nowrap">{formatHora(a.triggered_at)}</TableCell>
                       <TableCell className="text-sm">{a.unit_code || a.plate || "-"}</TableCell>
+                      <TableCell className="text-sm">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(a.fleet_type)}`}>
+                          {fleetTypeLabel(a.fleet_type)}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-sm">
                         <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-orange-500/10 text-orange-600">
                           {a.alert_type === "fuera_de_horario" ? "Fuera de horario" : "Fuera de zona"}

@@ -39,6 +39,14 @@ class Alerta {
         ...key,
         alertType: 'fuera_de_horario',
         isViolation: isCurfew && s.status === 'ACTIVO',
+        // La flota pesada esta casi siempre en campo, y si aparece activa
+        // fuera de horario suele ser autorizado -- por eso se registra la
+        // alerta (queda en el historial) pero no se manda a Telegram, para
+        // no saturar con ruido lo que si necesita revision inmediata: la
+        // flota liviana. Sin clasificar (unidad no registrada o sin
+        // fleet_type) se trata como liviana, para no esconder una alerta
+        // real por falta de dato.
+        shouldNotify: s.fleet_type !== 'PESADA',
         // Un solo momento (el de la deteccion, "ahora") para fecha y hora --
         // antes se mezclaba con la hora del ultimo reporte del GPS
         // (s.last_report_at), que casi nunca coincide con el momento real
@@ -51,6 +59,7 @@ class Alerta {
           return (
             `⚠ ALERTA - Fuera de horario\n` +
             `Unidad: ${s.unit_code || 'sin registrar'}\n` +
+            `Tipo de flota: ${s.fleet_type || 'LIVIANA'}\n` +
             `Placa: ${s.plate || '(sin placa)'}\n` +
             `Conductor: ${s.driver_name || 'sin registrar'}\n` +
             `Fecha: ${fecha}\n` +
@@ -65,7 +74,7 @@ class Alerta {
     }
   };
 
-  checkRule = async ({ unit_id, plate, alertType, isViolation, buildMessage, snapshotId }) => {
+  checkRule = async ({ unit_id, plate, alertType, isViolation, shouldNotify = true, buildMessage, snapshotId }) => {
     const openResult = await this.dbms.executeNamedQuery({
       nameQuery: 'getOpenTrackerAlert',
       params: { unit_id, plate, alert_type: alertType },
@@ -74,7 +83,11 @@ class Alerta {
 
     if (isViolation && !openAlert) {
       const message = buildMessage();
-      const notifyResult = await this.telegram.sendMessage(message);
+      // Flota pesada: se guarda igual en el historial, pero no se dispara
+      // Telegram (ver evaluateSnapshots) -- por eso no se ejecuta el envio.
+      const notifyResult = shouldNotify
+        ? await this.telegram.sendMessage(message)
+        : { sent: false, reason: 'Flota pesada -- no se notifica por Telegram (posible autorizada)' };
       await this.dbms.executeNamedQuery({
         nameQuery: 'createTrackerAlert',
         params: {

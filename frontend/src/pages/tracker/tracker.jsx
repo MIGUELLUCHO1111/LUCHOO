@@ -15,7 +15,14 @@ import {
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
-import { CATEGORY_STYLES, formatHora, statusBadgeClass, statusLabel } from "@/lib/trackerFormat";
+import {
+  CATEGORY_STYLES,
+  formatHora,
+  statusBadgeClass,
+  statusLabel,
+  fleetTypeLabel,
+  fleetTypeBadgeClass,
+} from "@/lib/trackerFormat";
 
 const Tracker = () => {
   const confirm = useConfirm();
@@ -31,7 +38,7 @@ const Tracker = () => {
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [form, setForm] = useState({ code: "", plate: "", driver_name: "" });
+  const [form, setForm] = useState({ code: "", plate: "", driver_name: "", fleet_type: "" });
 
   useEffect(() => {
     loadSnapshots();
@@ -75,7 +82,7 @@ const Tracker = () => {
   };
 
   const resetForm = () => {
-    setForm({ code: "", plate: "", driver_name: "" });
+    setForm({ code: "", plate: "", driver_name: "", fleet_type: "" });
     setEditingId(null);
     setShowForm(false);
     setError(null);
@@ -86,6 +93,7 @@ const Tracker = () => {
       code: unidad.code,
       plate: unidad.plate || "",
       driver_name: unidad.driver_name || "",
+      fleet_type: unidad.fleet_type || "",
     });
     setEditingId(unidad.id);
     setShowForm(true);
@@ -102,12 +110,14 @@ const Tracker = () => {
           plate: form.plate || null,
           driver_name: form.driver_name || null,
           is_active: true,
+          fleet_type: form.fleet_type || null,
         });
       } else {
         await trackerService.createUnidad({
           code: form.code,
           plate: form.plate || null,
           driver_name: form.driver_name || null,
+          fleet_type: form.fleet_type || null,
         });
       }
       resetForm();
@@ -183,6 +193,7 @@ const Tracker = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Unidad</TableHead>
+              <TableHead>Flota</TableHead>
               <TableHead>Placa</TableHead>
               <TableHead>Conductor</TableHead>
               <TableHead>Ubicación</TableHead>
@@ -193,11 +204,11 @@ const Tracker = () => {
           <TableBody>
             {loadingSnapshots ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                <TableCell colSpan={7} className="text-center py-8 text-slate-400">Cargando...</TableCell>
               </TableRow>
             ) : snapshots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={7} className="text-center py-8 text-slate-400">
                   Sin lecturas todavía — presiona "Sincronizar ahora"
                 </TableCell>
               </TableRow>
@@ -206,6 +217,11 @@ const Tracker = () => {
                 <TableRow key={s.unit_id ?? `p-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
                   <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
                     {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(s.fleet_type)}`}>
+                      {fleetTypeLabel(s.fleet_type)}
+                    </span>
                   </TableCell>
                   <TableCell className="text-sm">{s.plate || "-"}</TableCell>
                   <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
@@ -267,7 +283,7 @@ const Tracker = () => {
                     {error}
                   </div>
                 )}
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Código *</Label>
                     <Input
@@ -295,7 +311,19 @@ const Tracker = () => {
                       onChange={(e) => setForm({ ...form, driver_name: e.target.value })}
                     />
                   </div>
-                  <div className="md:col-span-3 flex justify-end gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-sm font-bold">Tipo de flota</Label>
+                    <select
+                      value={form.fleet_type}
+                      onChange={(e) => setForm({ ...form, fleet_type: e.target.value })}
+                      className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm h-10"
+                    >
+                      <option value="">Sin clasificar</option>
+                      <option value="LIVIANA">Liviana</option>
+                      <option value="PESADA">Pesada</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-4 flex justify-end gap-3">
                     <Button type="button" variant="outline" onClick={resetForm} className="rounded-xl">Cancelar</Button>
                     <Button type="submit" disabled={submitting} className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white">
                       {submitting ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
@@ -311,6 +339,7 @@ const Tracker = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
+                  <TableHead>Flota</TableHead>
                   <TableHead>Placa</TableHead>
                   <TableHead>Conductor</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -320,6 +349,11 @@ const Tracker = () => {
                 {unidades.map((u, i) => (
                   <TableRow key={u.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
                     <TableCell className="font-mono font-bold text-sm">{u.code}</TableCell>
+                    <TableCell className="text-sm">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(u.fleet_type)}`}>
+                        {fleetTypeLabel(u.fleet_type)}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-sm">{u.plate || "-"}</TableCell>
                     <TableCell className="text-sm">{u.driver_name || "-"}</TableCell>
                     <TableCell className="text-right">

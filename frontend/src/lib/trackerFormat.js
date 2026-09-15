@@ -27,6 +27,16 @@ export const STATUS_BADGE_STYLES = {
 export const statusBadgeClass = (status) => STATUS_BADGE_STYLES[status] || STATUS_BADGE_STYLES.SIN_DATOS;
 export const statusLabel = (status) => STATUS_LABELS[status] || status;
 
+// Flota pesada (campo) vs liviana -- ver alerta.js: una unidad pesada activa
+// fuera de horario no dispara Telegram (suele estar autorizada), la liviana sí.
+export const FLEET_TYPE_STYLES = {
+  LIVIANA: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  PESADA: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
+};
+
+export const fleetTypeLabel = (fleetType) => fleetType || "SIN CLASIFICAR";
+export const fleetTypeBadgeClass = (fleetType) => FLEET_TYPE_STYLES[fleetType] || "bg-slate-500/10 text-slate-500";
+
 export const formatHora = (iso) => {
   if (!iso) return "-";
   try {
