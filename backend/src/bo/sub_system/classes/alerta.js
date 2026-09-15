@@ -61,7 +61,6 @@ class Alerta {
             `Unidad: ${s.unit_code || 'sin registrar'}\n` +
             `Tipo de flota: ${s.fleet_type || 'LIVIANA'}\n` +
             `Placa: ${s.plate || '(sin placa)'}\n` +
-            `Conductor: ${s.driver_name || 'sin registrar'}\n` +
             `Fecha: ${fecha}\n` +
             `Hora: ${hora}\n` +
             `Ubicación: ${s.location_text || 'desconocida'}\n` +
