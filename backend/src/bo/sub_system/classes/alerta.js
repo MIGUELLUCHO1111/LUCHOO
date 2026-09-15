@@ -47,7 +47,7 @@ class Alerta {
             `Unidad: ${s.unit_code || 'sin registrar'} / Placa: ${s.plate || '(sin placa)'} / Conductor: ${s.driver_name || 'sin registrar'}\n` +
             `Hora: ${new Date(s.last_report_at || Date.now()).toLocaleString('es-VE', { timeZone: 'America/Caracas' })}\n` +
             `Ubicación: ${s.location_text || 'desconocida'}${mapsLink}\n` +
-            `Motivo: Unidad circulando después de las ${CURFEW_HOUR}:00`
+            `Motivo: Unidad circulando fuera de horario a las ${new Date().toLocaleTimeString('es-VE', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit' })}`
           );
         },
         snapshotId: s.id,
