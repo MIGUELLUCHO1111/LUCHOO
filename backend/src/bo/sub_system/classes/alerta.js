@@ -44,7 +44,7 @@ class Alerta {
             s.latitude != null && s.longitude != null ? `\nVer en mapa: https://www.google.com/maps?q=${s.latitude},${s.longitude}` : '';
           return (
             `⚠ ALERTA - Fuera de horario\n` +
-            `Unidad: ${s.plate || '(sin placa)'} / ${s.driver_name || s.unit_code || 'sin registrar'}\n` +
+            `Unidad: ${s.unit_code || 'sin registrar'} / Placa: ${s.plate || '(sin placa)'} / Conductor: ${s.driver_name || 'sin registrar'}\n` +
             `Hora: ${new Date(s.last_report_at || Date.now()).toLocaleString('es-VE', { timeZone: 'America/Caracas' })}\n` +
             `Ubicación: ${s.location_text || 'desconocida'}${mapsLink}\n` +
             `Motivo: Unidad circulando después de las ${CURFEW_HOUR}:00`
