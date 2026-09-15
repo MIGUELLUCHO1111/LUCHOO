@@ -62,12 +62,6 @@ class Snapshot {
       // fuera un lugar real.
       let locationText = raw.Location ? String(raw.Location).trim() : null;
       if (locationText && /^(false|true)$/i.test(locationText)) locationText = null;
-      if (locationText) {
-        await this.dbms.executeNamedQuery({
-          nameQuery: 'upsertLocationCategoryAsOtras',
-          params: { location_text: locationText },
-        });
-      }
 
       const lastReportAt = raw.LastTime || null;
       const ageMs = lastReportAt ? now - new Date(lastReportAt).getTime() : Infinity;

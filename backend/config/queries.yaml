@@ -875,24 +875,6 @@
     orderArray: ['id']
   },
 
-  'getLocationCategory': {
-    query: 'SELECT location_text, category FROM public.tracker_location_category WHERE location_text = $1;',
-    structure_params: { location_text: 'string' },
-    orderArray: ['location_text']
-  },
-
-  'upsertLocationCategoryAsOtras': {
-    query: "INSERT INTO public.tracker_location_category (location_text, category) VALUES ($1, 'OTRAS') ON CONFLICT (location_text) DO NOTHING;",
-    structure_params: { location_text: 'string' },
-    orderArray: ['location_text']
-  },
-
-  'getAllLocationCategories': {
-    query: 'SELECT id, location_text, category FROM public.tracker_location_category ORDER BY category, location_text;',
-    structure_params: {},
-    orderArray: []
-  },
-
   # ---------- Tracker GPS (alias de ubicacion para reportes) ----------
 
   'getAllLocationAliases': {
@@ -931,7 +913,7 @@
   # reciente" cuando el último reporte de esa unidad es viejo, para que se
   # vea la diferencia sin esconder la unidad.
   'getLatestSnapshots': {
-    query: "WITH latest AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot ORDER BY gps_unit_id, fetched_at DESC) SELECT l.id, l.gps_unit_id, l.plate, l.gps_name, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(l.location_text))) AS location_text, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, COALESCE(lc.category, 'OTRAS') AS location_category FROM latest l LEFT JOIN public.tracker_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = l.location_text LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE l.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR l.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR l.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE ORDER BY u.code NULLS LAST, l.plate;",
+    query: "WITH latest AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot ORDER BY gps_unit_id, fetched_at DESC), resolved AS (SELECT l.id, l.gps_unit_id, l.plate, l.gps_name, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(l.location_text))) AS location_text FROM latest l LEFT JOIN public.tracker_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE l.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR l.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR l.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE) SELECT id, gps_unit_id, plate, gps_name, location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(location_text) AS location_category FROM resolved ORDER BY unit_code NULLS LAST, plate;",
     structure_params: {},
     orderArray: []
   },
@@ -1017,13 +999,13 @@
   },
 
   'getSnapshotSummary': {
-    query: "SELECT s.id, s.gps_unit_id, s.plate, s.gps_name, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(s.location_text))) AS location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, COALESCE(s.location_category, 'OTRAS') AS location_category FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE s.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR s.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR s.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE WHERE s.fecha = $1 AND s.turno = $2 ORDER BY u.code NULLS LAST, s.plate;",
+    query: "WITH resolved AS (SELECT s.id, s.gps_unit_id, s.plate, s.gps_name, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(s.location_text))) AS location_text FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE s.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR s.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR s.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE WHERE s.fecha = $1 AND s.turno = $2) SELECT id, gps_unit_id, plate, gps_name, location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(location_text) AS location_category FROM resolved ORDER BY unit_code NULLS LAST, plate;",
     structure_params: { fecha: 'string', turno: 'string' },
     orderArray: ['fecha', 'turno']
   },
 
   'getSnapshotsInWindow': {
-    query: "WITH win AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 ORDER BY gps_unit_id, fetched_at DESC) SELECT w.id, w.gps_unit_id, w.plate, w.gps_name, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(w.location_text))) AS location_text, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, COALESCE(lc.category, 'OTRAS') AS location_category FROM win w LEFT JOIN public.tracker_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = w.location_text LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE w.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR w.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR w.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE ORDER BY u.code NULLS LAST, w.plate;",
+    query: "WITH win AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 ORDER BY gps_unit_id, fetched_at DESC), resolved AS (SELECT w.id, w.gps_unit_id, w.plate, w.gps_name, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(w.location_text))) AS location_text FROM win w LEFT JOIN public.tracker_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE w.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR w.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR w.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE) SELECT id, gps_unit_id, plate, gps_name, location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(location_text) AS location_category FROM resolved ORDER BY unit_code NULLS LAST, plate;",
     structure_params: { window_start: 'string', window_end: 'string' },
     orderArray: ['window_start', 'window_end']
   },
