@@ -62,6 +62,17 @@ const CATEGORY_COLORS = {
 };
 const CATEGORY_ORDER = ['BASE', 'CAMPO', 'OFICINA', 'OTRAS'];
 
+// Mismos iconos (lucide) que usa la app para cada bloque -- SVG en vez de
+// emoji: un emoji de color (p.ej. &#9889;) ignora `color` en el render de
+// Chromium/Puppeteer y sale con su propio color en vez de blanco.
+const ICON_SVG = (path) =>
+  `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+const ICONS = {
+  activo: ICON_SVG('<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>'),
+  estacionado: ICON_SVG('<circle cx="12" cy="12" r="10"/><line x1="10" x2="10" y1="15" y2="9"/><line x1="14" x2="14" y1="15" y2="9"/>'),
+  stale: ICON_SVG('<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>'),
+};
+
 const sortByCategory = (units) =>
   units.slice().sort((a, b) => {
     const ai = CATEGORY_ORDER.indexOf(a.location_category);
@@ -96,7 +107,7 @@ const buildStatusSection = (title, colorClass, units) => {
     .join('');
   const emptyRow = `<tr><td colspan="5" class="empty">Ninguna unidad en este grupo</td></tr>`;
 
-  const icon = colorClass === 'activo' ? '&#9889;' : '&#9208;';
+  const icon = ICONS[colorClass];
   return `
     <div class="status-card ${colorClass}">
       <div class="status-header">
@@ -142,7 +153,7 @@ export function buildReportHtml(r) {
     ? `
     <div class="stale-card">
       <div class="status-header">
-        <span class="status-icon stale">&#9888;</span>
+        <span class="status-icon stale">${ICONS.stale}</span>
         <span class="status-header-title stale">Unidades sin señal reciente &mdash; revisar en sitio</span>
         <span class="status-count stale">${staleUnits.length}</span>
       </div>
@@ -197,8 +208,7 @@ export function buildReportHtml(r) {
 
   .legend { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; margin-bottom: 22px; }
   .legend-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #94a3b8; }
-  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; color: #334155; }
-  .legend-item i { display: inline-block; width: 2px; height: 15px; border-radius: 1px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; color: #334155; }
 
   /* Misma tarjeta blanca con encabezado de icono + titulo + contador
      pastel que usan los bloques desplegables de Estado de Flota en la app
@@ -212,6 +222,7 @@ export function buildReportHtml(r) {
 
   .status-header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; }
   .status-icon { width: 30px; height: 30px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; flex-shrink: 0; }
+  .status-icon svg { display: block; }
   .status-icon.activo { background: #10b981; }
   .status-icon.estacionado { background: #ef4444; }
   .status-icon.stale { background: #f59e0b; }
@@ -253,10 +264,10 @@ export function buildReportHtml(r) {
 
     <div class="legend">
       <span class="legend-label">📍 Leyenda de ubicación</span>
-      <span class="legend-item"><i style="background:${CATEGORY_COLORS.BASE.text}"></i>Base</span>
-      <span class="legend-item"><i style="background:${CATEGORY_COLORS.CAMPO.text}"></i>Campo</span>
-      <span class="legend-item"><i style="background:${CATEGORY_COLORS.OFICINA.text}"></i>Oficina</span>
-      <span class="legend-item"><i style="background:${CATEGORY_COLORS.OTRAS.text}"></i>Otras</span>
+      <span class="legend-item"><span class="cat-badge" style="background:${CATEGORY_COLORS.BASE.bg};color:${CATEGORY_COLORS.BASE.text}">BASE</span>Base</span>
+      <span class="legend-item"><span class="cat-badge" style="background:${CATEGORY_COLORS.CAMPO.bg};color:${CATEGORY_COLORS.CAMPO.text}">CAMPO</span>Campo</span>
+      <span class="legend-item"><span class="cat-badge" style="background:${CATEGORY_COLORS.OFICINA.bg};color:${CATEGORY_COLORS.OFICINA.text}">OFICINA</span>Oficina</span>
+      <span class="legend-item"><span class="cat-badge" style="background:${CATEGORY_COLORS.OTRAS.bg};color:${CATEGORY_COLORS.OTRAS.text}">OTRAS</span>Otras</span>
     </div>
 
     ${activasSection}
