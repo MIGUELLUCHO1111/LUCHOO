@@ -51,14 +51,14 @@ const formatHoras = (horas) => {
 };
 
 // Mismo color por categoria de ubicacion que usa el resto de la app
-// (CATEGORY_STYLES en el frontend) -- para que agrupar por categoria dentro
-// de cada bloque se note de un vistazo, sin mostrar la etiqueta de la
-// categoria como texto (eso queda solo como clasificacion interna).
+// (CATEGORY_STYLES en el frontend) -- misma pastilla de color que ya se ve
+// en la tabla en vivo, para que el reporte no invente un lenguaje visual
+// aparte.
 const CATEGORY_COLORS = {
-  BASE: { text: '#2563eb' },
-  CAMPO: { text: '#b45309' },
-  OFICINA: { text: '#0d9488' },
-  OTRAS: { text: '#9333ea' },
+  BASE: { bg: '#eff6ff', text: '#2563eb' },
+  CAMPO: { bg: '#fffbeb', text: '#b45309' },
+  OFICINA: { bg: '#f0fdfa', text: '#0d9488' },
+  OTRAS: { bg: '#faf5ff', text: '#9333ea' },
 };
 const CATEGORY_ORDER = ['BASE', 'CAMPO', 'OFICINA', 'OTRAS'];
 
@@ -86,16 +86,21 @@ const buildStatusSection = (title, colorClass, units) => {
           <td>${unitCell}</td>
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
           <td>${escapeHtml(u.driver_name || '-')}</td>
-          <td style="border-left:2px solid ${cat.text}">${escapeHtml(u.location_text || '-')}</td>
+          <td><span class="cat-badge" style="background:${cat.bg};color:${cat.text}">${escapeHtml(u.location_category || 'OTRAS')}</span> ${escapeHtml(u.location_text || '-')}</td>
           <td class="mono">${formatHora(u.fetched_at)}</td>
         </tr>`;
     })
     .join('');
   const emptyRow = `<tr><td colspan="5" class="empty">Ninguna unidad en este grupo</td></tr>`;
 
+  const icon = colorClass === 'activo' ? '&#9889;' : '&#9208;';
   return `
-    <div class="status-section ${colorClass}">
-      <div class="status-title ${colorClass}">${escapeHtml(title)} <span class="count">${units.length}</span></div>
+    <div class="status-card ${colorClass}">
+      <div class="status-header">
+        <span class="status-icon ${colorClass}">${icon}</span>
+        <span class="status-header-title">${escapeHtml(title)}</span>
+        <span class="status-count ${colorClass}">${units.length}</span>
+      </div>
       <table>
         <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Hora de revisión</th></tr></thead>
         <tbody>${rows || emptyRow}</tbody>
@@ -132,8 +137,12 @@ export function buildReportHtml(r) {
 
   const staleSection = staleUnits.length
     ? `
-    <div class="stale-section">
-      <div class="stale-title">&#9888; Unidades sin señal reciente &mdash; revisar en sitio <span class="count">${staleUnits.length}</span></div>
+    <div class="stale-card">
+      <div class="status-header">
+        <span class="status-icon stale">&#9888;</span>
+        <span class="status-header-title stale">Unidades sin señal reciente &mdash; revisar en sitio</span>
+        <span class="status-count stale">${staleUnits.length}</span>
+      </div>
       <table>
         <thead><tr><th>Unidad</th><th>Placa</th><th>Última conexión</th><th>Horas sin conexión</th></tr></thead>
         <tbody>${staleRows}</tbody>
@@ -178,34 +187,39 @@ export function buildReportHtml(r) {
   .strong { font-weight: 700; color: #0f172a; }
   .unregistered { font-style: italic; color: #94a3b8; font-weight: 400; }
 
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; }
-  .badge.activo { background: #d1fae5; color: #059669; }
-  .badge.estacionado { background: #fee2e2; color: #dc2626; }
-  .badge.stale { background: #fef3c7; color: #b45309; font-size: 8.5px; }
+  .badge.stale { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 8.5px; font-weight: 700; background: #fef3c7; color: #b45309; }
+  .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; margin-right: 6px; }
 
   .legend { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; margin-bottom: 22px; }
   .legend-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #94a3b8; }
   .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; color: #334155; }
   .legend-item i { display: inline-block; width: 2px; height: 15px; border-radius: 1px; }
 
-  .status-section { margin-bottom: 22px; border-radius: 14px; border: 1px solid; background: #fff; overflow: hidden; }
-  .status-section.activo { border-color: #6ee7b7; }
-  .status-section.estacionado { border-color: #fca5a5; }
-  .status-section table { margin: 0; }
-  .status-section th, .status-section td { padding-left: 18px; padding-right: 18px; }
-  .status-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; padding: 12px 18px; color: #fff; }
-  .status-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: rgba(255,255,255,0.28); color: #fff; }
-  .status-title.activo { background: #059669; }
-  .status-title.estacionado { background: #dc2626; }
+  /* Misma tarjeta blanca con encabezado de icono + titulo + contador
+     pastel que usan los bloques desplegables de Estado de Flota en la app
+     -- pedido de Lguerra, 16/09/2026, en vez de una barra solida de color. */
+  .status-card, .stale-card { margin-bottom: 22px; border-radius: 14px; border: 1px solid; background: #fff; overflow: hidden; }
+  .status-card.activo { border-color: #a7f3d0; }
+  .status-card.estacionado { border-color: #fecaca; }
+  .stale-card { border-color: #fde68a; }
+  .status-card table, .stale-card table { margin: 0; }
+  .status-card th, .status-card td, .stale-card th, .stale-card td { padding-left: 18px; padding-right: 18px; }
 
-  .stale-section { margin-top: 22px; border-radius: 14px; border: 1px solid #fde68a; background: #fff; overflow: hidden; }
-  .stale-section table { margin: 0; }
-  .stale-section th, .stale-section td { padding-left: 18px; padding-right: 18px; }
-  .stale-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #fff; background: #d97706; padding: 12px 18px; }
-  .stale-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: rgba(255,255,255,0.28); color: #fff; }
-  .stale-section th { border-bottom-color: #fde68a; }
-  .stale-section td { border-bottom-color: #fef3c7; }
-  .stale-section tr.alt td { background: #fef9ec; }
+  .status-header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; }
+  .status-icon { width: 30px; height: 30px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; flex-shrink: 0; }
+  .status-icon.activo { background: #10b981; }
+  .status-icon.estacionado { background: #ef4444; }
+  .status-icon.stale { background: #f59e0b; }
+  .status-header-title { font-size: 14px; font-weight: 800; color: #0f172a; }
+  .status-header-title.stale { color: #92400e; font-size: 13px; }
+  .status-count { padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+  .status-count.activo { background: #d1fae5; color: #059669; }
+  .status-count.estacionado { background: #fee2e2; color: #dc2626; }
+  .status-count.stale { background: #fef3c7; color: #b45309; }
+
+  .stale-card th { border-bottom-color: #fde68a; }
+  .stale-card td { border-bottom-color: #fef3c7; }
+  .stale-card tr.alt td { background: #fef9ec; }
 
   .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
 </style></head>
