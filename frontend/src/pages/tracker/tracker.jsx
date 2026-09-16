@@ -42,7 +42,7 @@ const Tracker = () => {
   const toggleBlock = (key) => setOpenBlocks((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const EMPTY_FILTER = { search: "", fleet: "", category: "" };
-  const [filters, setFilters] = useState({ activo: EMPTY_FILTER, estacionado: EMPTY_FILTER, stale: EMPTY_FILTER });
+  const [filters, setFilters] = useState({ activo: EMPTY_FILTER, estacionado: EMPTY_FILTER, stale: EMPTY_FILTER, unidades: EMPTY_FILTER });
   const updateFilter = (key, field, value) =>
     setFilters((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   const clearFilter = (key) => setFilters((prev) => ({ ...prev, [key]: EMPTY_FILTER }));
@@ -59,6 +59,21 @@ const Tracker = () => {
       }
       if (f.fleet && s.fleet_type !== f.fleet) return false;
       if (f.category && s.location_category !== f.category) return false;
+      return true;
+    });
+  };
+
+  // El registro de unidades no tiene ubicación (no viene de un snapshot GPS),
+  // así que su filtro es su propia función: busca por código/placa/conductor
+  // y acota por flota, sin la opción de categoría.
+  const applyUnidadesFilter = (units, f) => {
+    const search = f.search.trim().toLowerCase();
+    return units.filter((u) => {
+      if (search) {
+        const haystack = `${u.code || ""} ${u.plate || ""} ${u.driver_name || ""}`.toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      if (f.fleet && u.fleet_type !== f.fleet) return false;
       return true;
     });
   };
@@ -454,10 +469,40 @@ const Tracker = () => {
         </button>
         <div className={`grid transition-all duration-300 ease-in-out ${openBlocks.unidades ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="overflow-hidden px-5 pb-5">
-            <div className="flex justify-end pt-1 pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1 pb-4">
+              <div className="flex flex-wrap items-center gap-2 flex-1">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por código, placa o conductor..."
+                    value={filters.unidades.search}
+                    onChange={(e) => updateFilter("unidades", "search", e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                  />
+                </div>
+                <select
+                  value={filters.unidades.fleet}
+                  onChange={(e) => updateFilter("unidades", "fleet", e.target.value)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115]"
+                >
+                  <option value="">Toda la flota</option>
+                  <option value="LIVIANA">Liviana</option>
+                  <option value="PESADA">Pesada</option>
+                </select>
+                {hasActiveFilter(filters.unidades) && (
+                  <button
+                    type="button"
+                    onClick={() => clearFilter("unidades")}
+                    className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline shrink-0"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
               <Button
                 onClick={() => { resetForm(); setShowForm(!showForm); }}
-                className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm"
+                className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm shrink-0"
               >
                 {showForm ? <X size={14} /> : <Plus size={14} />}
                 {showForm ? "Cancelar" : "Nueva Unidad"}
@@ -535,28 +580,40 @@ const Tracker = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {unidades.map((u, i) => (
-                    <TableRow key={u.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
-                      <TableCell className="font-mono font-bold text-sm">{u.code}</TableCell>
-                      <TableCell className="text-sm">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(u.fleet_type)}`}>
-                          {fleetTypeLabel(u.fleet_type)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{u.plate || "-"}</TableCell>
-                      <TableCell className="text-sm">{u.driver_name || "-"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="outline" size="icon" onClick={() => handleEdit(u)} className="h-8 w-8 rounded-lg">
-                            <Pencil size={14} />
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => handleDelete(u.id, u.code)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
-                            <Trash2 size={14} />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {(() => {
+                    const filteredUnidades = applyUnidadesFilter(unidades, filters.unidades);
+                    if (filteredUnidades.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                            {unidades.length === 0 ? "Ninguna unidad registrada todavía." : "Ningún resultado con estos filtros."}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+                    return filteredUnidades.map((u, i) => (
+                      <TableRow key={u.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+                        <TableCell className="font-mono font-bold text-sm">{u.code}</TableCell>
+                        <TableCell className="text-sm">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(u.fleet_type)}`}>
+                            {fleetTypeLabel(u.fleet_type)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm">{u.plate || "-"}</TableCell>
+                        <TableCell className="text-sm">{u.driver_name || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="outline" size="icon" onClick={() => handleEdit(u)} className="h-8 w-8 rounded-lg">
+                              <Pencil size={14} />
+                            </Button>
+                            <Button variant="outline" size="icon" onClick={() => handleDelete(u.id, u.code)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ));
+                  })()}
                 </TableBody>
               </Table>
             </div>
