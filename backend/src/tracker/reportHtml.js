@@ -94,7 +94,7 @@ const buildStatusSection = (title, colorClass, units) => {
   const emptyRow = `<tr><td colspan="5" class="empty">Ninguna unidad en este grupo</td></tr>`;
 
   return `
-    <div class="status-section">
+    <div class="status-section ${colorClass}">
       <div class="status-title ${colorClass}">${escapeHtml(title)} <span class="count">${units.length}</span></div>
       <table>
         <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Hora de revisión</th></tr></thead>
@@ -133,7 +133,7 @@ export function buildReportHtml(r) {
   const staleSection = staleUnits.length
     ? `
     <div class="stale-section">
-      <div class="stale-title">&#9888; Unidades sin señal reciente &mdash; revisar en sitio</div>
+      <div class="stale-title">&#9888; Unidades sin señal reciente &mdash; revisar en sitio <span class="count">${staleUnits.length}</span></div>
       <table>
         <thead><tr><th>Unidad</th><th>Placa</th><th>Última conexión</th><th>Horas sin conexión</th></tr></thead>
         <tbody>${staleRows}</tbody>
@@ -184,17 +184,25 @@ export function buildReportHtml(r) {
   .badge.stale { background: #fef3c7; color: #b45309; font-size: 8.5px; }
   .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; margin-right: 6px; }
 
-  .status-section { margin-bottom: 22px; }
-  .status-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; padding: 10px 4px; }
+  .status-section { margin-bottom: 22px; padding: 16px 18px; border-radius: 14px; border: 1px solid; }
+  .status-section.activo { border-color: #6ee7b7; background: #ecfdf5; }
+  .status-section.estacionado { border-color: #fca5a5; background: #fef2f2; }
+  .status-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; margin-bottom: 10px; }
   .status-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; }
   .status-title.activo { color: #059669; }
   .status-title.activo .count { background: #d1fae5; color: #059669; }
   .status-title.estacionado { color: #dc2626; }
   .status-title.estacionado .count { background: #fee2e2; color: #dc2626; }
-  .status-section table th { border-bottom-color: #e2e8f0; }
+  .status-section.activo th { border-bottom-color: #6ee7b7; }
+  .status-section.estacionado th { border-bottom-color: #fca5a5; }
+  .status-section.activo td { border-bottom-color: #bbf7d0; }
+  .status-section.estacionado td { border-bottom-color: #fecaca; }
+  .status-section.activo tr.alt td { background: #d1fae5; }
+  .status-section.estacionado tr.alt td { background: #fee2e2; }
 
   .stale-section { margin-top: 22px; padding: 16px 18px; border-radius: 14px; border: 1px solid #fde68a; background: #fffbeb; }
-  .stale-title { font-size: 12px; font-weight: 800; color: #b45309; margin-bottom: 10px; }
+  .stale-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #b45309; margin-bottom: 10px; }
+  .stale-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: #fef3c7; color: #b45309; }
   .stale-section th { border-bottom-color: #fde68a; }
   .stale-section td { border-bottom-color: #fef3c7; }
   .stale-section tr.alt td { background: #fef9ec; }
