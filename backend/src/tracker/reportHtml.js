@@ -184,25 +184,21 @@ export function buildReportHtml(r) {
   .badge.stale { background: #fef3c7; color: #b45309; font-size: 8.5px; }
   .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; margin-right: 6px; }
 
-  .status-section { margin-bottom: 22px; padding: 16px 18px; border-radius: 14px; border: 1px solid; }
-  .status-section.activo { border-color: #6ee7b7; background: #ecfdf5; }
-  .status-section.estacionado { border-color: #fca5a5; background: #fef2f2; }
-  .status-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; margin-bottom: 10px; }
-  .status-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; }
-  .status-title.activo { color: #059669; }
-  .status-title.activo .count { background: #d1fae5; color: #059669; }
-  .status-title.estacionado { color: #dc2626; }
-  .status-title.estacionado .count { background: #fee2e2; color: #dc2626; }
-  .status-section.activo th { border-bottom-color: #6ee7b7; }
-  .status-section.estacionado th { border-bottom-color: #fca5a5; }
-  .status-section.activo td { border-bottom-color: #bbf7d0; }
-  .status-section.estacionado td { border-bottom-color: #fecaca; }
-  .status-section.activo tr.alt td { background: #d1fae5; }
-  .status-section.estacionado tr.alt td { background: #fee2e2; }
+  .status-section { margin-bottom: 22px; border-radius: 14px; border: 1px solid; background: #fff; overflow: hidden; }
+  .status-section.activo { border-color: #6ee7b7; }
+  .status-section.estacionado { border-color: #fca5a5; }
+  .status-section table { margin: 0; }
+  .status-section th, .status-section td { padding-left: 18px; padding-right: 18px; }
+  .status-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; padding: 12px 18px; color: #fff; }
+  .status-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: rgba(255,255,255,0.28); color: #fff; }
+  .status-title.activo { background: #059669; }
+  .status-title.estacionado { background: #dc2626; }
 
-  .stale-section { margin-top: 22px; padding: 16px 18px; border-radius: 14px; border: 1px solid #fde68a; background: #fffbeb; }
-  .stale-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #b45309; margin-bottom: 10px; }
-  .stale-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: #fef3c7; color: #b45309; }
+  .stale-section { margin-top: 22px; border-radius: 14px; border: 1px solid #fde68a; background: #fff; overflow: hidden; }
+  .stale-section table { margin: 0; }
+  .stale-section th, .stale-section td { padding-left: 18px; padding-right: 18px; }
+  .stale-title { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #fff; background: #d97706; padding: 12px 18px; }
+  .stale-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; background: rgba(255,255,255,0.28); color: #fff; }
   .stale-section th { border-bottom-color: #fde68a; }
   .stale-section td { border-bottom-color: #fef3c7; }
   .stale-section tr.alt td { background: #fef9ec; }
