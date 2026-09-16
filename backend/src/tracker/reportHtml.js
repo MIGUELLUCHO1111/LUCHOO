@@ -209,6 +209,7 @@ export function buildReportHtml(r) {
   .legend { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; margin-bottom: 22px; }
   .legend-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #94a3b8; }
   .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; color: #334155; }
+  .legend-swatch { display: inline-block; width: 18px; height: 7px; border-radius: 999px; flex-shrink: 0; }
 
   /* Misma tarjeta blanca con encabezado de icono + titulo + contador
      pastel que usan los bloques desplegables de Estado de Flota en la app
@@ -264,10 +265,10 @@ export function buildReportHtml(r) {
 
     <div class="legend">
       <span class="legend-label">📍 Leyenda de ubicación</span>
-      <span class="legend-item"><span class="cat-badge" style="background:${CATEGORY_COLORS.BASE.bg};color:${CATEGORY_COLORS.BASE.text}">BASE</span>Base</span>
-      <span class="legend-item"><span class="cat-badge" style="background:${CATEGORY_COLORS.CAMPO.bg};color:${CATEGORY_COLORS.CAMPO.text}">CAMPO</span>Campo</span>
-      <span class="legend-item"><span class="cat-badge" style="background:${CATEGORY_COLORS.OFICINA.bg};color:${CATEGORY_COLORS.OFICINA.text}">OFICINA</span>Oficina</span>
-      <span class="legend-item"><span class="cat-badge" style="background:${CATEGORY_COLORS.OTRAS.bg};color:${CATEGORY_COLORS.OTRAS.text}">OTRAS</span>Otras</span>
+      <span class="legend-item"><i class="legend-swatch" style="background:${CATEGORY_COLORS.BASE.text}"></i>Base</span>
+      <span class="legend-item"><i class="legend-swatch" style="background:${CATEGORY_COLORS.CAMPO.text}"></i>Campo</span>
+      <span class="legend-item"><i class="legend-swatch" style="background:${CATEGORY_COLORS.OFICINA.text}"></i>Oficina</span>
+      <span class="legend-item"><i class="legend-swatch" style="background:${CATEGORY_COLORS.OTRAS.text}"></i>Otras</span>
     </div>
 
     ${activasSection}
