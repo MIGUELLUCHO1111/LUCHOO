@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Radio, RefreshCw, Plus, X, Pencil, Trash2, ChevronDown, Zap, PauseCircle, AlertTriangle, Search } from "lucide-react";
+import { Radio, RefreshCw, Plus, X, Pencil, Trash2, ChevronDown, Zap, PauseCircle, AlertTriangle, Search, ClipboardList } from "lucide-react";
 import { trackerService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,13 +33,12 @@ const Tracker = () => {
   const [syncMessage, setSyncMessage] = useState(null);
 
   const [unidades, setUnidades] = useState([]);
-  const [showUnidades, setShowUnidades] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ code: "", plate: "", driver_name: "", fleet_type: "" });
-  const [openBlocks, setOpenBlocks] = useState({ activo: true, estacionado: true, stale: true });
+  const [openBlocks, setOpenBlocks] = useState({ activo: true, estacionado: true, stale: true, unidades: false });
   const toggleBlock = (key) => setOpenBlocks((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const EMPTY_FILTER = { search: "", fleet: "", category: "" };
@@ -435,29 +434,37 @@ const Tracker = () => {
         </div>
       </Card>
 
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-          Unidades registradas (tabla interna placa-unidad-conductor)
-        </h3>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowUnidades(!showUnidades)} className="rounded-xl text-sm">
-            {showUnidades ? "Ocultar" : `Ver (${unidades.length})`}
-          </Button>
-          {showUnidades && (
-            <Button
-              onClick={() => { resetForm(); setShowForm(!showForm); }}
-              className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm"
-            >
-              {showForm ? <X size={14} /> : <Plus size={14} />}
-              {showForm ? "Cancelar" : "Nueva Unidad"}
-            </Button>
-          )}
-        </div>
-      </div>
+      <Card className="w-full overflow-hidden mb-8 border-orange-200 dark:border-orange-500/20">
+        <button
+          type="button"
+          onClick={() => toggleBlock("unidades")}
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-orange-500 text-white">
+              <ClipboardList size={16} />
+            </span>
+            <span className="font-bold text-slate-900 dark:text-white">Gestión de Unidades</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-500/10 text-orange-600">{unidades.length}</span>
+            <span className="hidden md:inline text-xs text-slate-400 font-normal">
+              — registra, edita o da de baja unidades (código, placa, conductor, tipo de flota)
+            </span>
+          </div>
+          <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 shrink-0 ${openBlocks.unidades ? "rotate-180" : ""}`} />
+        </button>
+        <div className={`grid transition-all duration-300 ease-in-out ${openBlocks.unidades ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+          <div className="overflow-hidden px-5 pb-5">
+            <div className="flex justify-end pt-1 pb-4">
+              <Button
+                onClick={() => { resetForm(); setShowForm(!showForm); }}
+                className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm"
+              >
+                {showForm ? <X size={14} /> : <Plus size={14} />}
+                {showForm ? "Cancelar" : "Nueva Unidad"}
+              </Button>
+            </div>
 
-      {showUnidades && (
-        <>
-          {showForm && (
+            {showForm && (
             <Card className="mb-6 border-orange-200 dark:border-orange-500/20">
               <CardContent className="p-6">
                 {error && (
@@ -516,45 +523,46 @@ const Tracker = () => {
             </Card>
           )}
 
-          <Card className="w-full overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Flota</TableHead>
-                  <TableHead>Placa</TableHead>
-                  <TableHead>Conductor</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {unidades.map((u, i) => (
-                  <TableRow key={u.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
-                    <TableCell className="font-mono font-bold text-sm">{u.code}</TableCell>
-                    <TableCell className="text-sm">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(u.fleet_type)}`}>
-                        {fleetTypeLabel(u.fleet_type)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-sm">{u.plate || "-"}</TableCell>
-                    <TableCell className="text-sm">{u.driver_name || "-"}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="outline" size="icon" onClick={() => handleEdit(u)} className="h-8 w-8 rounded-lg">
-                          <Pencil size={14} />
-                        </Button>
-                        <Button variant="outline" size="icon" onClick={() => handleDelete(u.id, u.code)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="rounded-xl border border-slate-100 dark:border-white/5 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Flota</TableHead>
+                    <TableHead>Placa</TableHead>
+                    <TableHead>Conductor</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </>
-      )}
+                </TableHeader>
+                <TableBody>
+                  {unidades.map((u, i) => (
+                    <TableRow key={u.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+                      <TableCell className="font-mono font-bold text-sm">{u.code}</TableCell>
+                      <TableCell className="text-sm">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(u.fleet_type)}`}>
+                          {fleetTypeLabel(u.fleet_type)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">{u.plate || "-"}</TableCell>
+                      <TableCell className="text-sm">{u.driver_name || "-"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="outline" size="icon" onClick={() => handleEdit(u)} className="h-8 w-8 rounded-lg">
+                            <Pencil size={14} />
+                          </Button>
+                          <Button variant="outline" size="icon" onClick={() => handleDelete(u.id, u.code)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+      </Card>
     </PageLayout>
   );
 };
