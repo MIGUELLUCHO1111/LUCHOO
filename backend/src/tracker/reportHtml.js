@@ -50,28 +50,64 @@ const formatHoras = (horas) => {
   return `${(horas / 24).toFixed(1)} días`;
 };
 
-export function buildReportHtml(r) {
-  const rows = r.unidades
+// Mismo color por categoria de ubicacion que usa el resto de la app
+// (CATEGORY_STYLES en el frontend) -- para que agrupar por categoria dentro
+// de cada bloque se note de un vistazo, sin fragmentar en una tabla por
+// categoria.
+const CATEGORY_COLORS = {
+  BASE: { bg: '#eff6ff', text: '#2563eb' },
+  CAMPO: { bg: '#fffbeb', text: '#b45309' },
+  OFICINA: { bg: '#f0fdfa', text: '#0d9488' },
+  OTRAS: { bg: '#faf5ff', text: '#9333ea' },
+};
+const CATEGORY_ORDER = ['BASE', 'CAMPO', 'OFICINA', 'OTRAS'];
+
+const sortByCategory = (units) =>
+  units.slice().sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(a.location_category);
+    const bi = CATEGORY_ORDER.indexOf(b.location_category);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+
+// Un bloque por estado (Activas / Estacionadas), con las filas agrupadas
+// visualmente por categoria de ubicacion (mismo orden y color en las tres
+// vistas: app, PDF/imagen y Excel) -- pedido de Lguerra, 16/09/2026, en vez
+// de una tabla plana mezclada o una mini-tabla por cada categoria.
+const buildStatusSection = (title, colorClass, units) => {
+  const sorted = sortByCategory(units);
+  const rows = sorted
     .map((u, i) => {
-      const statusClass = u.status === 'ACTIVO' ? 'activo' : 'estacionado';
-      const statusLabel = u.status === 'ACTIVO' ? 'ACTIVO' : 'ESTACIONADO';
       const unitCell = u.unit_code
         ? `<span class="mono strong">${escapeHtml(u.unit_code)}</span>`
         : `<span class="unregistered">sin registrar</span>`;
-      const staleTag = u.is_stale ? `<br><span class="badge stale">SIN SEÑAL RECIENTE</span>` : '';
+      const cat = CATEGORY_COLORS[u.location_category] || CATEGORY_COLORS.OTRAS;
       return `
         <tr class="${i % 2 === 0 ? '' : 'alt'}">
           <td>${unitCell}</td>
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
           <td>${escapeHtml(u.driver_name || '-')}</td>
-          <td>${escapeHtml(u.location_text || '-')}</td>
-          <td class="mono">${formatHora(u.fetched_at)}${staleTag}</td>
-          <td><span class="badge ${statusClass}">${statusLabel}</span></td>
+          <td><span class="cat-badge" style="background:${cat.bg};color:${cat.text}">${escapeHtml(u.location_category || 'OTRAS')}</span> ${escapeHtml(u.location_text || '-')}</td>
+          <td class="mono">${formatHora(u.fetched_at)}</td>
         </tr>`;
     })
     .join('');
+  const emptyRow = `<tr><td colspan="5" class="empty">Ninguna unidad en este grupo</td></tr>`;
 
-  const emptyRow = `<tr><td colspan="6" class="empty">Sin lecturas registradas en esta ventana de turno</td></tr>`;
+  return `
+    <div class="status-section">
+      <div class="status-title ${colorClass}">${escapeHtml(title)} <span class="count">${units.length}</span></div>
+      <table>
+        <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Hora de revisión</th></tr></thead>
+        <tbody>${rows || emptyRow}</tbody>
+      </table>
+    </div>`;
+};
+
+export function buildReportHtml(r) {
+  const activeUnits = r.unidades.filter((u) => u.status === 'ACTIVO' && !u.is_stale);
+  const parkedUnits = r.unidades.filter((u) => u.status === 'ESTACIONADO' && !u.is_stale);
+  const activasSection = buildStatusSection('Unidades activas', 'activo', activeUnits);
+  const estacionadasSection = buildStatusSection('Unidades estacionadas', 'estacionado', parkedUnits);
 
   // Unidades "sin señal reciente": aparte de contarlas, se detallan una por
   // una (última conexión + horas sin conexión) para que la revisión en sitio
@@ -146,6 +182,16 @@ export function buildReportHtml(r) {
   .badge.activo { background: #d1fae5; color: #059669; }
   .badge.estacionado { background: #fee2e2; color: #dc2626; }
   .badge.stale { background: #fef3c7; color: #b45309; font-size: 8.5px; }
+  .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; margin-right: 6px; }
+
+  .status-section { margin-bottom: 22px; }
+  .status-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; padding: 10px 4px; }
+  .status-title .count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; padding: 1px 8px; border-radius: 999px; font-size: 11px; }
+  .status-title.activo { color: #059669; }
+  .status-title.activo .count { background: #d1fae5; color: #059669; }
+  .status-title.estacionado { color: #dc2626; }
+  .status-title.estacionado .count { background: #fee2e2; color: #dc2626; }
+  .status-section table th { border-bottom-color: #e2e8f0; }
 
   .stale-section { margin-top: 22px; padding: 16px 18px; border-radius: 14px; border: 1px solid #fde68a; background: #fffbeb; }
   .stale-title { font-size: 12px; font-weight: 800; color: #b45309; margin-bottom: 10px; }
@@ -177,12 +223,10 @@ export function buildReportHtml(r) {
       <div class="kpi estacionadas"><div class="label">Estacionadas</div><div class="value">${r.estacionadas}</div></div>
       <div class="kpi sinsenal"><div class="label">Sin Señal Reciente</div><div class="value">${r.sin_senal ?? 0}</div></div>
     </div>
-    ${staleSection}
 
-    <table>
-      <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Hora de revisión</th><th>Estado</th></tr></thead>
-      <tbody>${rows || emptyRow}</tbody>
-    </table>
+    ${activasSection}
+    ${estacionadasSection}
+    ${staleSection}
 
     <div class="footer">
       <span>Generado automáticamente por el Tracker GPS de Flota</span>
