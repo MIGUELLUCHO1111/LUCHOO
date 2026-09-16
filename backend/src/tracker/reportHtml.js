@@ -202,7 +202,7 @@ export function buildReportHtml(r) {
   .unregistered { font-style: italic; color: #94a3b8; font-weight: 400; }
 
   .badge.stale { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 8.5px; font-weight: 700; background: #fef3c7; color: #b45309; }
-  .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .cat-badge { display: inline-block; width: 62px; text-align: center; padding: 2px 4px; border-radius: 999px; font-size: 8.5px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
   .loc-cell { display: flex; align-items: flex-start; gap: 6px; }
   .loc-text { flex: 1; min-width: 0; }
 
@@ -214,8 +214,8 @@ export function buildReportHtml(r) {
      pastel que usan los bloques desplegables de Estado de Flota en la app
      -- pedido de Lguerra, 16/09/2026, en vez de una barra solida de color. */
   .status-card, .stale-card { margin-bottom: 22px; border-radius: 14px; border: 1px solid; background: #fff; overflow: hidden; }
-  .status-card.activo { border-color: #a7f3d0; }
-  .status-card.estacionado { border-color: #fecaca; }
+  .status-card.activo { border-color: #6ee7b7; }
+  .status-card.estacionado { border-color: #fca5a5; }
   .stale-card { border-color: #fde68a; }
   .status-card table, .stale-card table { margin: 0; }
   .status-card th, .status-card td, .stale-card th, .stale-card td { padding-left: 18px; padding-right: 18px; }

@@ -62,12 +62,28 @@ class Alerta {
 
       const key = { unit_id: s.unit_id ?? null, plate: s.unit_id ? null : s.plate ?? null };
 
-      if (geofences.length > 0 && s.latitude != null && s.longitude != null) {
+      // Solo se vigilan las unidades que YA se vieron dentro de alguna
+      // geocerca alguna vez (ever_inside) -- unidades sin unit_id (no
+      // registradas) no tienen donde guardar ese estado, se omiten. Pedido
+      // de Lguerra 16/09/2026: con solo 8 geocercas dibujadas todavia, ~35
+      // unidades (oficina, refineria, taller...) nunca han estado dentro de
+      // ninguna -- avisar que estan "fuera" desde el primer momento no tiene
+      // sentido para ellas. La alerta real es "se alejo de su geocerca", no
+      // "nunca ha estado cerca de una conocida". Segun se agreguen mas
+      // geocercas en GEvolution, mas unidades entraran solas a este control.
+      if (geofences.length > 0 && s.unit_id != null && s.latitude != null && s.longitude != null) {
         const dentro = isInsideAnyGeofence(Number(s.longitude), Number(s.latitude), geofences);
+
+        if (dentro) {
+          await this.dbms.executeNamedQuery({ nameQuery: 'markGeofenceEverInside', params: { unit_id: s.unit_id } });
+        }
+        const stateResult = await this.dbms.executeNamedQuery({ nameQuery: 'getGeofenceState', params: { unit_id: s.unit_id } });
+        const everInside = dentro || stateResult?.rows?.[0]?.ever_inside === true;
+
         await this.checkRule({
           ...key,
           alertType: 'fuera_de_geocerca',
-          isViolation: !dentro,
+          isViolation: everInside && !dentro,
           // A diferencia de fuera_de_horario, aqui SI se notifica a toda la
           // flota (pedido explicito: "todas aquellas" unidades) -- salir del
           // perimetro operativo es una alerta de seguridad, no algo que la
