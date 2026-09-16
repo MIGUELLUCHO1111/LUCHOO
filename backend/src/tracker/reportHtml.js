@@ -86,7 +86,7 @@ const buildStatusSection = (title, colorClass, units) => {
           <td>${unitCell}</td>
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
           <td>${escapeHtml(u.driver_name || '-')}</td>
-          <td style="border-left:4px solid ${cat.text}">${escapeHtml(u.location_text || '-')}</td>
+          <td style="border-left:2px solid ${cat.text}">${escapeHtml(u.location_text || '-')}</td>
           <td class="mono">${formatHora(u.fetched_at)}</td>
         </tr>`;
     })
@@ -183,6 +183,11 @@ export function buildReportHtml(r) {
   .badge.estacionado { background: #fee2e2; color: #dc2626; }
   .badge.stale { background: #fef3c7; color: #b45309; font-size: 8.5px; }
 
+  .legend { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; margin-bottom: 22px; }
+  .legend-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #94a3b8; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700; color: #334155; }
+  .legend-item i { display: inline-block; width: 2px; height: 15px; border-radius: 1px; }
+
   .status-section { margin-bottom: 22px; border-radius: 14px; border: 1px solid; background: #fff; overflow: hidden; }
   .status-section.activo { border-color: #6ee7b7; }
   .status-section.estacionado { border-color: #fca5a5; }
@@ -225,6 +230,14 @@ export function buildReportHtml(r) {
       <div class="kpi activas"><div class="label">Activas</div><div class="value">${r.activas}</div></div>
       <div class="kpi estacionadas"><div class="label">Estacionadas</div><div class="value">${r.estacionadas}</div></div>
       <div class="kpi sinsenal"><div class="label">Sin Señal Reciente</div><div class="value">${r.sin_senal ?? 0}</div></div>
+    </div>
+
+    <div class="legend">
+      <span class="legend-label">📍 Leyenda de ubicación</span>
+      <span class="legend-item"><i style="background:${CATEGORY_COLORS.BASE.text}"></i>Base</span>
+      <span class="legend-item"><i style="background:${CATEGORY_COLORS.CAMPO.text}"></i>Campo</span>
+      <span class="legend-item"><i style="background:${CATEGORY_COLORS.OFICINA.text}"></i>Oficina</span>
+      <span class="legend-item"><i style="background:${CATEGORY_COLORS.OTRAS.text}"></i>Otras</span>
     </div>
 
     ${activasSection}
