@@ -52,13 +52,13 @@ const formatHoras = (horas) => {
 
 // Mismo color por categoria de ubicacion que usa el resto de la app
 // (CATEGORY_STYLES en el frontend) -- para que agrupar por categoria dentro
-// de cada bloque se note de un vistazo, sin fragmentar en una tabla por
-// categoria.
+// de cada bloque se note de un vistazo, sin mostrar la etiqueta de la
+// categoria como texto (eso queda solo como clasificacion interna).
 const CATEGORY_COLORS = {
-  BASE: { bg: '#eff6ff', text: '#2563eb' },
-  CAMPO: { bg: '#fffbeb', text: '#b45309' },
-  OFICINA: { bg: '#f0fdfa', text: '#0d9488' },
-  OTRAS: { bg: '#faf5ff', text: '#9333ea' },
+  BASE: { text: '#2563eb' },
+  CAMPO: { text: '#b45309' },
+  OFICINA: { text: '#0d9488' },
+  OTRAS: { text: '#9333ea' },
 };
 const CATEGORY_ORDER = ['BASE', 'CAMPO', 'OFICINA', 'OTRAS'];
 
@@ -86,7 +86,7 @@ const buildStatusSection = (title, colorClass, units) => {
           <td>${unitCell}</td>
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
           <td>${escapeHtml(u.driver_name || '-')}</td>
-          <td><span class="cat-badge" style="background:${cat.bg};color:${cat.text}">${escapeHtml(u.location_category || 'OTRAS')}</span> ${escapeHtml(u.location_text || '-')}</td>
+          <td><span style="color:${cat.text};font-weight:700">${escapeHtml(u.location_text || '-')}</span></td>
           <td class="mono">${formatHora(u.fetched_at)}</td>
         </tr>`;
     })
@@ -182,7 +182,6 @@ export function buildReportHtml(r) {
   .badge.activo { background: #d1fae5; color: #059669; }
   .badge.estacionado { background: #fee2e2; color: #dc2626; }
   .badge.stale { background: #fef3c7; color: #b45309; font-size: 8.5px; }
-  .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; margin-right: 6px; }
 
   .status-section { margin-bottom: 22px; border-radius: 14px; border: 1px solid; background: #fff; overflow: hidden; }
   .status-section.activo { border-color: #6ee7b7; }
