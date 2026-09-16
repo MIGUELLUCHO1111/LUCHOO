@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Radio, RefreshCw, Plus, X, Pencil, Trash2, ChevronDown, Zap, PauseCircle, AlertTriangle } from "lucide-react";
+import { Radio, RefreshCw, Plus, X, Pencil, Trash2, ChevronDown, Zap, PauseCircle, AlertTriangle, Search } from "lucide-react";
 import { trackerService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,6 +41,28 @@ const Tracker = () => {
   const [form, setForm] = useState({ code: "", plate: "", driver_name: "", fleet_type: "" });
   const [openBlocks, setOpenBlocks] = useState({ activo: true, estacionado: true, stale: true });
   const toggleBlock = (key) => setOpenBlocks((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const EMPTY_FILTER = { search: "", fleet: "", category: "" };
+  const [filters, setFilters] = useState({ activo: EMPTY_FILTER, estacionado: EMPTY_FILTER, stale: EMPTY_FILTER });
+  const updateFilter = (key, field, value) =>
+    setFilters((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  const clearFilter = (key) => setFilters((prev) => ({ ...prev, [key]: EMPTY_FILTER }));
+  const hasActiveFilter = (f) => Boolean(f.search || f.fleet || f.category);
+
+  // Cada bloque (Activas/Estacionadas/Sin señal) filtra de forma
+  // independiente -- por eso el estado de filtros vive por bloque, no global.
+  const applyFilters = (units, f) => {
+    const search = f.search.trim().toLowerCase();
+    return units.filter((s) => {
+      if (search) {
+        const haystack = `${s.unit_code || ""} ${s.plate || ""}`.toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      if (f.fleet && s.fleet_type !== f.fleet) return false;
+      if (f.category && s.location_category !== f.category) return false;
+      return true;
+    });
+  };
 
   useEffect(() => {
     loadSnapshots();
@@ -155,6 +177,55 @@ const Tracker = () => {
   const estacionadas = parkedUnits.length;
   const sinSenal = staleUnits.length;
 
+  // Barra de filtros de un bloque: buscar por unidad/placa, y acotar por
+  // flota o por categoria de ubicacion -- independiente por bloque.
+  const renderFilterBar = (key) => {
+    const f = filters[key];
+    return (
+      <div className="px-5 py-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center gap-2 bg-slate-50/50 dark:bg-white/[0.02]">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por unidad o placa..."
+            value={f.search}
+            onChange={(e) => updateFilter(key, "search", e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+          />
+        </div>
+        <select
+          value={f.fleet}
+          onChange={(e) => updateFilter(key, "fleet", e.target.value)}
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115]"
+        >
+          <option value="">Toda la flota</option>
+          <option value="LIVIANA">Liviana</option>
+          <option value="PESADA">Pesada</option>
+        </select>
+        <select
+          value={f.category}
+          onChange={(e) => updateFilter(key, "category", e.target.value)}
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115]"
+        >
+          <option value="">Toda ubicación</option>
+          <option value="BASE">Base</option>
+          <option value="CAMPO">Campo</option>
+          <option value="OFICINA">Oficina</option>
+          <option value="OTRAS">Otras</option>
+        </select>
+        {hasActiveFilter(f) && (
+          <button
+            type="button"
+            onClick={() => clearFilter(key)}
+            className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline shrink-0"
+          >
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+    );
+  };
+
   // Fila compartida entre los bloques de Activas y Estacionadas -- misma
   // presentacion que tenia la tabla unica, solo que ahora agrupada por
   // estado en vez de mezclada.
@@ -256,6 +327,7 @@ const Tracker = () => {
             </button>
             <div className={`grid transition-all duration-300 ease-in-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
               <div className="overflow-hidden">
+                {renderFilterBar(group.key)}
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -268,17 +340,26 @@ const Tracker = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loadingSnapshots ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-slate-400">Cargando...</TableCell>
-                      </TableRow>
-                    ) : group.units.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-slate-400">{group.empty}</TableCell>
-                      </TableRow>
-                    ) : (
-                      group.units.map(renderUnitRow)
-                    )}
+                    {(() => {
+                      const filtered = applyFilters(group.units, filters[group.key]);
+                      if (loadingSnapshots) {
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                          </TableRow>
+                        );
+                      }
+                      if (filtered.length === 0) {
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                              {group.units.length === 0 ? group.empty : "Ningún resultado con estos filtros."}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                      return filtered.map(renderUnitRow);
+                    })()}
                   </TableBody>
                 </Table>
               </div>
@@ -304,6 +385,7 @@ const Tracker = () => {
         </button>
         <div className={`grid transition-all duration-300 ease-in-out ${openBlocks.stale ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
           <div className="overflow-hidden">
+            {renderFilterBar("stale")}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -314,16 +396,25 @@ const Tracker = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loadingSnapshots ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">Cargando...</TableCell>
-                  </TableRow>
-                ) : staleUnits.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">Todas las unidades reportaron recientemente.</TableCell>
-                  </TableRow>
-                ) : (
-                  staleUnits.map((s, i) => (
+                {(() => {
+                  const filteredStale = applyFilters(staleUnits, filters.stale);
+                  if (loadingSnapshots) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                      </TableRow>
+                    );
+                  }
+                  if (filteredStale.length === 0) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                          {staleUnits.length === 0 ? "Todas las unidades reportaron recientemente." : "Ningún resultado con estos filtros."}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                  return filteredStale.map((s, i) => (
                     <TableRow key={s.unit_id ?? `stale-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-amber-500/[0.03]"}>
                       <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
                         {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
@@ -336,8 +427,8 @@ const Tracker = () => {
                         </span>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
+                  ));
+                })()}
               </TableBody>
             </Table>
           </div>
