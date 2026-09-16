@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Radio, RefreshCw, Plus, X, Pencil, Trash2 } from "lucide-react";
+import { Radio, RefreshCw, Plus, X, Pencil, Trash2, ChevronDown, Zap, PauseCircle, AlertTriangle } from "lucide-react";
 import { trackerService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,10 +18,10 @@ import { useConfirm } from "@/context";
 import {
   CATEGORY_STYLES,
   formatHora,
-  statusBadgeClass,
-  statusLabel,
   fleetTypeLabel,
   fleetTypeBadgeClass,
+  horasSinConexion,
+  formatHoras,
 } from "@/lib/trackerFormat";
 
 const Tracker = () => {
@@ -39,6 +39,8 @@ const Tracker = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [form, setForm] = useState({ code: "", plate: "", driver_name: "", fleet_type: "" });
+  const [openBlocks, setOpenBlocks] = useState({ activo: true, estacionado: true, stale: true });
+  const toggleBlock = (key) => setOpenBlocks((prev) => ({ ...prev, [key]: !prev[key] }));
 
   useEffect(() => {
     loadSnapshots();
@@ -144,9 +146,54 @@ const Tracker = () => {
   };
 
   const total = snapshots.length;
-  const activas = snapshots.filter((s) => s.status === "ACTIVO" && !s.is_stale).length;
-  const estacionadas = snapshots.filter((s) => s.status === "ESTACIONADO" && !s.is_stale).length;
-  const sinSenal = snapshots.filter((s) => s.is_stale).length;
+  const activeUnits = snapshots.filter((s) => s.status === "ACTIVO" && !s.is_stale);
+  const parkedUnits = snapshots.filter((s) => s.status === "ESTACIONADO" && !s.is_stale);
+  const staleUnits = snapshots
+    .filter((s) => s.is_stale)
+    .sort((a, b) => new Date(a.last_report_at || 0) - new Date(b.last_report_at || 0));
+  const activas = activeUnits.length;
+  const estacionadas = parkedUnits.length;
+  const sinSenal = staleUnits.length;
+
+  // Fila compartida entre los bloques de Activas y Estacionadas -- misma
+  // presentacion que tenia la tabla unica, solo que ahora agrupada por
+  // estado en vez de mezclada.
+  const renderUnitRow = (s, i) => (
+    <TableRow key={s.unit_id ?? `p-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+      <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+        {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
+      </TableCell>
+      <TableCell className="text-sm">
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(s.fleet_type)}`}>
+          {fleetTypeLabel(s.fleet_type)}
+        </span>
+      </TableCell>
+      <TableCell className="text-sm">{s.plate || "-"}</TableCell>
+      <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
+      <TableCell className="text-sm max-w-xs">
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${CATEGORY_STYLES[s.location_category] || CATEGORY_STYLES.OTRAS}`}>
+            {s.location_category}
+          </span>
+          <span className="truncate">{s.location_text || "-"}</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-sm whitespace-nowrap">{formatHora(s.last_report_at)}</TableCell>
+    </TableRow>
+  );
+
+  const statusGroups = [
+    {
+      key: "activo", title: "Unidades activas", count: activas, units: activeUnits,
+      icon: Zap, iconWrap: "bg-emerald-500 text-white", badge: "bg-emerald-500/10 text-emerald-600",
+      border: "border-emerald-200 dark:border-emerald-500/20", empty: "Ninguna unidad activa en este momento.",
+    },
+    {
+      key: "estacionado", title: "Unidades estacionadas", count: estacionadas, units: parkedUnits,
+      icon: PauseCircle, iconWrap: "bg-red-500 text-white", badge: "bg-red-500/10 text-red-600",
+      border: "border-red-200 dark:border-red-500/20", empty: "Ninguna unidad estacionada en este momento.",
+    },
+  ];
 
   return (
     <PageLayout
@@ -188,69 +235,113 @@ const Tracker = () => {
         </div>
       </div>
 
-      <Card className="w-full overflow-hidden mb-8">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Unidad</TableHead>
-              <TableHead>Flota</TableHead>
-              <TableHead>Placa</TableHead>
-              <TableHead>Conductor</TableHead>
-              <TableHead>Ubicación</TableHead>
-              <TableHead>Hora</TableHead>
-              <TableHead>Estado</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loadingSnapshots ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-slate-400">Cargando...</TableCell>
-              </TableRow>
-            ) : snapshots.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-slate-400">
-                  Sin lecturas todavía — presiona "Sincronizar ahora"
-                </TableCell>
-              </TableRow>
-            ) : (
-              snapshots.map((s, i) => (
-                <TableRow key={s.unit_id ?? `p-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
-                  <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
-                    {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(s.fleet_type)}`}>
-                      {fleetTypeLabel(s.fleet_type)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-sm">{s.plate || "-"}</TableCell>
-                  <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
-                  <TableCell className="text-sm max-w-xs">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${CATEGORY_STYLES[s.location_category] || CATEGORY_STYLES.OTRAS}`}>
-                        {s.location_category}
-                      </span>
-                      <span className="truncate">{s.location_text || "-"}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">
-                    {formatHora(s.last_report_at)}
-                    {s.is_stale && (
-                      <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600">
-                        SIN SEÑAL RECIENTE
-                      </span>
+      {statusGroups.map((group) => {
+        const open = openBlocks[group.key];
+        const Icon = group.icon;
+        return (
+          <Card key={group.key} className={`w-full overflow-hidden mb-4 ${group.border}`}>
+            <button
+              type="button"
+              onClick={() => toggleBlock(group.key)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${group.iconWrap}`}>
+                  <Icon size={16} />
+                </span>
+                <span className="font-bold text-slate-900 dark:text-white">{group.title}</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${group.badge}`}>{group.count}</span>
+              </div>
+              <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+            </button>
+            <div className={`grid transition-all duration-300 ease-in-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+              <div className="overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Unidad</TableHead>
+                      <TableHead>Flota</TableHead>
+                      <TableHead>Placa</TableHead>
+                      <TableHead>Conductor</TableHead>
+                      <TableHead>Ubicación</TableHead>
+                      <TableHead>Hora</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingSnapshots ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                      </TableRow>
+                    ) : group.units.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-slate-400">{group.empty}</TableCell>
+                      </TableRow>
+                    ) : (
+                      group.units.map(renderUnitRow)
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${statusBadgeClass(s.status)}`}>
-                      {statusLabel(s.status)}
-                    </span>
-                  </TableCell>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
+
+      <Card className="w-full overflow-hidden mb-8 border-amber-200 dark:border-amber-500/20">
+        <button
+          type="button"
+          onClick={() => toggleBlock("stale")}
+          className="w-full flex items-center justify-between px-5 py-4 bg-amber-50/40 dark:bg-amber-500/[0.02] hover:bg-amber-50 dark:hover:bg-amber-500/[0.05] transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-amber-500 text-white">
+              <AlertTriangle size={16} />
+            </span>
+            <span className="font-bold text-amber-700 dark:text-amber-400">Unidades sin señal reciente — revisar en sitio</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600">{sinSenal}</span>
+          </div>
+          <ChevronDown size={18} className={`text-amber-400 transition-transform duration-300 ${openBlocks.stale ? "rotate-180" : ""}`} />
+        </button>
+        <div className={`grid transition-all duration-300 ease-in-out ${openBlocks.stale ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+          <div className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Unidad</TableHead>
+                  <TableHead>Placa</TableHead>
+                  <TableHead>Última conexión</TableHead>
+                  <TableHead>Horas sin conexión</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {loadingSnapshots ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                  </TableRow>
+                ) : staleUnits.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-slate-400">Todas las unidades reportaron recientemente.</TableCell>
+                  </TableRow>
+                ) : (
+                  staleUnits.map((s, i) => (
+                    <TableRow key={s.unit_id ?? `stale-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-amber-500/[0.03]"}>
+                      <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                        {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
+                      </TableCell>
+                      <TableCell className="text-sm">{s.plate || "-"}</TableCell>
+                      <TableCell className="text-sm">{formatHora(s.last_report_at)}</TableCell>
+                      <TableCell>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600">
+                          {formatHoras(horasSinConexion(s.last_report_at))}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </Card>
 
       <div className="flex items-center justify-between mb-4">
