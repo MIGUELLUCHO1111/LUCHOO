@@ -93,6 +93,56 @@ export default class ForesightClient {
     }));
   }
 
+  // Geocercas (perimetro permitido, Fase 3): mismas dos llamadas que hace el
+  // panel web al abrir "Geocercas" (confirmado por captura de red real,
+  // 16/09/2026) -- usersearchplatform con elements:3 en vez de vacio lista
+  // las geocercas (no vehiculos), y coordinates_tlist con esos IDs trae el
+  // poligono de cada una ("lng,lat|lng,lat|..." que cierra sobre si mismo).
+  async getGeocercas() {
+    const listBody = {
+      userid: this.userId,
+      companyid: Number(this.companyId),
+      subfleetid: 0,
+      groupid: 0,
+      requesttype: 0,
+      elements: 3,
+      tobjectypeids: '',
+      favoritefilterid: '',
+      isdeleted: 0,
+      name: '^^',
+      pageindex: 1,
+      pagesize: 200,
+      orderby: 'name',
+      orderdirection: 'ASC',
+      prefix: true,
+      conncode: this.conncode,
+      method: 'usersearchplatform',
+    };
+    const listData = await this.post(listBody, this.platformURL);
+    const list = this.extractRows(listData);
+    const ids = list.map((g) => g.id).filter(Boolean).join(',');
+    if (!ids) return [];
+
+    const coordBody = {
+      idgeolist: ids,
+      userid: this.userId,
+      prefix: true,
+      conncode: this.conncode,
+      method: 'coordinates_tlist',
+    };
+    const coordData = await this.post(coordBody, this.platformURL);
+    const rows = this.extractRows(coordData);
+
+    return rows
+      .filter((g) => g.coordinates)
+      .map((g) => ({
+        externalId: String(g.id),
+        name: g.name,
+        comments: g.comments ? String(g.comments).trim() || null : null,
+        polygon: g.coordinates.split('|').map((pair) => pair.split(',').map(Number)),
+      }));
+  }
+
   // REPORT_EXECUTE (reportid 134, "Comportamiento del Conductor" guardado en
   // la cuenta): mismo reporte que el panel web genera de un solo golpe para
   // TODAS las unidades con actividad en el rango de fechas -- viajes,

@@ -1042,6 +1042,20 @@
     orderArray: []
   },
 
+  # ---------- Tracker GPS (geocercas / perimetro permitido) ----------
+
+  'getTrackerGeofences': {
+    query: 'SELECT id, external_id, name, comments, polygon FROM public.tracker_geofence ORDER BY name;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'upsertTrackerGeofence': {
+    query: 'INSERT INTO public.tracker_geofence (external_id, name, comments, polygon, synced_at) VALUES ($1, $2, $3, $4::jsonb, NOW()) ON CONFLICT (external_id) DO UPDATE SET name = EXCLUDED.name, comments = EXCLUDED.comments, polygon = EXCLUDED.polygon, synced_at = NOW() RETURNING id;',
+    structure_params: { external_id: 'string', name: 'string', comments: 'string|null', polygon: 'string' },
+    orderArray: ['external_id', 'name', 'comments', 'polygon']
+  },
+
   # ---------- Tracker GPS (suscriptores del bot de Telegram) ----------
 
   'upsertTelegramSubscriber': {

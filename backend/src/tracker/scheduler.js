@@ -3,6 +3,7 @@ import Snapshot from '../bo/sub_system/classes/snapshot.js';
 import Archivo from '../bo/sub_system/classes/archivo.js';
 import Notificador from '../bo/sub_system/classes/notificador.js';
 import Comportamiento from '../bo/sub_system/classes/comportamiento.js';
+import Geocerca from '../bo/sub_system/classes/geocerca.js';
 import TelegramSubscriberSync from './telegramSubscriberSync.js';
 import { TURNOS } from '../bo/sub_system/classes/reporte.js';
 
@@ -58,6 +59,34 @@ export function startTrackerScheduler() {
       }
     });
     console.log('[Tracker] Registro automático de suscriptores de Telegram programado (cada minuto)');
+  }
+
+  // Geocercas (perimetro permitido, Fase 3): se copian una vez al arrancar
+  // (para que la alerta de "fuera de geocerca" tenga datos desde el primer
+  // momento) y despues una vez al dia -- los limites de las geocercas casi
+  // nunca cambian, a diferencia de la posicion de las unidades.
+  const geocerca = new Geocerca();
+  geocerca.sincronizar()
+    .then((r) => console.log(`[Tracker] Geocercas sincronizadas al arrancar: ${r.data.guardadas} de ${r.data.total}`))
+    .catch((error) => console.error('[Tracker] Error sincronizando geocercas al arrancar:', error?.message || error));
+
+  const geocercasExpression = process.env.TRACKER_GEOCERCAS_CRON || '0 4 * * *';
+  if (cron.validate(geocercasExpression)) {
+    cron.schedule(
+      geocercasExpression,
+      async () => {
+        try {
+          const r = await geocerca.sincronizar();
+          console.log(`[Tracker] Geocercas sincronizadas: ${r.data.guardadas} de ${r.data.total}`);
+        } catch (error) {
+          console.error('[Tracker] Error sincronizando geocercas:', error?.message || error);
+        }
+      },
+      { timezone: 'America/Caracas' },
+    );
+    console.log(`[Tracker] Sincronización diaria de geocercas programada (${geocercasExpression}, America/Caracas)`);
+  } else {
+    console.error(`[Tracker] TRACKER_GEOCERCAS_CRON inválido: '${geocercasExpression}' -- sincronización diaria de geocercas no programada`);
   }
 
   if (process.env.TRACKER_AUTO_SYNC === 'false') {
