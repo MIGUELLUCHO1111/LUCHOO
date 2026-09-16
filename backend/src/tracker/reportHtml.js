@@ -86,7 +86,10 @@ const buildStatusSection = (title, colorClass, units) => {
           <td>${unitCell}</td>
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
           <td>${escapeHtml(u.driver_name || '-')}</td>
-          <td><span class="cat-badge" style="background:${cat.bg};color:${cat.text}">${escapeHtml(u.location_category || 'OTRAS')}</span> ${escapeHtml(u.location_text || '-')}</td>
+          <td><div class="loc-cell">
+            <span class="cat-badge" style="background:${cat.bg};color:${cat.text}">${escapeHtml(u.location_category || 'OTRAS')}</span>
+            <span class="loc-text">${escapeHtml(u.location_text || '-')}</span>
+          </div></td>
           <td class="mono">${formatHora(u.fetched_at)}</td>
         </tr>`;
     })
@@ -188,7 +191,9 @@ export function buildReportHtml(r) {
   .unregistered { font-style: italic; color: #94a3b8; font-weight: 400; }
 
   .badge.stale { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 8.5px; font-weight: 700; background: #fef3c7; color: #b45309; }
-  .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; margin-right: 6px; }
+  .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8.5px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .loc-cell { display: flex; align-items: flex-start; gap: 6px; }
+  .loc-text { flex: 1; min-width: 0; }
 
   .legend { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; margin-bottom: 22px; }
   .legend-label { font-size: 9.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #94a3b8; }
