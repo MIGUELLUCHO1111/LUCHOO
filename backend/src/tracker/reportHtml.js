@@ -86,7 +86,7 @@ const buildStatusSection = (title, colorClass, units) => {
           <td>${unitCell}</td>
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
           <td>${escapeHtml(u.driver_name || '-')}</td>
-          <td><span style="color:${cat.text};font-weight:700">${escapeHtml(u.location_text || '-')}</span></td>
+          <td style="border-left:4px solid ${cat.text}">${escapeHtml(u.location_text || '-')}</td>
           <td class="mono">${formatHora(u.fetched_at)}</td>
         </tr>`;
     })
