@@ -53,7 +53,31 @@ class Snapshot {
       // aunque el matching de aqui arriba ya lo tolerara.
       const plate = raw.PlateNo ? String(raw.PlateNo).trim() : null;
       const plateKey = plate ? plate.toUpperCase() : null;
-      const unit = plateKey ? byPlate.get(plateKey) : null;
+      let unit = plateKey ? byPlate.get(plateKey) : null;
+
+      // Auto-registro (pedido de Lguerra, 18/09/2026): la plataforma ya le
+      // pone un código a cada unidad (raw.Name, ej. "FP-CSL.07") -- en vez
+      // de dejarla "sin registrar" hasta que alguien la note en un reporte,
+      // se da de alta sola con ese código y "ROTATIVO" de conductor por
+      // defecto (el mismo valor que ya usa la mayoría de la flota sin
+      // conductor fijo asignado), igual que si se hubiera creado a mano
+      // desde Gestión de Unidades.
+      if (!unit && plateKey && raw.Name) {
+        const code = String(raw.Name).trim();
+        try {
+          const createResult = await this.dbms.executeNamedQuery({
+            nameQuery: 'createTrackerUnit',
+            params: { code, plate, driver_name: 'ROTATIVO', fleet_type: null },
+          });
+          unit = createResult?.rows?.[0];
+          if (unit) {
+            byPlate.set(plateKey, unit);
+            console.log(`[Tracker] Unidad nueva auto-registrada: ${code} (placa ${plate})`);
+          }
+        } catch (error) {
+          console.error(`[Tracker] No se pudo auto-registrar la unidad ${code} (placa ${plate}):`, error?.message || error);
+        }
+      }
       if (unit) matched += 1;
 
       // El proveedor a veces devuelve literalmente "False" en vez de una
