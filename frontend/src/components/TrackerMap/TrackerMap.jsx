@@ -44,6 +44,7 @@ export default function TrackerMap({ snapshots = [] }) {
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const boundsRef = useRef(null);
+  const hasFitBoundsRef = useRef(false);
 
   // Inicializa el mapa una sola vez.
   useEffect(() => {
@@ -131,7 +132,14 @@ export default function TrackerMap({ snapshots = [] }) {
       const bounds = L.latLngBounds(withCoords.map((s) => [Number(s.latitude), Number(s.longitude)]));
       boundsRef.current = bounds;
       map.invalidateSize();
-      map.fitBounds(bounds.pad(0.2));
+      // Solo se ajusta la vista a toda la flota la primera vez que llegan
+      // datos -- el refresco automático cada 30s (ver trackerMap.jsx,
+      // AUTO_REFRESH_MS) volvía a alejar el mapa y deshacía el acercamiento
+      // apenas alguien le daba clic a una unidad para verla de cerca.
+      if (!hasFitBoundsRef.current) {
+        map.fitBounds(bounds.pad(0.2));
+        hasFitBoundsRef.current = true;
+      }
     }
   }, [snapshots]);
 
