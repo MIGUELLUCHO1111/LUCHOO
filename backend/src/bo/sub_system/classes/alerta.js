@@ -30,6 +30,20 @@ const pointInPolygon = ([lng, lat], polygon) => {
 
 const isInsideAnyGeofence = (lng, lat, geofences) => geofences.some((g) => pointInPolygon([lng, lat], g.polygon));
 
+// Excepcion a la alerta de geocerca (pedido de Lguerra, 17/09/2026): las
+// unidades que circulan dentro de Maracaibo o San Francisco (oficina,
+// taller, vueltas normales de trabajo) estan autorizadas aunque esos puntos
+// no caigan dentro de ninguna de las geocercas dibujadas -- para ellas solo
+// aplica la alerta de fuera de horario, nunca la de fuera de geocerca. Las
+// unidades pesadas que van al Taller San Francisco quedan cubiertas por lo
+// mismo, sin necesidad de una regla aparte.
+const GEOFENCE_EXEMPT_KEYWORDS = ['MARACAIBO', 'SAN FRANCISCO'];
+const isExemptFromGeofence = (locationText) => {
+  if (!locationText) return false;
+  const upper = locationText.toUpperCase();
+  return GEOFENCE_EXEMPT_KEYWORDS.some((kw) => upper.includes(kw));
+};
+
 // Regla de la propuesta (Fase 2): fuera del horario de circulación
 // permitido, la unidad debería estar ESTACIONADO; si aparece ACTIVO
 // (encendida/circulando), esa es la alerta.
@@ -79,11 +93,12 @@ class Alerta {
         }
         const stateResult = await this.dbms.executeNamedQuery({ nameQuery: 'getGeofenceState', params: { unit_id: s.unit_id } });
         const everInside = dentro || stateResult?.rows?.[0]?.ever_inside === true;
+        const exenta = isExemptFromGeofence(s.location_text);
 
         await this.checkRule({
           ...key,
           alertType: 'fuera_de_geocerca',
-          isViolation: everInside && !dentro,
+          isViolation: everInside && !dentro && !exenta,
           // A diferencia de fuera_de_horario, aqui SI se notifica a toda la
           // flota (pedido explicito: "todas aquellas" unidades) -- salir del
           // perimetro operativo es una alerta de seguridad, no algo que la
