@@ -128,6 +128,14 @@
   }
 }
 
+/* Crecimiento suave del marcador al pasar el cursor (Mapa en Vivo). Leaflet
+   dibuja los circulos como <path> (no <circle>), asi que lo que cambia con
+   marker.setRadius() es el atributo "d" -- se transiciona ese, no "r". */
+.tracker-marker {
+  transition: d 150ms ease-out;
+  cursor: pointer;
+}
+
 /* Leaflet (Mapa en Vivo del tracker) usa teselas de OpenStreetMap, que son
    claras siempre -- los proveedores de teselas oscuras gratuitos (CARTO)
    ahora piden API key, asi que en oscuro se invierten los colores de las

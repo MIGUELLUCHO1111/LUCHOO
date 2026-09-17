@@ -13,6 +13,14 @@ const STALE_COLOR = "#f59e0b"; // amarillo: sin señal reciente -- revisar en si
 const DEFAULT_CENTER = [10.35, -71.6];
 const DEFAULT_ZOOM = 9;
 
+const MARKER_RADIUS = 8;
+const MARKER_RADIUS_HOVER = 10;
+// Acercamiento sutil al seleccionar (unos pocos niveles desde donde ya
+// estaba el mapa, nunca un salto directo a un zoom fijo alto) -- pedido de
+// Lguerra, 17/09/2026, tras ver que ir directo a zoom 15 se sentia brusco.
+const CLICK_ZOOM_STEP = 3;
+const CLICK_ZOOM_MAX = 14;
+
 const formatHora = (iso) => {
   if (!iso) return "-";
   try {
@@ -82,11 +90,12 @@ export default function TrackerMap({ snapshots = [] }) {
       const color = s.is_stale ? STALE_COLOR : STATUS_COLOR[s.status] || STALE_COLOR;
 
       const marker = L.circleMarker([Number(s.latitude), Number(s.longitude)], {
-        radius: 8,
+        radius: MARKER_RADIUS,
         color: "#ffffff",
         weight: 2,
         fillColor: color,
         fillOpacity: 0.9,
+        className: "tracker-marker",
       });
 
       const label = s.unit_code || s.plate || "Unidad sin identificar";
@@ -97,6 +106,22 @@ export default function TrackerMap({ snapshots = [] }) {
           `Ubicación: ${s.location_text || "desconocida"}<br/>` +
           `Hora: ${formatHora(s.last_report_at)}`
       );
+
+      // Acercamiento animado a la unidad seleccionada, ademas de la etiqueta
+      // (el popup ya se abre solo por bindPopup) -- pedido de Lguerra,
+      // 17/09/2026, para que se sienta interactivo en vez de solo mostrar el
+      // cartel en el mismo zoom en que estaba el mapa. Solo unos pocos
+      // niveles desde el zoom actual, no un salto fijo (se sentia brusco).
+      marker.on("click", () => {
+        const targetZoom = Math.min(map.getZoom() + CLICK_ZOOM_STEP, CLICK_ZOOM_MAX);
+        map.flyTo(marker.getLatLng(), Math.max(targetZoom, map.getZoom()), { duration: 0.8 });
+      });
+
+      // Crecimiento leve al pasar el cursor (sin necesidad de hacer clic) --
+      // la transicion suave de "r" viene de la clase .tracker-marker en
+      // index.css.
+      marker.on("mouseover", () => marker.setRadius(MARKER_RADIUS_HOVER));
+      marker.on("mouseout", () => marker.setRadius(MARKER_RADIUS));
 
       marker.addTo(map);
       markersRef.current.push(marker);
