@@ -36,8 +36,10 @@ const isInsideAnyGeofence = (lng, lat, geofences) => geofences.some((g) => point
 // no caigan dentro de ninguna de las geocercas dibujadas -- para ellas solo
 // aplica la alerta de fuera de horario, nunca la de fuera de geocerca. Las
 // unidades pesadas que van al Taller San Francisco quedan cubiertas por lo
-// mismo, sin necesidad de una regla aparte.
-const GEOFENCE_EXEMPT_KEYWORDS = ['MARACAIBO', 'SAN FRANCISCO'];
+// mismo, sin necesidad de una regla aparte. "Circunvalación 1" y "Cacique
+// Mara" se agregan aparte (18/09/2026) porque son direcciones alternas
+// dentro de Maracaibo que el GPS devuelve sin decir "Maracaibo" en el texto.
+const GEOFENCE_EXEMPT_KEYWORDS = ['MARACAIBO', 'SAN FRANCISCO', 'CIRCUNVALACIÓN 1', 'CACIQUE MARA'];
 const isExemptFromGeofence = (locationText) => {
   if (!locationText) return false;
   const upper = locationText.toUpperCase();
