@@ -36,14 +36,24 @@ const isInsideAnyGeofence = (lng, lat, geofences) => geofences.some((g) => point
 // no caigan dentro de ninguna de las geocercas dibujadas -- para ellas solo
 // aplica la alerta de fuera de horario, nunca la de fuera de geocerca. Las
 // unidades pesadas que van al Taller San Francisco quedan cubiertas por lo
-// mismo, sin necesidad de una regla aparte. "Circunvalación 1" y "Cacique
-// Mara" se agregan aparte (18/09/2026) porque son direcciones alternas
-// dentro de Maracaibo que el GPS devuelve sin decir "Maracaibo" en el texto.
-const GEOFENCE_EXEMPT_KEYWORDS = ['MARACAIBO', 'SAN FRANCISCO', 'CIRCUNVALACIÓN 1', 'CACIQUE MARA'];
-const isExemptFromGeofence = (locationText) => {
-  if (!locationText) return false;
-  const upper = locationText.toUpperCase();
-  return GEOFENCE_EXEMPT_KEYWORDS.some((kw) => upper.includes(kw));
+// mismo, sin necesidad de una regla aparte.
+//
+// 18/09/2026: una lista de nombres de calles (Circunvalación 1, Cacique
+// Mara...) nunca iba a alcanzar -- Maracaibo "incluye muchas vias". El
+// texto SIMPLIFICADO (location_text) le quita el municipio para que se vea
+// limpio en la app/reportes, pero el texto CRUDO que devuelve el GPS
+// (location_raw, ver getLatestSnapshots) siempre trae "Municipio Maracaibo"
+// o "Municipio San Francisco" sin importar la calle -- es la forma
+// confiable de detectar la ciudad completa de una sola vez.
+const GEOFENCE_EXEMPT_MUNICIPIOS = ['MUNICIPIO MARACAIBO', 'MUNICIPIO SAN FRANCISCO'];
+const GEOFENCE_EXEMPT_KEYWORDS = ['MARACAIBO', 'SAN FRANCISCO'];
+const isExemptFromGeofence = (locationText, locationRaw) => {
+  const raw = (locationRaw || '').toUpperCase();
+  if (GEOFENCE_EXEMPT_MUNICIPIOS.some((kw) => raw.includes(kw))) return true;
+  // Respaldo por si location_raw no trae el municipio (ej. cuando se usa
+  // "CERCA DE <otra unidad>" por falta de geocodificacion propia).
+  const text = (locationText || '').toUpperCase();
+  return GEOFENCE_EXEMPT_KEYWORDS.some((kw) => text.includes(kw));
 };
 
 // Regla de la propuesta (Fase 2): fuera del horario de circulación
@@ -95,7 +105,7 @@ class Alerta {
         }
         const stateResult = await this.dbms.executeNamedQuery({ nameQuery: 'getGeofenceState', params: { unit_id: s.unit_id } });
         const everInside = dentro || stateResult?.rows?.[0]?.ever_inside === true;
-        const exenta = isExemptFromGeofence(s.location_text);
+        const exenta = isExemptFromGeofence(s.location_text, s.location_raw);
 
         await this.checkRule({
           ...key,
