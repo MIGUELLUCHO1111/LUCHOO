@@ -42,13 +42,40 @@ de integración**, era la limitación esperada del demo.
 | Posición Actual | `GetCurrentUnitsStatus` | ✅ Sí | Coordenadas con ~1 minuto de frescura (verificado en vivo). Trae velocidad, rumbo, ubicación en texto, `FuelLevelPercent`, `Odometer`, nivel de batería. |
 | History | `wsGetHistoryUnits_V1` | ✅ Sí | Pings de posición (cada ~1h en la unidad de prueba), mismo tipo de campos que Posición Actual. |
 | Odometer | `wsGetVehiclesOdometer` | ✅ Sí | Desglose **diario** de km recorridos + odómetro acumulado. Probado hasta 3 meses atrás (desde 09/06/2026) sin problema. |
-| Eventos | `GetEventsNotifications` | ❌ Vacío siempre | Probado en un día con movimiento confirmado por Odómetro (48.59 km ese día) y en rango de 3 meses completos — siempre `{"ForesightFlexAPI":{}}`, sin error. Parece **no habilitado** para la unidad de demo, no un problema de fecha/uso. |
-| Viajes | `wsGetTripsSummary_v1` | ❌ Vacío siempre | Mismo patrón que Eventos — mismos rangos probados, siempre vacío. |
+| Eventos | `GetEventsNotifications` | ✅ Sí (desde 17/09/2026) | Ver "Actualización 17/09/2026" abajo — dejó de estar vacío. |
+| Viajes | `wsGetTripsSummary_v1` | ❌ Vacío siempre (sin reprobar desde 07/09) | Mismo patrón que tenía Eventos antes de habilitarse — vale la pena volver a probarlo, puede que también se haya activado. |
 
-**Pendiente de confirmar con el proveedor:** si Eventos y Viajes se habilitan
-junto con el resto de la flota tras la aprobación comercial, o si requieren
+**Pendiente de confirmar con el proveedor:** si Viajes también se habilita
+junto con el resto de la flota tras la aprobación comercial, o si requiere
 una activación aparte (ej. configuración de umbrales de frenada/aceleración
-brusca en el dispositivo).
+brusca en el dispositivo) — igual que ya pasó con Eventos.
+
+## 3.1 Actualización 17/09/2026 — Eventos dejó de estar vacío
+
+Se volvió a probar `GetEventsNotifications` para la misma unidad demo
+(`A09EN5P`) con un rango de 90 días — **391 eventos reales**, ya no vacío.
+Cambio real de comportamiento del proveedor, no un fix de nuestro lado (el
+código de `foresightClient.js` no cambió desde el 07/09).
+
+- Todos los eventos vistos hasta ahora son del mismo tipo: `EXCESO RALENTI
+  GASOLINA` / `RALENTI UNIDADES A GASOIL` (`TypeEvent: "Exceso de
+  ralentí"`) — ralentí excesivo, no exceso de velocidad ni frenados/giros
+  bruscos. Puede que esos otros tipos de evento no estén activados
+  todavía, o que la unidad simplemente no los haya generado en el rango
+  probado — no confirmado aún.
+- Cada evento trae: `UnitID`, `Unit` (código interno `FP-VEH.03-02`),
+  `Plate`, `EventName`, `StartTime`/`EndTime`, `Status`, `Location` (texto,
+  en español), `Longitude`/`Latitude`, y **por primera vez** el nombre real
+  de la empresa de la cuenta: `CompanyName: "FULLPETROCA"` (antes no se
+  había visto este dato en ninguna respuesta).
+- Consultado también el rango de "solo hoy" (17/09/2026): 0 eventos — es
+  normal (no hubo ralentí ese día), no una regresión del endpoint.
+- **Implicación para Reportes:** esto es exactamente el tipo de dato que
+  hacía falta para la métrica de "Infracciones" pendiente en
+  `ROADMAP_REPORTES.md` — aunque falta aclarar con el proveedor/negocio si
+  "exceso de ralentí" cuenta como la "infracción" que gerencia quiere ver,
+  o si hacen falta también los tipos de evento de velocidad/maniobras
+  (todavía no confirmados con datos reales).
 
 ## 4. Hallazgos técnicos para quien construya la integración
 

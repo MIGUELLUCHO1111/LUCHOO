@@ -64,7 +64,14 @@ export default class Dispatcher {
         return this.config.getMessage(lang, 'missing_required_fields'); // O 'unauthorized_action'
       }
 
-      return await this.security.execute(txId, parameters);
+      // `profile` ya fue verificado arriba contra el usuario autenticado real
+      // (hasUserProfile) y contra el permiso del método (hasPermission) -- es
+      // confiable pasarlo tal cual al método de negocio. Se usa hoy solo para
+      // el acceso por proyecto de Control de Horas (ver `project_profile_assignment`
+      // y `assertProjectAccess` en `classes/projectAccess.js`); cualquier otro
+      // método existente simplemente lo ignora al desestructurar sus propios
+      // parámetros con nombre.
+      return await this.security.execute(txId, { ...parameters, caller_profile: profile });
 
     } catch (error) {
       console.error(error);

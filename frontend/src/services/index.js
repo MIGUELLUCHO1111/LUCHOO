@@ -6,3 +6,4 @@ export { default as userService, generateUsername } from "./userService";
 export { default as fuelService, resolvePhotoUrl } from "./fuelService";
 export { default as optionService } from "./optionService";
 export { default as trackerService, resolveAttachmentUrl } from "./trackerService";
+export { default as hoursService } from "./hoursService";

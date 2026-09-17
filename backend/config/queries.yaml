@@ -1013,5 +1013,241 @@
     query: 'SELECT a.id, a.unit_id, u.code AS unit_code, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id ORDER BY a.triggered_at DESC LIMIT 100;',
     structure_params: {},
     orderArray: []
+  },
+
+  # ========== CONTROL DE HORAS ==========
+
+  # ---------- Empresa ----------
+
+  'createEmpresa': {
+    query: 'INSERT INTO public.company (name) VALUES ($1) RETURNING id, name, is_active;',
+    structure_params: { name: 'string' },
+    orderArray: ['name']
+  },
+
+  'getEmpresaById': {
+    query: 'SELECT id, name, is_active FROM public.company WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllEmpresas': {
+    query: 'SELECT id, name, is_active FROM public.company WHERE deleted_at IS NULL ORDER BY name;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'updateEmpresa': {
+    query: 'UPDATE public.company SET name = $2, is_active = $3 WHERE id = $1 AND deleted_at IS NULL RETURNING id, name, is_active;',
+    structure_params: { id: 'int', name: 'string', is_active: 'boolean' },
+    orderArray: ['id', 'name', 'is_active']
+  },
+
+  'deleteEmpresa': {
+    query: 'UPDATE public.company SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Proyecto ----------
+
+  'createProyecto': {
+    query: 'INSERT INTO public.project (company_id, name, tipo) VALUES ($1, $2, $3) RETURNING id, company_id, name, tipo, is_active;',
+    structure_params: { company_id: 'int', name: 'string', tipo: 'string' },
+    orderArray: ['company_id', 'name', 'tipo']
+  },
+
+  'getProyectoById': {
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active FROM public.project p JOIN public.company c ON c.id = p.company_id WHERE p.id = $1 AND p.deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllProyectos': {
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active FROM public.project p JOIN public.company c ON c.id = p.company_id WHERE p.deleted_at IS NULL ORDER BY c.name, p.name;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'getProyectosByEmpresa': {
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active FROM public.project p JOIN public.company c ON c.id = p.company_id WHERE p.company_id = $1 AND p.deleted_at IS NULL ORDER BY p.name;',
+    structure_params: { company_id: 'int' },
+    orderArray: ['company_id']
+  },
+
+  'updateProyecto': {
+    query: 'UPDATE public.project SET name = $2, tipo = $3, is_active = $4 WHERE id = $1 AND deleted_at IS NULL RETURNING id, company_id, name, tipo, is_active;',
+    structure_params: { id: 'int', name: 'string', tipo: 'string', is_active: 'boolean' },
+    orderArray: ['id', 'name', 'tipo', 'is_active']
+  },
+
+  'deleteProyecto': {
+    query: 'UPDATE public.project SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Equipo ----------
+
+  'createEquipoHoras': {
+    query: 'INSERT INTO public.equipment (code, name) VALUES ($1, $2) RETURNING id, code, name, is_active;',
+    structure_params: { code: 'string', name: 'string|null' },
+    orderArray: ['code', 'name']
+  },
+
+  'getEquipoHorasById': {
+    query: 'SELECT e.id, e.code, e.name, e.is_active, (SELECT json_build_object(''project_id'', a.project_id, ''project_name'', p.name, ''assigned_from'', a.assigned_from) FROM public.project_equipment_assignment a JOIN public.project p ON p.id = a.project_id WHERE a.equipment_id = e.id AND a.assigned_to IS NULL LIMIT 1) AS current_assignment FROM public.equipment e WHERE e.id = $1 AND e.deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllEquiposHoras': {
+    query: 'SELECT e.id, e.code, e.name, e.is_active, (SELECT json_build_object(''project_id'', a.project_id, ''project_name'', p.name, ''assigned_from'', a.assigned_from) FROM public.project_equipment_assignment a JOIN public.project p ON p.id = a.project_id WHERE a.equipment_id = e.id AND a.assigned_to IS NULL LIMIT 1) AS current_assignment FROM public.equipment e WHERE e.deleted_at IS NULL ORDER BY e.code;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'updateEquipoHoras': {
+    query: 'UPDATE public.equipment SET name = $2, is_active = $3 WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, name, is_active;',
+    structure_params: { id: 'int', name: 'string|null', is_active: 'boolean' },
+    orderArray: ['id', 'name', 'is_active']
+  },
+
+  'deleteEquipoHoras': {
+    query: 'UPDATE public.equipment SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Asignación Equipo -> Proyecto ----------
+
+  # Intervalo semi-abierto [assigned_from, assigned_to) -- una asignación
+  # cerrada el mismo día que empezó (dos reasignaciones el mismo día) no
+  # cubre ningún día completo, así que no debe hacer match ni duplicar al
+  # equipo junto con la asignación que la reemplazó ese mismo día.
+  'getEquiposAsignadosAProyecto': {
+    query: 'SELECT DISTINCT e.id, e.code, e.name FROM public.equipment e JOIN public.project_equipment_assignment a ON a.equipment_id = e.id WHERE a.project_id = $1 AND a.assigned_from <= $2 AND (a.assigned_to IS NULL OR a.assigned_to > $2) AND e.deleted_at IS NULL ORDER BY e.code;',
+    structure_params: { project_id: 'int', fecha: 'string' },
+    orderArray: ['project_id', 'fecha']
+  },
+
+  # `assigned_to` es EXCLUSIVO: el intervalo cubierto por una fila es
+  # [assigned_from, assigned_to) -- "el día en que deja de estar vigente",
+  # no el último día que sí lo estuvo. Por eso al cerrar se guarda
+  # `new_from` (la fecha en que empieza la fila que la reemplaza) tal
+  # cual, sin restarle un día: dos filas consecutivas nunca se solapan
+  # (la vieja no cubre `new_from`, la nueva sí) ni dejan un hueco. GREATEST
+  # solo protege el caso límite en que la fila a cerrar tenga su propio
+  # assigned_from posterior a `new_from` (no debería pasar en el flujo
+  # normal, pero así nunca viola el CHECK assigned_to >= assigned_from).
+  'cerrarAsignacionAbierta': {
+    query: 'UPDATE public.project_equipment_assignment SET assigned_to = GREATEST(assigned_from, $2::date) WHERE equipment_id = $1 AND assigned_to IS NULL;',
+    structure_params: { equipment_id: 'int', new_from: 'string' },
+    orderArray: ['equipment_id', 'new_from']
+  },
+
+  # Cierra la asignación vigente del equipo SOLO si es de OTRO proyecto --
+  # deja intacta la fila si ya está abierta para el proyecto destino, para
+  # que un doble clic/reintento no la cierre por accidente.
+  'cerrarAsignacionAbiertaExceptoProyecto': {
+    query: 'UPDATE public.project_equipment_assignment SET assigned_to = GREATEST(assigned_from, $2::date) WHERE equipment_id = $1 AND assigned_to IS NULL AND project_id <> $3;',
+    structure_params: { equipment_id: 'int', new_from: 'string', project_id: 'int' },
+    orderArray: ['equipment_id', 'new_from', 'project_id']
+  },
+
+  # Solo inserta si el equipo NO tiene ya una asignación vigente para ESE
+  # mismo proyecto -- junto con el índice único parcial
+  # (idx_assignment_equipment_open, migración 020) hace que la operación
+  # completa sea segura incluso si dos peticiones llegan casi al mismo
+  # tiempo (la segunda no inserta nada, o si alcanza a correr en paralelo,
+  # el índice único la rechaza con 23505 en vez de dejar dos filas
+  # abiertas para el mismo equipo).
+  'crearAsignacionSiNoExiste': {
+    query: 'INSERT INTO public.project_equipment_assignment (project_id, equipment_id, assigned_from) SELECT $1, $2, $3 WHERE NOT EXISTS (SELECT 1 FROM public.project_equipment_assignment WHERE equipment_id = $2 AND assigned_to IS NULL AND project_id = $1) RETURNING id, project_id, equipment_id, assigned_from, assigned_to;',
+    structure_params: { project_id: 'int', equipment_id: 'int', assigned_from: 'string' },
+    orderArray: ['project_id', 'equipment_id', 'assigned_from']
+  },
+
+  # ---------- Registro diario ----------
+
+  'upsertRegistroDiario': {
+    query: 'INSERT INTO public.hours_daily_entry (project_id, equipment_id, fecha, executed_hours, pto_hours, standby_hours, contracted_hours, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (project_id, equipment_id, fecha) DO UPDATE SET executed_hours = EXCLUDED.executed_hours, pto_hours = EXCLUDED.pto_hours, standby_hours = EXCLUDED.standby_hours, contracted_hours = EXCLUDED.contracted_hours, notes = EXCLUDED.notes, updated_at = NOW() RETURNING id, project_id, equipment_id, fecha, executed_hours, pto_hours, standby_hours, contracted_hours, notes;',
+    structure_params: { project_id: 'int', equipment_id: 'int', fecha: 'string', executed_hours: 'number', pto_hours: 'number', standby_hours: 'number', contracted_hours: 'number', notes: 'string|null', created_by: 'int|null' },
+    orderArray: ['project_id', 'equipment_id', 'fecha', 'executed_hours', 'pto_hours', 'standby_hours', 'contracted_hours', 'notes', 'created_by']
+  },
+
+  'getRegistrosPorProyectoYFecha': {
+    query: 'SELECT r.id, r.project_id, r.equipment_id, e.code AS equipment_code, e.name AS equipment_name, r.fecha, r.executed_hours, r.pto_hours, r.standby_hours, r.contracted_hours, (r.executed_hours + r.pto_hours) AS total_hours, ROUND((r.standby_hours * 100.0 / NULLIF(r.contracted_hours, 0)), 2) AS pct_standby, ROUND(((r.executed_hours + r.pto_hours) * 100.0 / NULLIF(r.contracted_hours, 0)), 2) AS pct_ejec_pto, r.notes FROM public.hours_daily_entry r JOIN public.equipment e ON e.id = r.equipment_id WHERE r.project_id = $1 AND r.fecha = $2 ORDER BY e.code;',
+    structure_params: { project_id: 'int', fecha: 'string' },
+    orderArray: ['project_id', 'fecha']
+  },
+
+  'getAcumuladoMesPorProyecto': {
+    query: 'SELECT h.equipment_id, COALESCE(SUM(h.executed_hours + h.pto_hours), 0) AS acumulado_cobro_completo, COALESCE(SUM(h.standby_hours), 0) AS acumulado_standby FROM public.hours_daily_entry h WHERE h.project_id = $1 AND h.fecha >= date_trunc(''month'', $2::date)::date AND h.fecha < $2::date GROUP BY h.equipment_id;',
+    structure_params: { project_id: 'int', fecha: 'string' },
+    orderArray: ['project_id', 'fecha']
+  },
+
+  # Resumen para Reportes (fase 1 -- solo horas, sin tarifas $/hora
+  # todavía). Trae por equipo; el BO agrega por proyecto y el total en JS,
+  # igual que Fuel.Reporte.getFuelSummary.
+  'getResumenHorasPorEquipo': {
+    query: 'SELECT r.project_id, p.name AS project_name, c.name AS company_name, r.equipment_id, e.code AS equipment_code, e.name AS equipment_name, SUM(r.executed_hours + r.pto_hours) AS cobro_completo, SUM(r.standby_hours) AS standby, SUM(r.contracted_hours) AS hrs_totales, COUNT(*) AS dias_registrados FROM public.hours_daily_entry r JOIN public.equipment e ON e.id = r.equipment_id JOIN public.project p ON p.id = r.project_id JOIN public.company c ON c.id = p.company_id WHERE r.fecha BETWEEN $1 AND $2 GROUP BY r.project_id, p.name, c.name, r.equipment_id, e.code, e.name ORDER BY c.name, p.name, e.code;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
+  },
+
+  # Un renglón por día del rango (incluye días sin datos, con 0) y por
+  # proyecto -- el BO agrega por día en JS respetando el acceso por
+  # proyecto de cada perfil, igual que getResumenHorasPorEquipo. Equivale
+  # a la hoja "Gráfico Agosto" del Excel de referencia.
+  'getResumenHorasPorDia': {
+    query: 'SELECT gs.fecha, r.project_id, COALESCE(SUM(r.executed_hours + r.pto_hours), 0) AS cobro_completo, COALESCE(SUM(r.standby_hours), 0) AS standby, COALESCE(SUM(r.contracted_hours), 0) AS hrs_totales FROM generate_series($1::date, $2::date, interval ''1 day'') AS gs(fecha) LEFT JOIN public.hours_daily_entry r ON r.fecha = gs.fecha GROUP BY gs.fecha, r.project_id ORDER BY gs.fecha;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
+  },
+
+  'deleteRegistroDiario': {
+    query: 'DELETE FROM public.hours_daily_entry WHERE id = $1 RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getRegistroProjectId': {
+    query: 'SELECT project_id FROM public.hours_daily_entry WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Acceso por proyecto (qué perfiles pueden rellenar cada proyecto) ----------
+
+  'hasProjectProfileAccess': {
+    query: 'SELECT EXISTS (SELECT 1 FROM public.project_profile_assignment ppa JOIN public.profile p ON p.id = ppa.profile_id WHERE ppa.project_id = $1 AND p.name = $2) AS allowed;',
+    structure_params: { project_id: 'int', profile: 'string' },
+    orderArray: ['project_id', 'profile']
+  },
+
+  'getAccessibleProjectIdsForProfile': {
+    query: 'SELECT ppa.project_id FROM public.project_profile_assignment ppa JOIN public.profile p ON p.id = ppa.profile_id WHERE p.name = $1;',
+    structure_params: { profile: 'string' },
+    orderArray: ['profile']
+  },
+
+  'assignProfileToProjectByName': {
+    query: 'INSERT INTO public.project_profile_assignment (project_id, profile_id) SELECT $1, id FROM public.profile WHERE name = $2 ON CONFLICT (project_id, profile_id) DO NOTHING RETURNING id;',
+    structure_params: { project_id: 'int', profile_name: 'string' },
+    orderArray: ['project_id', 'profile_name']
+  },
+
+  'removeProfileFromProjectByName': {
+    query: 'DELETE FROM public.project_profile_assignment WHERE project_id = $1 AND profile_id = (SELECT id FROM public.profile WHERE name = $2);',
+    structure_params: { project_id: 'int', profile_name: 'string' },
+    orderArray: ['project_id', 'profile_name']
+  },
+
+  'getProjectProfiles': {
+    query: 'SELECT p.id, p.name FROM public.project_profile_assignment ppa JOIN public.profile p ON p.id = ppa.profile_id WHERE ppa.project_id = $1 ORDER BY p.name;',
+    structure_params: { project_id: 'int' },
+    orderArray: ['project_id']
   }
 }

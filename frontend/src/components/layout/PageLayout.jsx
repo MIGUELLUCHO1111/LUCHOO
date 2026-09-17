@@ -34,7 +34,10 @@ export const PageLayout = ({
         }}
       />
 
-      <div className="absolute top-8 right-10 z-50 pointer-events-none">
+      <div
+        style={{ position: "fixed" }}
+        className="hidden md:block top-8 right-10 z-50 pointer-events-none"
+      >
         <img
           src={theme === "dark" ? logoDark : logoWhite}
           alt="Fullpetro Logo"
@@ -44,7 +47,7 @@ export const PageLayout = ({
 
       <Sidebar />
 
-      <div className="flex-1 p-8 relative flex flex-col items-center overflow-auto ml-[76px]">
+      <div className="flex-1 px-8 pb-8 pt-20 md:pt-8 relative flex flex-col items-center overflow-auto ml-0 md:ml-[76px]">
         <div className={`absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-${accentColor}-500/10 rounded-full blur-[120px] pointer-events-none`} />
 
         <motion.div

@@ -16,7 +16,11 @@ import {
   Tracker,
   TrackerAlerts,
   TrackerMapPage,
-  TrackerReport
+  TrackerReport,
+  HoursDailyEntry,
+  HoursCompanies,
+  HoursProjects,
+  HoursEquipment
 } from "@/pages";
 
 import { AuthProvider, ConfirmProvider } from "@/context";
@@ -46,6 +50,10 @@ function App() {
             <Route path="/tracker/map" element={<TrackerMapPage />} />
             <Route path="/tracker/report" element={<TrackerReport />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/hours" element={<HoursDailyEntry />} />
+            <Route path="/hours/companies" element={<HoursCompanies />} />
+            <Route path="/hours/projects" element={<HoursProjects />} />
+            <Route path="/hours/equipment" element={<HoursEquipment />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

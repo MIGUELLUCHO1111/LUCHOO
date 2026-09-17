@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ShieldCheck,
   BarChart3,
@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Fuel,
   Radio,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "@/context";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -120,9 +121,22 @@ const SidebarItem = ({
 
 export const Sidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { logout, allowedSections } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // En mobile el riel de iconos no queda permanentemente ocupando pantalla:
+  // se pliega fuera de la vista y se abre como overlay (con fondo oscuro)
+  // sobre un botón propio siempre visible -- en desktop el comportamiento
+  // no cambia (riel de 76px, expandible a 260px, sin overlay).
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   // allowedSections === null mientras se resuelve el perfil: no restringe
   // todavía (evita un parpadeo de "menú vacío" al cargar).
@@ -159,6 +173,16 @@ export const Sidebar = () => {
       ],
     },
     { icon: BarChart3, label: "Reportes", url: "/reports" },
+    {
+      icon: Clock,
+      label: "Control de Horas",
+      children: [
+        { title: "Registro Diario", url: "/hours" },
+        { title: "Empresas", url: "/hours/companies" },
+        { title: "Proyectos", url: "/hours/projects" },
+        { title: "Equipos", url: "/hours/equipment" },
+      ],
+    },
   ];
 
   const menuConfig = rawMenuConfig
@@ -185,12 +209,40 @@ export const Sidebar = () => {
   };
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: isExpanded ? 260 : 76 }}
-      transition={{ type: "spring", stiffness: 220, damping: 28 }}
-      className="fixed left-4 top-4 h-[calc(100vh-32px)] rounded-3xl bg-white dark:bg-[#111216] border border-slate-200 dark:border-white/5 z-50 flex flex-col justify-between py-6 shadow-2xl overflow-hidden"
-    >
+    <>
+      {/* Botón hamburguesa propio de mobile -- siempre visible, incluso con
+          el riel plegado fuera de pantalla (el toggle de adentro del riel
+          no serviría de nada si el riel mismo está oculto). */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        aria-label={isExpanded ? "Cerrar menú" : "Abrir menú"}
+        className="md:hidden fixed left-4 top-4 z-[60] h-12 w-12 rounded-2xl bg-white dark:bg-[#111216] border border-slate-200 dark:border-white/5 shadow-xl flex items-center justify-center text-slate-500 dark:text-slate-400"
+      >
+        {isExpanded ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Fondo oscuro en mobile mientras el menú está abierto -- tocarlo lo cierra */}
+      <AnimatePresence>
+        {isMobile && isExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsExpanded(false)}
+            className="md:hidden fixed inset-0 bg-black/40 z-40"
+          />
+        )}
+      </AnimatePresence>
+
+      <motion.aside
+        initial={false}
+        animate={{ width: isExpanded ? 260 : 76 }}
+        transition={{ type: "spring", stiffness: 220, damping: 28 }}
+        className={`fixed left-4 top-4 h-[calc(100vh-32px)] rounded-3xl bg-white dark:bg-[#111216] border border-slate-200 dark:border-white/5 z-50 flex flex-col justify-between py-6 shadow-2xl overflow-hidden transition-transform duration-300 ${
+          isExpanded ? "translate-x-0" : "-translate-x-[calc(100%+2rem)] md:translate-x-0"
+        }`}
+      >
       <div className="flex flex-col gap-6 w-full">
         <div className="px-3">
           <div
@@ -246,6 +298,7 @@ export const Sidebar = () => {
               onClick={(url) => {
                 const targetPath = url || `/${item.label.toLowerCase()}`;
                 navigate(targetPath);
+                if (isMobile) setIsExpanded(false);
               }}
               active={checkActive(item)}
               isExpanded={isExpanded}
@@ -265,6 +318,7 @@ export const Sidebar = () => {
           onClick={() => logout(navigate)}
         />
       </div>
-    </motion.aside>
+      </motion.aside>
+    </>
   );
 };

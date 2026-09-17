@@ -105,6 +105,51 @@ const SECTION_PERMISSIONS = {
   ],
   '/reports': [
     { sub_system: 'Fuel', class_name: 'Reporte', method_name: 'getFuelSummary' },
+    { sub_system: 'Horas', class_name: 'Reporte', method_name: 'getResumenHoras' },
+    { sub_system: 'Horas', class_name: 'Reporte', method_name: 'getResumenPorDia' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getAllProyectos' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getEquiposAsignados' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'getRegistrosDelDia' },
+  ],
+  '/hours': [
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectosByEmpresa' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getEquiposAsignados' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getAllEmpresas' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'guardarRegistro' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'getRegistrosDelDia' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'eliminarRegistro' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'getAcumuladoMes' },
+  ],
+  '/hours/companies': [
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'createEmpresa' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getEmpresaById' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getAllEmpresas' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'updateEmpresa' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'deleteEmpresa' },
+  ],
+  '/hours/projects': [
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'createProyecto' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectoById' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getAllProyectos' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'updateProyecto' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'deleteProyecto' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectosByEmpresa' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getAllEmpresas' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'asignarPerfil' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'quitarPerfil' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getPerfilesAsignados' },
+    // La asignación de equipos se gestiona desde esta página (desplegable
+    // por proyecto), no desde Equipos -- de ahí estos 3 métodos de Equipo.
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'getAllEquipos' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'asignarAProyecto' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'quitarAsignacion' },
+  ],
+  '/hours/equipment': [
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'createEquipo' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'getEquipoById' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'getAllEquipos' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'updateEquipo' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'deleteEquipo' },
   ],
 };
 
