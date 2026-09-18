@@ -38,13 +38,22 @@ const formatHora = (iso) => {
 /**
  * Mapa en vivo de la flota (Fase 3). Recibe los mismos snapshots que la
  * tabla de estado; solo dibuja los que tienen coordenadas válidas.
+ *
+ * `onSelectUnit(snapshot)` -- Fase 3 Recorridos (18/09/2026): se llama al
+ * hacer clic en un punto, ademas del acercamiento y el popup, para que la
+ * pagina pueda abrir el panel de Recorridos de esa unidad sin duplicar el
+ * manejo de clics del mapa.
+ * `routePoints` -- lista de {lat, lng} de un viaje puntual (ver
+ * Recorrido.ruta en el backend); al cambiar, dibuja/reemplaza la linea de
+ * la ruta en el mapa y hace zoom a su extension.
  */
-export default function TrackerMap({ snapshots = [] }) {
+export default function TrackerMap({ snapshots = [], onSelectUnit, routePoints }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const boundsRef = useRef(null);
   const hasFitBoundsRef = useRef(false);
+  const routeLayerRef = useRef(null);
 
   // Inicializa el mapa una sola vez.
   useEffect(() => {
@@ -116,6 +125,7 @@ export default function TrackerMap({ snapshots = [] }) {
       marker.on("click", () => {
         const targetZoom = Math.min(map.getZoom() + CLICK_ZOOM_STEP, CLICK_ZOOM_MAX);
         map.flyTo(marker.getLatLng(), Math.max(targetZoom, map.getZoom()), { duration: 0.8 });
+        onSelectUnit?.(s);
       });
 
       // Crecimiento leve al pasar el cursor (sin necesidad de hacer clic) --
@@ -141,7 +151,28 @@ export default function TrackerMap({ snapshots = [] }) {
         hasFitBoundsRef.current = true;
       }
     }
-  }, [snapshots]);
+  }, [snapshots, onSelectUnit]);
+
+  // Dibuja la ruta del viaje seleccionado (Recorridos) -- reemplaza la
+  // anterior si ya habia una, y la quita si routePoints llega vacio/null
+  // (por ejemplo al cerrar el panel de recorridos).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current);
+      routeLayerRef.current = null;
+    }
+
+    const valid = (routePoints || []).filter((p) => p.lat != null && p.lng != null);
+    if (valid.length < 2) return;
+
+    const latLngs = valid.map((p) => [p.lat, p.lng]);
+    const line = L.polyline(latLngs, { color: "#2563eb", weight: 4, opacity: 0.85 }).addTo(map);
+    routeLayerRef.current = line;
+    map.fitBounds(line.getBounds().pad(0.2));
+  }, [routePoints]);
 
   return <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden" />;
 }

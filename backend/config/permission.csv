@@ -131,3 +131,5 @@ id;sub_system;class;method;profile
 130;Tracker;Notificador;verificarAnexoSeguridad;admin
 131;Tracker;ReporteArchivo;listar;admin
 132;Tracker;Comportamiento;getAnalisisGuardado;admin
+133;Tracker;Recorrido;listar;admin
+134;Tracker;Recorrido;ruta;admin

@@ -95,6 +95,8 @@ const SECTION_PERMISSIONS = {
   '/tracker/map': [
     { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'getLatestSnapshots' },
     { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'syncNow' },
+    { sub_system: 'Tracker', class_name: 'Recorrido', method_name: 'listar' },
+    { sub_system: 'Tracker', class_name: 'Recorrido', method_name: 'ruta' },
   ],
   '/tracker/report': [
     { sub_system: 'Tracker', class_name: 'Reporte', method_name: 'generarReporte' },

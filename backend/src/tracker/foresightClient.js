@@ -143,6 +143,61 @@ export default class ForesightClient {
       }));
   }
 
+  // Recorridos por vehiculo (Fase 3, pedido de Lguerra 17/09/2026): mismas
+  // dos llamadas que hace el "Panel de Monitoreo-Recorridos" del panel web
+  // (confirmado por captura de red real, 18/09/2026). TRIPSPOINTS_MOD trae
+  // la lista de viajes de una unidad en un rango de fechas (salida, llegada,
+  // duracion, distancia, ubicacion); HISTORYSPOINTS trae los puntos GPS
+  // segundo a segundo de UN viaje puntual, para dibujar la ruta en el mapa.
+  async getRecorridos({ gpsUnitId, startdate, enddate }) {
+    const body = {
+      userid: this.userId,
+      list_vehicle_ids: gpsUnitId,
+      startdateandtime: startdate,
+      enddateandtime: enddate,
+      prefix: true,
+      conncode: this.conncode,
+      method: 'TRIPSPOINTS_MOD',
+    };
+    const data = await this.post(body, this.platformURL);
+    const rows = this.extractRows(data);
+
+    return rows.map((r) => ({
+      beginTime: r.begintruetime,
+      endTime: r.endtruetime,
+      duration: r.Duration,
+      beginLat: r.beginylat != null ? Number(r.beginylat) : null,
+      beginLng: r.beginxlong != null ? Number(r.beginxlong) : null,
+      endLat: r.endylat != null ? Number(r.endylat) : null,
+      endLng: r.endxlong != null ? Number(r.endxlong) : null,
+      distanceKm: r.distance_dunit != null ? Number(r.distance_dunit) : null,
+      location: r.location || null,
+      driver: r.driver || null,
+    }));
+  }
+
+  async getRutaPuntos({ gpsUnitId, startdate, enddate }) {
+    const body = {
+      method: 'HISTORYSPOINTS',
+      userid: this.userId,
+      conncode: this.conncode,
+      list_vehicle_ids: gpsUnitId,
+      startdateandtime: startdate,
+      enddateandtime: enddate,
+      prefix: true,
+    };
+    const data = await this.post(body, this.platformURL);
+    const rows = this.extractRows(data);
+
+    return rows.map((r) => ({
+      time: r.truetime,
+      lat: r.ylat != null ? Number(r.ylat) : null,
+      lng: r.xlong != null ? Number(r.xlong) : null,
+      speed: r.speed_dunit != null ? Number(r.speed_dunit) : null,
+      ignition: r.ignition === 'true' || r.ignition === true,
+    }));
+  }
+
   // REPORT_EXECUTE (reportid 134, "Comportamiento del Conductor" guardado en
   // la cuenta): mismo reporte que el panel web genera de un solo golpe para
   // TODAS las unidades con actividad en el rango de fechas -- viajes,

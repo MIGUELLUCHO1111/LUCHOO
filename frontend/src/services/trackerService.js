@@ -16,6 +16,8 @@ const TX = {
   VERIFICAR_ANEXO_SEGURIDAD: 130,
   LISTAR_REPORTES_GENERADOS: 131,
   GET_ANALISIS_GUARDADO: 132,
+  GET_RECORRIDOS: 133,
+  GET_RUTA: 134,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -85,6 +87,18 @@ const trackerService = {
    * fecha+turno al cerrarse cada turno), listos para descargar en un clic.
    */
   listarReportesGenerados: async ({ limit } = {}) => unwrap(await executeTransaction(TX.LISTAR_REPORTES_GENERADOS, { limit })),
+
+  /**
+   * Recorridos (viajes) de una unidad en un día: lista de viajes con
+   * salida/llegada/duración/distancia, más los totales del día (número de
+   * recorridos, primera salida, última llegada, km y horas en
+   * movimiento/estacionado). `gps_unit_id` es el ID interno de la
+   * plataforma GPS (snapshot.gps_unit_id), no el id de tracker_unit.
+   */
+  getRecorridos: async ({ gps_unit_id, fecha } = {}) => unwrap(await executeTransaction(TX.GET_RECORRIDOS, { gps_unit_id, fecha })),
+
+  /** Puntos GPS de un viaje puntual, para dibujar la ruta en el mapa. */
+  getRuta: async ({ gps_unit_id, startdate, enddate } = {}) => unwrap(await executeTransaction(TX.GET_RUTA, { gps_unit_id, startdate, enddate })),
 
   // ---------- Anexos del reporte diario (fuera del dispatcher, multipart real) ----------
 

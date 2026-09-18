@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { Map, RefreshCw } from "lucide-react";
+import { Map, RefreshCw, Route } from "lucide-react";
 import { trackerService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageLayout } from "@/components/layout/PageLayout";
 import TrackerMap from "@/components/TrackerMap/TrackerMap";
+import RecorridosPanel from "@/components/TrackerMap/RecorridosPanel";
+
+const veTodayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
 
 // Refresca solo (sin llamar a la API real de nuevo): lee lo último guardado
 // por la sincronización automática (cron cada 10 min) o por el botón manual.
@@ -15,6 +18,40 @@ const TrackerMapPage = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Recorridos (Fase 3, 17-18/09/2026): se puede abrir haciendo clic en una
+  // unidad del mapa o eligiendola aparte en el selector -- ambas formas
+  // comparten el mismo panel y el mismo dibujo de ruta en el mapa.
+  const [selectedUnit, setSelectedUnit] = useState(null);
+  const [routePoints, setRoutePoints] = useState(null);
+  const [selectedTripIndex, setSelectedTripIndex] = useState(null);
+  const [pickerPlate, setPickerPlate] = useState("");
+
+  const abrirRecorridos = (snapshot) => {
+    setSelectedUnit(snapshot);
+    setRoutePoints(null);
+    setSelectedTripIndex(null);
+  };
+
+  const cerrarRecorridos = () => {
+    setSelectedUnit(null);
+    setRoutePoints(null);
+    setSelectedTripIndex(null);
+  };
+
+  const verRuta = async ({ tripIndex, unit, viaje }) => {
+    setSelectedTripIndex(tripIndex);
+    try {
+      const puntos = await trackerService.getRuta({
+        gps_unit_id: unit.gps_unit_id,
+        startdate: viaje.beginTime?.slice(0, 19),
+        enddate: viaje.endTime?.slice(0, 19),
+      });
+      setRoutePoints(Array.isArray(puntos) ? puntos : []);
+    } catch (err) {
+      console.error("Error cargando la ruta del viaje:", err);
+    }
+  };
 
   const loadSnapshots = useCallback(async () => {
     try {
@@ -86,11 +123,52 @@ const TrackerMapPage = () => {
         </div>
       </div>
 
+      {/* Recorridos (Fase 3): dos formas de abrir el mismo panel -- clic en
+          una unidad del mapa (ver TrackerMap/onSelectUnit), o eligiendola
+          aca sin depender de encontrarla en el mapa. */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <select
+          value={pickerPlate}
+          onChange={(e) => setPickerPlate(e.target.value)}
+          className="px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] min-w-[220px]"
+        >
+          <option value="">Elegir unidad para ver recorridos...</option>
+          {snapshots
+            .filter((s) => s.gps_unit_id != null)
+            .map((s) => (
+              <option key={s.plate || s.gps_unit_id} value={s.plate || ""}>
+                {s.unit_code || s.plate} {s.plate ? `· ${s.plate}` : ""}
+              </option>
+            ))}
+        </select>
+        <Button
+          variant="outline"
+          disabled={!pickerPlate}
+          onClick={() => {
+            const s = snapshots.find((x) => x.plate === pickerPlate);
+            if (s) abrirRecorridos(s);
+          }}
+          className="rounded-xl font-bold flex items-center gap-2 h-10 text-sm"
+        >
+          <Route size={16} />
+          Ver recorridos
+        </Button>
+      </div>
+
+      {selectedUnit && (
+        <RecorridosPanel
+          unit={selectedUnit}
+          onClose={cerrarRecorridos}
+          onVerRuta={verRuta}
+          selectedTripIndex={selectedTripIndex}
+        />
+      )}
+
       <Card className="w-full overflow-hidden p-0" style={{ height: "70vh" }}>
         {loading ? (
           <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">Cargando mapa...</div>
         ) : (
-          <TrackerMap snapshots={snapshots} />
+          <TrackerMap snapshots={snapshots} onSelectUnit={abrirRecorridos} routePoints={routePoints} />
         )}
       </Card>
     </PageLayout>
