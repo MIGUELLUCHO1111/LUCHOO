@@ -123,6 +123,14 @@ const TrackerMapPage = () => {
         </div>
       </div>
 
+      <Card className="w-full overflow-hidden p-0 mb-4" style={{ height: "70vh" }}>
+        {loading ? (
+          <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">Cargando mapa...</div>
+        ) : (
+          <TrackerMap snapshots={snapshots} onSelectUnit={abrirRecorridos} routePoints={routePoints} />
+        )}
+      </Card>
+
       {/* Recorridos (Fase 3): dos formas de abrir el mismo panel -- clic en
           una unidad del mapa (ver TrackerMap/onSelectUnit), o eligiendola
           aca sin depender de encontrarla en el mapa. */}
@@ -163,14 +171,6 @@ const TrackerMapPage = () => {
           selectedTripIndex={selectedTripIndex}
         />
       )}
-
-      <Card className="w-full overflow-hidden p-0" style={{ height: "70vh" }}>
-        {loading ? (
-          <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">Cargando mapa...</div>
-        ) : (
-          <TrackerMap snapshots={snapshots} onSelectUnit={abrirRecorridos} routePoints={routePoints} />
-        )}
-      </Card>
     </PageLayout>
   );
 };
