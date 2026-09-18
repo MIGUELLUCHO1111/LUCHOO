@@ -76,7 +76,19 @@ Este proyecto usa un servidor Node personalizado (`server.ts`) para poder combin
    pm2 start ecosystem.config.cjs
    pm2 save
    ```
-   Sin PM2, `npm run start` también funciona pero no se reinicia solo si el proceso falla. En Windows, `pm2 save` no hace que PM2 arranque solo al reiniciar el servidor — para eso hace falta configurar `pm2` como servicio de Windows (ej. con `pm2-installer`) o una Tarea Programada que corra `pm2 resurrect` al iniciar sesión.
+   Sin PM2, `npm run start` también funciona pero no se reinicia solo si el proceso falla.
+
+   **Para que sobreviva a un reinicio de la máquina**: `pm2 save` no arranca PM2 solo al reiniciar. En un servidor Windows normal, una Tarea Programada que corra `pm2 resurrect` al iniciar sesión funciona bien. **Si la máquina está unida a un dominio corporativo** (como esta de desarrollo, dominio `FULLPETRO`), las Tareas Programadas pueden no tener acceso al perfil del usuario (`AppData\Roaming`) por políticas de seguridad — en ese caso, usa en su lugar un script en la carpeta de Inicio de Windows:
+   ```bash
+   # Crear este archivo (ajusta la ruta de usuario):
+   # %AppData%\Microsoft\Windows\Start Menu\Programs\Startup\pm2-resurrect.cmd
+   ```
+   ```bat
+   @echo off
+   timeout /t 15 /nobreak >nul
+   "%AppData%\npm\pm2.cmd" resurrect >> "%TEMP%\pm2-resurrect.log" 2>&1
+   ```
+   Esto solo arranca las apps cuando ese usuario inicia sesión (no en un reinicio "headless" sin nadie logueado). Para un servidor de producción real sin usuario interactivo, lo correcto es instalar PM2 como servicio de Windows con [`pm2-installer`](https://github.com/jessety/pm2-installer) (requiere permisos de administrador).
 5. Coloca un proxy inverso (IIS, Nginx, Caddy) delante del puerto de la app si necesitas HTTPS o un dominio interno.
 6. **Importante**: `src/lib/auth.ts` tiene `trustHost: true` porque la app corre detrás de un dominio/IP propio, no en Vercel. Sin esto, NextAuth rechaza todas las peticiones en modo producción con un error "UntrustedHost".
 7. La carpeta `public/uploads/` guarda los archivos adjuntos (actas de entrega, facturas). Asegúrate de que esa carpeta esté en un disco con respaldo/backup.
