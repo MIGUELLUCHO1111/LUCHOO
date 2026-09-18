@@ -36,6 +36,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# database
+/prisma/dev.db
+/prisma/dev.db-journal
+
+# uploaded files (actas, facturas, etc. - not source controlled)
+/public/uploads/*
+!/public/uploads/.gitkeep
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

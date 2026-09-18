@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  AGENT
+  REQUESTER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  PENDING
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AssetCategory {
+  LAPTOP
+  DESKTOP
+  PRINTER
+  MONITOR
+  NETWORK
+  PHONE
+  OTHER
+}
+
+enum AssetStatus {
+  ACTIVE
+  IN_REPAIR
+  DAMAGED
+  RETIRED
+  IN_STORAGE
+}
+
+enum MaintenanceFrequency {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+}
+
+enum MaintenanceStatus {
+  PENDING
+  DONE
+  OVERDUE
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  passwordHash   String
+  role           Role     @default(REQUESTER)
+  department     String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  ticketsCreated  Ticket[]        @relation("TicketRequester")
+  ticketsAssigned Ticket[]        @relation("TicketAssignee")
+  comments        TicketComment[]
+  historyEntries  TicketHistory[]
+  notifications   Notification[]
+  assetsAssigned  Asset[]         @relation("AssetAssignee")
+
+  @@map("users")
+}
+
+model TicketType {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  tickets Ticket[]
+
+  @@map("ticket_types")
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  code        String         @unique
+  title       String
+  description String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  department  String?
+  dueDate     DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+
+  typeId String
+  type   TicketType @relation(fields: [typeId], references: [id])
+
+  requesterId String
+  requester   User   @relation("TicketRequester", fields: [requesterId], references: [id])
+
+  assigneeId String?
+  assignee   User?   @relation("TicketAssignee", fields: [assigneeId], references: [id])
+
+  assetId String?
+  asset   Asset?  @relation(fields: [assetId], references: [id])
+
+  comments    TicketComment[]
+  history     TicketHistory[]
+  attachments Attachment[]
+  notifications Notification[]
+  purchases   Purchase[]
+
+  @@map("tickets")
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  message   String
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  attachments Attachment[]
+
+  @@map("ticket_comments")
+}
+
+model TicketHistory {
+  id        String   @id @default(cuid())
+  field     String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("ticket_history")
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  filename   String
+  url        String
+  mimeType   String?
+  size       Int?
+  createdAt  DateTime @default(now())
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  commentId String?
+  comment   TicketComment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  ticketId String?
+  ticket   Ticket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Counter {
+  id    String @id
+  value Int    @default(0)
+
+  @@map("counters")
+}
+
+// ---------------------------------------------------------------------
+// Inventario de equipos (laptops, desktops, impresoras, otros)
+// ---------------------------------------------------------------------
+model Asset {
+  id           String        @id @default(cuid())
+  code         String        @unique
+  category     AssetCategory
+  brand        String
+  model        String
+  serialNumber String?       @unique
+  status       AssetStatus   @default(ACTIVE)
+  area         String?
+  damageNotes  String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  assignedToId String?
+  assignedTo   User?     @relation("AssetAssignee", fields: [assignedToId], references: [id])
+  assignedAt   DateTime?
+
+  handoverDocUrl String?
+
+  tickets          Ticket[]
+  maintenancePlans MaintenancePlan[]
+  purchases        Purchase[]
+  softwareLinks    AssetSoftware[]
+
+  @@map("assets")
+}
+
+// ---------------------------------------------------------------------
+// Software licenciado
+// ---------------------------------------------------------------------
+model SoftwareLicense {
+  id          String    @id @default(cuid())
+  name        String
+  licenseType String?
+  seats       Int       @default(1)
+  seatsUsed   Int       @default(0)
+  expiresAt   DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  assets AssetSoftware[]
+
+  @@map("software_licenses")
+}
+
+model AssetSoftware {
+  id          String   @id @default(cuid())
+  installedAt DateTime @default(now())
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  licenseId String
+  license   SoftwareLicense @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, licenseId])
+  @@map("asset_software")
+}
+
+// ---------------------------------------------------------------------
+// Plan de mantenimiento preventivo
+// ---------------------------------------------------------------------
+model MaintenancePlan {
+  id         String               @id @default(cuid())
+  frequency  MaintenanceFrequency
+  status     MaintenanceStatus    @default(PENDING)
+  lastDoneAt DateTime?
+  nextDueAt  DateTime
+  notes      String?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("maintenance_plans")
+}
+
+// ---------------------------------------------------------------------
+// Proveedores de TI
+// ---------------------------------------------------------------------
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  contactName String?
+  phone       String?
+  email       String?
+  services    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchases        Purchase[]
+  softwareLicenses SoftwareLicense[]
+
+  @@map("suppliers")
+}
+
+// ---------------------------------------------------------------------
+// Compras del área de TI
+// ---------------------------------------------------------------------
+model Purchase {
+  id           String   @id @default(cuid())
+  code         String   @unique
+  description  String
+  cost         Float
+  currency     String   @default("USD")
+  purchaseDate DateTime @default(now())
+  invoiceUrl   String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  assetId String?
+  asset   Asset?  @relation(fields: [assetId], references: [id])
+
+  ticketId String?
+  ticket   Ticket? @relation(fields: [ticketId], references: [id])
+
+  @@map("purchases")
+}

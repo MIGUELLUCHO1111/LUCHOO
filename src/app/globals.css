@@ -1,26 +1,90 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f9fb;
+  --foreground: #12293a;
+
+  /* Marca Fullpetro: azul marino + amarillo, blanco predominante */
+  --color-brand-blue: #163a52;
+  --color-brand-blue-dark: #0e2839;
+  --color-brand-blue-light: #2c6e91;
+  --color-brand-blue-50: #eaf1f5;
+  --color-brand-blue-100: #cfe0e9;
+
+  --color-brand-yellow: #f5c518;
+  --color-brand-yellow-dark: #d9a800;
+  --color-brand-yellow-light: #fde58a;
+  --color-brand-yellow-50: #fff8e1;
+
+  --color-surface: #ffffff;
+  --color-border: #e3e8ed;
+  --color-muted: #64748b;
+
+  --color-status-open: #2c6e91;
+  --color-status-progress: #f5c518;
+  --color-status-pending: #f5871f;
+  --color-status-resolved: #1f9d55;
+  --color-status-closed: #64748b;
+  --color-status-cancelled: #dc2626;
+
+  --shadow-card: 0 1px 2px rgba(18, 41, 58, 0.06), 0 1px 3px rgba(18, 41, 58, 0.08);
+  --shadow-card-hover: 0 4px 12px rgba(18, 41, 58, 0.1), 0 2px 4px rgba(18, 41, 58, 0.08);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-brand-blue: var(--color-brand-blue);
+  --color-brand-blue-dark: var(--color-brand-blue-dark);
+  --color-brand-blue-light: var(--color-brand-blue-light);
+  --color-brand-blue-50: var(--color-brand-blue-50);
+  --color-brand-blue-100: var(--color-brand-blue-100);
+
+  --color-brand-yellow: var(--color-brand-yellow);
+  --color-brand-yellow-dark: var(--color-brand-yellow-dark);
+  --color-brand-yellow-light: var(--color-brand-yellow-light);
+  --color-brand-yellow-50: var(--color-brand-yellow-50);
+
+  --color-surface: var(--color-surface);
+  --color-border: var(--color-border);
+  --color-muted: var(--color-muted);
+
+  --color-status-open: var(--color-status-open);
+  --color-status-progress: var(--color-status-progress);
+  --color-status-pending: var(--color-status-pending);
+  --color-status-resolved: var(--color-status-resolved);
+  --color-status-closed: var(--color-status-closed);
+  --color-status-cancelled: var(--color-status-cancelled);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-blue-light);
 }

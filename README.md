@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fullpetro TI — Tickets e Inventario
 
-## Getting Started
+Sistema interno del departamento de TI de Fullpetro para:
 
-First, run the development server:
+- **Tickets y chat**: registro, asignación, seguimiento y chat en tiempo real de solicitudes/incidencias.
+- **Inventario de equipos**: laptops, desktops, impresoras y otros dispositivos, con acta de entrega adjunta y asignación a empleados.
+- **Software licenciado**: control de licencias, asientos y vencimientos.
+- **Mantenimiento preventivo**: calendario de mantenimientos por equipo.
+- **Compras de TI**: registro de compras con proveedor, costo y comprobante.
+- **Proveedores de TI**: directorio de proveedores.
+- **Usuarios**: gestión de accesos por rol (solo Admin).
+
+## Stack técnico
+
+- **Next.js 16** (App Router) + TypeScript + Tailwind CSS 4
+- **Prisma 6** + SQLite en desarrollo (fácil de cambiar a PostgreSQL en producción)
+- **NextAuth (Auth.js) v5** — autenticación por credenciales con roles (Admin / Agente / Solicitante)
+- **Socket.IO** sobre un servidor Node personalizado (`server.ts`) para el chat en tiempo real
+- **Radix UI + shadcn-style components** para la interfaz
+
+## Requisitos
+
+- Node.js 20.9 o superior
+- npm
+
+## Puesta en marcha (desarrollo)
 
 ```bash
+npm install
+npx prisma migrate dev
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Usuarios de prueba (creados por el seed)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Rol | Correo | Contraseña |
+| --- | --- | --- |
+| Administrador | admin@fullpetro.com | Admin123! |
+| Agente de soporte | agente@fullpetro.com | Agente123! |
+| Solicitante | usuario@fullpetro.com | Usuario123! |
 
-## Learn More
+**Cambia estas contraseñas antes de usar el sistema en producción.**
 
-To learn more about Next.js, take a look at the following resources:
+## Variables de entorno (`.env`)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+DATABASE_URL="file:./dev.db"
+AUTH_SECRET="genera-un-secreto-aleatorio-largo"
+NEXTAUTH_URL="http://localhost:3000"
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Para generar un `AUTH_SECRET` seguro: `openssl rand -base64 32`.
 
-## Deploy on Vercel
+## Despliegue en el servidor interno
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Este proyecto usa un servidor Node personalizado (`server.ts`) para poder combinar Next.js con Socket.IO, así que **no es compatible con Vercel/serverless** — está pensado para correr en un servidor propio (Windows Server, Linux, un contenedor Docker, etc.).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Base de datos**: en producción se recomienda **PostgreSQL** en lugar de SQLite.
+   - Edita `prisma/schema.prisma` y cambia `provider = "sqlite"` por `provider = "postgresql"`.
+   - Actualiza `DATABASE_URL` en `.env` con la cadena de conexión de PostgreSQL.
+   - Corre `npx prisma migrate deploy`.
+2. Copia `.env` con los valores reales de producción (`AUTH_SECRET` distinto al de desarrollo, `NEXTAUTH_URL` con el dominio/IP real).
+3. Instala dependencias y compila:
+   ```bash
+   npm install
+   npm run build
+   ```
+4. Levanta el servidor:
+   ```bash
+   npm run start
+   ```
+   Esto corre `server.ts` (Next.js + Socket.IO) en modo producción. Usa un gestor de procesos como **PM2** o un servicio de Windows para mantenerlo corriendo y reiniciarlo automáticamente.
+5. Coloca un proxy inverso (IIS, Nginx, Caddy) delante del puerto 3000 si necesitas HTTPS o un dominio interno.
+6. La carpeta `public/uploads/` guarda los archivos adjuntos (actas de entrega, facturas). Asegúrate de que esa carpeta esté en un disco con respaldo/backup.
+
+## Notas de diseño
+
+- Los colores de marca (azul marino y amarillo del logo de Fullpetro, con blanco predominante) están centralizados como variables CSS en `src/app/globals.css`.
+- El acceso a los módulos de Inventario, Software, Mantenimiento, Compras y Proveedores está restringido a los roles Admin y Agente. El módulo de Usuarios está restringido solo a Admin.
