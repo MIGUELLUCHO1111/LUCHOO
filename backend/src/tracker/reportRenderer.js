@@ -7,12 +7,19 @@ import puppeteer from 'puppeteer-core';
 // (puppeteer-core no trae uno). PDF_CHROME_PATH en el .env permite fijarlo
 // a mano si la detección automática no aplica (ej. en el servidor de
 // producción).
+//
+// Chrome antes que Edge (18/09/2026): con muchas ventanas de Edge ya
+// abiertas, Windows/Edge fuerza "instancia única" a nivel de sesión --
+// cualquier msedge.exe nuevo (headless o no, con o sin --user-data-dir
+// propio) reenvía a la ventana existente y se cierra al instante ("Abriendo
+// en sesión de explorador existente"), lo que Puppeteer ve como que el
+// navegador nunca abrió. Chrome no tiene ese bloqueo.
 const CANDIDATE_PATHS = [
   process.env.PDF_CHROME_PATH,
-  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   '/usr/bin/google-chrome-stable',
   '/usr/bin/google-chrome',
   '/usr/bin/chromium-browser',
