@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { BellRing, RefreshCw, MapPin, Route } from "lucide-react";
 import { trackerService, resolveReportFileUrl } from "@/services";
 import { Button } from "@/components/ui/button";
@@ -34,8 +34,10 @@ const TrackerAlerts = () => {
   // la unidad de una alerta, sin tener que ir a buscarla aparte en Mapa en
   // Vivo -- ayuda a entender qué hizo la unidad ese día. Sin mapa en esta
   // pantalla, así que RecorridosPanel no recibe onVerRuta (oculta esa
-  // columna sola).
-  const [selectedUnit, setSelectedUnit] = useState(null);
+  // columna sola). Se despliega justo debajo de la fila de esa alerta (no
+  // uno solo compartido al final de la tabla) -- pedido explicito, 18/09/2026.
+  const [expandedAlertId, setExpandedAlertId] = useState(null);
+  const toggleRecorridos = (id) => setExpandedAlertId((prev) => (prev === id ? null : id));
 
   const loadAlerts = useCallback(async () => {
     setLoadingAlerts(true);
@@ -145,7 +147,8 @@ const TrackerAlerts = () => {
                   </TableRow>
                 ) : (
                   alerts.map((a, i) => (
-                    <TableRow key={a.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+                    <Fragment key={a.id}>
+                    <TableRow className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
                       <TableCell className="text-sm whitespace-nowrap">{formatHora(a.triggered_at)}</TableCell>
                       <TableCell className="text-sm">{a.unit_code || a.plate || "-"}</TableCell>
                       <TableCell className="text-sm">
@@ -191,8 +194,8 @@ const TrackerAlerts = () => {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 rounded-lg"
-                            onClick={() => setSelectedUnit({ gps_unit_id: a.gps_unit_id, unit_code: a.unit_code, plate: a.plate })}
+                            className={`h-8 w-8 rounded-lg ${expandedAlertId === a.id ? "bg-blue-500 text-white hover:bg-blue-600" : ""}`}
+                            onClick={() => toggleRecorridos(a.id)}
                           >
                             <Route size={14} />
                           </Button>
@@ -201,17 +204,24 @@ const TrackerAlerts = () => {
                         )}
                       </TableCell>
                     </TableRow>
+                    {expandedAlertId === a.id && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="p-0 border-0">
+                          <div className="p-4 bg-slate-50/60 dark:bg-white/[0.02]">
+                            <RecorridosPanel
+                              unit={{ gps_unit_id: a.gps_unit_id, unit_code: a.unit_code, plate: a.plate }}
+                              onClose={() => setExpandedAlertId(null)}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </Fragment>
                   ))
                 )}
               </TableBody>
             </Table>
           </Card>
-
-          {selectedUnit && (
-            <div className="mt-4">
-              <RecorridosPanel unit={selectedUnit} onClose={() => setSelectedUnit(null)} />
-            </div>
-          )}
         </>
       ) : (
         <>
