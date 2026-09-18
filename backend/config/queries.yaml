@@ -1042,6 +1042,12 @@
     orderArray: []
   },
 
+  'deleteOldTrackerAlerts': {
+    query: 'DELETE FROM public.tracker_alert WHERE triggered_at < $1;',
+    structure_params: { cutoff: 'string' },
+    orderArray: ['cutoff']
+  },
+
   # ---------- Tracker GPS (geocercas / perimetro permitido) ----------
 
   'getTrackerGeofences': {

@@ -10,6 +10,11 @@ const STATUS_CODES = config.STATUS_CODES;
 // dispara la alerta de "fuera de horario". Configurable sin tocar código.
 const CURFEW_HOUR = Number(process.env.TRACKER_CURFEW_HOUR || 20);
 
+// Retención del historial de alertas (pedido de Lguerra, 18/09/2026): son
+// datos "solo de revisión", no algo que haya que conservar para siempre --
+// dejarlas crecer sin límite es lo que puede terminar colapsando el sistema.
+const ALERT_RETENTION_DAYS = Number(process.env.TRACKER_ALERT_RETENTION_DAYS || 8);
+
 const veHour = (date = new Date()) => {
   const hourStr = date.toLocaleString('en-US', { timeZone: 'America/Caracas', hour: '2-digit', hour12: false });
   return parseInt(hourStr, 10) % 24;
@@ -248,6 +253,25 @@ class Alerta {
     await this.dbmsReady;
     const result = await this.dbms.executeNamedQuery({ nameQuery: 'getRecentTrackerAlerts' });
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
+  };
+
+  // Borra el historial de alertas mas viejo que ALERT_RETENTION_DAYS
+  // (8 dias por defecto). Corre solo (ver scheduler.js) todos los dias --
+  // asi ninguna alerta llega a acumular mas de esos dias, sin depender de
+  // que alguien entre a la pantalla de Reportes a limpiarla a mano.
+  limpiarAntiguas = async () => {
+    await this.dbmsReady;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - ALERT_RETENTION_DAYS);
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'deleteOldTrackerAlerts',
+      params: { cutoff: cutoff.toISOString() },
+    });
+    return {
+      statusCode: STATUS_CODES.OK,
+      data: { eliminadas: result?.rowCount ?? 0, limite_retencion: cutoff.toISOString() },
+      message: `${result?.rowCount ?? 0} alerta(s) mayores a ${ALERT_RETENTION_DAYS} dia(s) eliminadas`,
+    };
   };
 }
 

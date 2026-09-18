@@ -4,6 +4,7 @@ import Archivo from '../bo/sub_system/classes/archivo.js';
 import Notificador from '../bo/sub_system/classes/notificador.js';
 import Comportamiento from '../bo/sub_system/classes/comportamiento.js';
 import Geocerca from '../bo/sub_system/classes/geocerca.js';
+import Alerta from '../bo/sub_system/classes/alerta.js';
 import TelegramSubscriberSync from './telegramSubscriberSync.js';
 import { TURNOS } from '../bo/sub_system/classes/reporte.js';
 
@@ -87,6 +88,31 @@ export function startTrackerScheduler() {
     console.log(`[Tracker] Sincronización diaria de geocercas programada (${geocercasExpression}, America/Caracas)`);
   } else {
     console.error(`[Tracker] TRACKER_GEOCERCAS_CRON inválido: '${geocercasExpression}' -- sincronización diaria de geocercas no programada`);
+  }
+
+  // Limpieza del historial de alertas (pedido de Lguerra, 18/09/2026): son
+  // datos "solo de revisión" que no deben crecer indefinidamente y podrían
+  // colapsar el sistema. Corre aparte de TRACKER_AUTO_REPORTS (que hoy está
+  // apagado) porque las alertas se generan igual mientras la sincronización
+  // esté activa, con o sin ese interruptor.
+  const alerta = new Alerta();
+  const alertCleanupExpression = process.env.TRACKER_ALERT_CLEANUP_CRON || '30 3 * * *';
+  if (cron.validate(alertCleanupExpression)) {
+    cron.schedule(
+      alertCleanupExpression,
+      async () => {
+        try {
+          const result = await alerta.limpiarAntiguas();
+          console.log(`[Tracker] Limpieza de alertas: ${result.message}`);
+        } catch (error) {
+          console.error('[Tracker] Error limpiando alertas antiguas:', error?.message || error);
+        }
+      },
+      { timezone: 'America/Caracas' },
+    );
+    console.log(`[Tracker] Limpieza automática de alertas programada (${alertCleanupExpression}, America/Caracas)`);
+  } else {
+    console.error(`[Tracker] TRACKER_ALERT_CLEANUP_CRON inválido: '${alertCleanupExpression}' -- limpieza de alertas no programada`);
   }
 
   if (process.env.TRACKER_AUTO_SYNC === 'false') {
