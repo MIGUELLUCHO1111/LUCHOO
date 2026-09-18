@@ -13,7 +13,7 @@ Sistema interno del departamento de TI de Fullpetro para:
 ## Stack técnico
 
 - **Next.js 16** (App Router) + TypeScript + Tailwind CSS 4
-- **Prisma 6** + SQLite en desarrollo (fácil de cambiar a PostgreSQL en producción)
+- **Prisma 6** + **PostgreSQL**
 - **NextAuth (Auth.js) v5** — autenticación por credenciales con roles (Admin / Agente / Solicitante)
 - **Socket.IO** sobre un servidor Node personalizado (`server.ts`) para el chat en tiempo real
 - **Radix UI + shadcn-style components** para la interfaz
@@ -22,6 +22,7 @@ Sistema interno del departamento de TI de Fullpetro para:
 
 - Node.js 20.9 o superior
 - npm
+- PostgreSQL 14+ corriendo localmente (o accesible por red)
 
 ## Puesta en marcha (desarrollo)
 
@@ -32,7 +33,9 @@ npm run db:seed
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000).
+Abre [http://localhost:3001](http://localhost:3001).
+
+> **Nota**: este proyecto corre en el **puerto 3001**, no el 3000 — en la máquina de desarrollo el puerto 3000 ya lo usa otro proyecto (API-Fullpetro, gestionado con PM2). Cambia `PORT` en los scripts de `package.json` y `NEXTAUTH_URL` en `.env` si necesitas otro puerto.
 
 ### Usuarios de prueba (creados por el seed)
 
@@ -47,33 +50,34 @@ Abre [http://localhost:3000](http://localhost:3000).
 ## Variables de entorno (`.env`)
 
 ```
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://usuario:contraseña@localhost:5432/sistema_tickets"
 AUTH_SECRET="genera-un-secreto-aleatorio-largo"
-NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_URL="http://localhost:3001"
 ```
 
-Para generar un `AUTH_SECRET` seguro: `openssl rand -base64 32`.
+Para generar un `AUTH_SECRET` seguro: `openssl rand -base64 32` (o `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+
+En esta máquina de desarrollo, PostgreSQL ya estaba instalado (compartido con el proyecto API-Fullpetro, mismo usuario `postgres`) y se creó una base de datos separada llamada `sistema_tickets` para no interferir con esa otra app.
 
 ## Despliegue en el servidor interno
 
 Este proyecto usa un servidor Node personalizado (`server.ts`) para poder combinar Next.js con Socket.IO, así que **no es compatible con Vercel/serverless** — está pensado para correr en un servidor propio (Windows Server, Linux, un contenedor Docker, etc.).
 
-1. **Base de datos**: en producción se recomienda **PostgreSQL** en lugar de SQLite.
-   - Edita `prisma/schema.prisma` y cambia `provider = "sqlite"` por `provider = "postgresql"`.
-   - Actualiza `DATABASE_URL` en `.env` con la cadena de conexión de PostgreSQL.
-   - Corre `npx prisma migrate deploy`.
-2. Copia `.env` con los valores reales de producción (`AUTH_SECRET` distinto al de desarrollo, `NEXTAUTH_URL` con el dominio/IP real).
-3. Instala dependencias y compila:
+1. Instala PostgreSQL en el servidor de producción (o usa uno ya existente) y crea una base de datos para este proyecto.
+2. Copia `.env` con los valores reales de producción (`DATABASE_URL` de producción, `AUTH_SECRET` distinto al de desarrollo, `NEXTAUTH_URL` con el dominio/IP real).
+3. Instala dependencias, aplica las migraciones y compila:
    ```bash
    npm install
+   npx prisma migrate deploy
    npm run build
    ```
-4. Levanta el servidor:
+4. Levanta el servidor con PM2 (recomendado, para que se reinicie solo si el servidor se reinicia o el proceso falla):
    ```bash
-   npm run start
+   pm2 start npm --name "sistema-tickets" -- run start
+   pm2 save
    ```
-   Esto corre `server.ts` (Next.js + Socket.IO) en modo producción. Usa un gestor de procesos como **PM2** o un servicio de Windows para mantenerlo corriendo y reiniciarlo automáticamente.
-5. Coloca un proxy inverso (IIS, Nginx, Caddy) delante del puerto 3000 si necesitas HTTPS o un dominio interno.
+   Sin PM2, `npm run start` también funciona pero no se reinicia solo.
+5. Coloca un proxy inverso (IIS, Nginx, Caddy) delante del puerto de la app si necesitas HTTPS o un dominio interno.
 6. La carpeta `public/uploads/` guarda los archivos adjuntos (actas de entrega, facturas). Asegúrate de que esa carpeta esté en un disco con respaldo/backup.
 
 ## Notas de diseño
