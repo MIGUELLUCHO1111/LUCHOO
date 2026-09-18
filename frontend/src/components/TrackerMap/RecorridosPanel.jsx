@@ -35,8 +35,12 @@ const veDateOf = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: 
  * que se disparó (18/09/2026). Solo aplica mientras la fecha elegida siga
  * siendo la de esa alerta -- si el usuario cambia de fecha, se ve el día
  * completo como de costumbre.
+ *
+ * `titulo` (opcional): reemplaza el encabezado "Recorridos" -- lo usa
+ * Alertas para decir "Recorrido fuera de la geocerca" / "Recorrido fuera
+ * de horario" según cuál botón se apretó (18/09/2026).
  */
-export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTripIndex, desde }) {
+export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTripIndex, desde, titulo }) {
   const anchorFecha = desde ? veDateOf(desde) : null;
   const [fecha, setFecha] = useState(anchorFecha || veTodayISO());
   const [data, setData] = useState(null);
@@ -75,7 +79,7 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
           <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-blue-500 text-white">
             <Route size={16} />
           </span>
-          <span className="font-bold text-slate-900 dark:text-white">Recorridos — {label}</span>
+          <span className="font-bold text-slate-900 dark:text-white">{titulo || "Recorridos"} — {label}</span>
           {unit.plate && <span className="text-xs text-slate-400">{unit.plate}</span>}
         </div>
         <div className="flex items-center gap-3">

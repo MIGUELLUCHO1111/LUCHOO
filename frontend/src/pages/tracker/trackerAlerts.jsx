@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, Fragment } from "react";
-import { BellRing, RefreshCw, MapPin, Route } from "lucide-react";
+import { BellRing, RefreshCw, MapPin, MapPinned, Clock } from "lucide-react";
 import { trackerService, resolveReportFileUrl } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,20 @@ import {
 import { PageLayout } from "@/components/layout/PageLayout";
 import RecorridosPanel from "@/components/TrackerMap/RecorridosPanel";
 import { formatHora, formatFechaISO, TURNOS, fleetTypeLabel, fleetTypeBadgeClass } from "@/lib/trackerFormat";
+
+const veDateOf = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
+
+// Un botón por tipo de violación (fuera de geocerca / fuera de horario),
+// pedido de Lguerra 18/09/2026 ("mas interactivo" que un solo botón que
+// cambia de nombre): cada uno se ancla a la alerta MAS RECIENTE de ese tipo
+// para la MISMA unidad en el MISMO día de la fila -- así desde cualquier
+// alerta se puede ver el recorrido de la otra violación si también ocurrió
+// ese día, sin tener que ir a buscarla. Si la unidad no tuvo ese tipo de
+// alerta ese día, el botón queda deshabilitado.
+const RECORRIDO_TIPOS = [
+  { tipo: "fuera_de_geocerca", label: "Fuera de la geocerca", icon: MapPinned },
+  { tipo: "fuera_de_horario", label: "Fuera de horario", icon: Clock },
+];
 
 // Dos apartados de la misma pantalla de Notificaciones: lo que se generó
 // como Alarma y lo que se generó como Reporte de Turno enviado a Telegram
@@ -36,8 +50,12 @@ const TrackerAlerts = () => {
   // pantalla, así que RecorridosPanel no recibe onVerRuta (oculta esa
   // columna sola). Se despliega justo debajo de la fila de esa alerta (no
   // uno solo compartido al final de la tabla) -- pedido explicito, 18/09/2026.
-  const [expandedAlertId, setExpandedAlertId] = useState(null);
-  const toggleRecorridos = (id) => setExpandedAlertId((prev) => (prev === id ? null : id));
+  // `expanded` guarda { alertId, tipo } -- el tipo importa porque una misma
+  // fila puede desplegar el recorrido de CUALQUIERA de las dos violaciones
+  // (geocerca u horario), no solo la de su propia alerta.
+  const [expanded, setExpanded] = useState(null);
+  const toggleRecorridos = (alertId, tipo) =>
+    setExpanded((prev) => (prev?.alertId === alertId && prev?.tipo === tipo ? null : { alertId, tipo }));
 
   const loadAlerts = useCallback(async () => {
     setLoadingAlerts(true);
@@ -77,6 +95,21 @@ const TrackerAlerts = () => {
   const activas = alerts.filter((a) => !a.resolved_at).length;
   const enviadosATelegram = reportFiles.filter((f) => f.telegram_sent).length;
   const isAlarmas = segment === "alarmas";
+
+  // Alerta más reciente por unidad + día + tipo -- así cada botón "Fuera de
+  // la geocerca" / "Fuera de horario" de una fila sabe a cuál alerta anclar
+  // el recorrido (puede ser una alerta distinta a la de esa fila).
+  const latestByUnitDayTipo = new Map();
+  for (const a of alerts) {
+    if (a.gps_unit_id == null) continue;
+    const key = `${a.unit_id ?? a.plate}__${veDateOf(a.triggered_at)}__${a.alert_type}`;
+    const prev = latestByUnitDayTipo.get(key);
+    if (!prev || new Date(a.triggered_at) > new Date(prev.triggered_at)) {
+      latestByUnitDayTipo.set(key, a);
+    }
+  }
+  const buscarAlertaDelDia = (a, tipo) =>
+    latestByUnitDayTipo.get(`${a.unit_id ?? a.plate}__${veDateOf(a.triggered_at)}__${tipo}`);
 
   return (
     <PageLayout icon={BellRing} title="Notificaciones" subtitle="TRACKER GPS DE FLOTA" accentColor="orange">
@@ -191,32 +224,49 @@ const TrackerAlerts = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         {a.gps_unit_id != null ? (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className={`h-8 w-8 rounded-lg ${expandedAlertId === a.id ? "bg-blue-500 text-white hover:bg-blue-600" : ""}`}
-                            onClick={() => toggleRecorridos(a.id)}
-                          >
-                            <Route size={14} />
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {RECORRIDO_TIPOS.map(({ tipo, label, icon: Icon }) => {
+                              const objetivo = buscarAlertaDelDia(a, tipo);
+                              const activo = expanded?.alertId === a.id && expanded?.tipo === tipo;
+                              return (
+                                <Button
+                                  key={tipo}
+                                  variant="outline"
+                                  size="icon"
+                                  disabled={!objetivo}
+                                  title={objetivo ? `Recorrido — ${label}` : `Sin alertas de "${label}" ese día`}
+                                  className={`h-8 w-8 rounded-lg ${activo ? "bg-blue-500 text-white hover:bg-blue-600" : ""}`}
+                                  onClick={() => toggleRecorridos(a.id, tipo)}
+                                >
+                                  <Icon size={14} />
+                                </Button>
+                              );
+                            })}
+                          </div>
                         ) : (
                           <span className="text-slate-400">-</span>
                         )}
                       </TableCell>
                     </TableRow>
-                    {expandedAlertId === a.id && (
-                      <TableRow>
-                        <TableCell colSpan={9} className="p-0 border-0">
-                          <div className="p-4 bg-slate-50/60 dark:bg-white/[0.02]">
-                            <RecorridosPanel
-                              unit={{ gps_unit_id: a.gps_unit_id, unit_code: a.unit_code, plate: a.plate }}
-                              onClose={() => setExpandedAlertId(null)}
-                              desde={a.triggered_at}
-                            />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {expanded?.alertId === a.id && (() => {
+                      const objetivo = buscarAlertaDelDia(a, expanded.tipo);
+                      if (!objetivo) return null;
+                      const tipoInfo = RECORRIDO_TIPOS.find((t) => t.tipo === expanded.tipo);
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={9} className="p-0 border-0">
+                            <div className="p-4 bg-slate-50/60 dark:bg-white/[0.02]">
+                              <RecorridosPanel
+                                unit={{ gps_unit_id: objetivo.gps_unit_id, unit_code: objetivo.unit_code, plate: objetivo.plate }}
+                                onClose={() => setExpanded(null)}
+                                desde={objetivo.triggered_at}
+                                titulo={`Recorrido — ${tipoInfo.label}`}
+                              />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })()}
                     </Fragment>
                   ))
                 )}
