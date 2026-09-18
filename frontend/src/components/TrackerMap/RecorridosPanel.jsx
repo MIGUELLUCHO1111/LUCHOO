@@ -126,7 +126,7 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
                       <th className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase">Duración</th>
                       <th className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase">Distancia</th>
                       <th className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase">Ubicación</th>
-                      <th className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase text-right">Ruta</th>
+                      {onVerRuta && <th className="px-4 py-2 text-[11px] font-bold text-slate-400 uppercase text-right">Ruta</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -137,16 +137,18 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
                         <td className="px-4 py-2 whitespace-nowrap">{v.duration || "-"}</td>
                         <td className="px-4 py-2 whitespace-nowrap">{v.distanceKm != null ? `${v.distanceKm} km` : "-"}</td>
                         <td className="px-4 py-2 max-w-xs truncate">{v.location || "-"}</td>
-                        <td className="px-4 py-2 text-right">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg"
-                            onClick={() => onVerRuta?.({ tripIndex: i, unit, viaje: v })}
-                          >
-                            <MapPinned size={14} />
-                          </Button>
-                        </td>
+                        {onVerRuta && (
+                          <td className="px-4 py-2 text-right">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg"
+                              onClick={() => onVerRuta({ tripIndex: i, unit, viaje: v })}
+                            >
+                              <MapPinned size={14} />
+                            </Button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

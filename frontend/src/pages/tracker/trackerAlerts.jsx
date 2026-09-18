@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { BellRing, RefreshCw, MapPin } from "lucide-react";
+import { BellRing, RefreshCw, MapPin, Route } from "lucide-react";
 import { trackerService, resolveReportFileUrl } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
+import RecorridosPanel from "@/components/TrackerMap/RecorridosPanel";
 import { formatHora, formatFechaISO, TURNOS, fleetTypeLabel, fleetTypeBadgeClass } from "@/lib/trackerFormat";
 
 // Dos apartados de la misma pantalla de Notificaciones: lo que se generó
@@ -28,6 +29,13 @@ const TrackerAlerts = () => {
 
   const [alerts, setAlerts] = useState([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
+
+  // Recorridos (pedido de Lguerra, 18/09/2026): ver los viajes del día de
+  // la unidad de una alerta, sin tener que ir a buscarla aparte en Mapa en
+  // Vivo -- ayuda a entender qué hizo la unidad ese día. Sin mapa en esta
+  // pantalla, así que RecorridosPanel no recibe onVerRuta (oculta esa
+  // columna sola).
+  const [selectedUnit, setSelectedUnit] = useState(null);
 
   const loadAlerts = useCallback(async () => {
     setLoadingAlerts(true);
@@ -121,16 +129,17 @@ const TrackerAlerts = () => {
                   <TableHead>Ubicación</TableHead>
                   <TableHead>Notificada</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Recorridos</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loadingAlerts ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-slate-400">Cargando...</TableCell>
                   </TableRow>
                 ) : alerts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                    <TableCell colSpan={9} className="text-center py-8 text-slate-400">
                       Sin alertas registradas todavía
                     </TableCell>
                   </TableRow>
@@ -177,12 +186,32 @@ const TrackerAlerts = () => {
                           {a.resolved_at ? "Resuelta" : "Activa"}
                         </span>
                       </TableCell>
+                      <TableCell className="text-right">
+                        {a.gps_unit_id != null ? (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg"
+                            onClick={() => setSelectedUnit({ gps_unit_id: a.gps_unit_id, unit_code: a.unit_code, plate: a.plate })}
+                          >
+                            <Route size={14} />
+                          </Button>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
           </Card>
+
+          {selectedUnit && (
+            <div className="mt-4">
+              <RecorridosPanel unit={selectedUnit} onClose={() => setSelectedUnit(null)} />
+            </div>
+          )}
         </>
       ) : (
         <>
