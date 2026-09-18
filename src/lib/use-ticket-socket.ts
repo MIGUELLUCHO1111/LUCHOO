@@ -12,7 +12,10 @@ export function useTicketSocket(
 ) {
   const socketRef = useRef<Socket | null>(null);
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
 
   useEffect(() => {
     const socket = io({ path: "/api/socket" });

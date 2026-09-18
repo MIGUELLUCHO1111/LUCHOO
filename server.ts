@@ -8,7 +8,6 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 declare global {
-  // eslint-disable-next-line no-var
   var io: SocketIOServer | undefined;
 }
 
