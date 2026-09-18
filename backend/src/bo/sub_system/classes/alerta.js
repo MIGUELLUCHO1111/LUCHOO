@@ -1,6 +1,7 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import TelegramClient from '../../../tracker/telegramClient.js';
+import Recorrido from './recorrido.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -64,6 +65,7 @@ class Alerta {
     this.dbms = new DBMS();
     this.dbmsReady = this.dbms.init();
     this.telegram = new TelegramClient();
+    this.recorrido = new Recorrido();
   }
 
   // Se llama automáticamente después de cada sincronización (manual o por
@@ -133,6 +135,7 @@ class Alerta {
             );
           },
           snapshotId: s.id,
+          gpsUnitId: s.gps_unit_id,
         });
       }
 
@@ -170,11 +173,44 @@ class Alerta {
           );
         },
         snapshotId: s.id,
+        gpsUnitId: s.gps_unit_id,
       });
     }
   };
 
-  checkRule = async ({ unit_id, plate, alertType, isViolation, shouldNotify = true, buildMessage, snapshotId }) => {
+  // Resumen del recorrido del dia (hasta este momento) de la unidad que
+  // disparo la alerta, pedido de Lguerra 18/09/2026: "que tambien muestre el
+  // recorrido fuera de geocerca y fuera de horario segun aplique" -- se
+  // adjunta al mensaje de Telegram (y por lo tanto tambien queda guardado en
+  // el historial, es el mismo texto). No se puede anclar "a partir de la
+  // alerta" como en la app -- a esta hora, justo cuando se dispara, todavia
+  // no paso nada despues -- asi que se usa el dia completo hasta ahora, da
+  // contexto de que estuvo haciendo la unidad antes de esta alerta.
+  buildRecorridoSection = async (gpsUnitId) => {
+    if (gpsUnitId == null) return '';
+    try {
+      const res = await this.recorrido.listar({ gps_unit_id: gpsUnitId });
+      const d = res?.data;
+      if (!d) return '';
+      if (!d.total_recorridos) {
+        return '\n\n🛣️ Recorrido de hoy: sin viajes registrados hasta el momento.';
+      }
+      const soloHora = (iso) => (iso ? iso.slice(11, 16) : '-');
+      const horasTexto = (h) => (h < 1 ? `${Math.round(h * 60)} min` : `${h.toFixed(1)} h`);
+      return (
+        `\n\n🛣️ Recorrido de hoy (hasta ahora):\n` +
+        `Viajes: ${d.total_recorridos}\n` +
+        `Km recorridos: ${d.km_totales} km\n` +
+        `Primera salida: ${soloHora(d.primera_salida)} · Última llegada: ${soloHora(d.ultima_llegada)}\n` +
+        `En movimiento: ${horasTexto(d.horas_en_movimiento)} · Estacionado: ${horasTexto(d.horas_estacionado)}`
+      );
+    } catch (error) {
+      console.error('[Tracker] Error obteniendo recorrido para la alerta:', error.message);
+      return '';
+    }
+  };
+
+  checkRule = async ({ unit_id, plate, alertType, isViolation, shouldNotify = true, buildMessage, snapshotId, gpsUnitId }) => {
     const openResult = await this.dbms.executeNamedQuery({
       nameQuery: 'getOpenTrackerAlert',
       params: { unit_id, plate, alert_type: alertType },
@@ -182,7 +218,7 @@ class Alerta {
     const openAlert = openResult?.rows?.[0] || null;
 
     if (isViolation && !openAlert) {
-      const message = buildMessage();
+      const message = buildMessage() + (await this.buildRecorridoSection(gpsUnitId));
       // Flota pesada: se guarda igual en el historial, pero no se dispara
       // Telegram (ver evaluateSnapshots) -- por eso no se ejecuta el envio.
       const notifyResult = shouldNotify
