@@ -211,6 +211,7 @@ const TrackerAlerts = () => {
                             <RecorridosPanel
                               unit={{ gps_unit_id: a.gps_unit_id, unit_code: a.unit_code, plate: a.plate }}
                               onClose={() => setExpandedAlertId(null)}
+                              desde={a.triggered_at}
                             />
                           </div>
                         </TableCell>

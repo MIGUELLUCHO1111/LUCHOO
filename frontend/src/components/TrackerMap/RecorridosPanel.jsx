@@ -20,6 +20,7 @@ const formatHoras = (horas) => {
 };
 
 const veTodayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
+const veDateOf = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
 
 /**
  * Recorridos de una unidad en un día (Fase 3, pedido de Lguerra 17-18/09/2026):
@@ -27,19 +28,29 @@ const veTodayISO = () => new Date().toLocaleDateString("en-CA", { timeZone: "Ame
  * día, con la opción de dibujar cualquier viaje en el mapa. `unit` necesita
  * `gps_unit_id` (id interno de la plataforma GPS, no el id de tracker_unit)
  * -- sin eso no hay a quién pedirle los recorridos.
+ *
+ * `desde` (opcional, ISO con offset -- ej. tracker_alert.triggered_at):
+ * arranca la ventana justo en ese momento en vez del inicio del día, para
+ * cuando se abre desde una alerta y solo interesa lo que pasó después de
+ * que se disparó (18/09/2026). Solo aplica mientras la fecha elegida siga
+ * siendo la de esa alerta -- si el usuario cambia de fecha, se ve el día
+ * completo como de costumbre.
  */
-export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTripIndex }) {
-  const [fecha, setFecha] = useState(veTodayISO());
+export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTripIndex, desde }) {
+  const anchorFecha = desde ? veDateOf(desde) : null;
+  const [fecha, setFecha] = useState(anchorFecha || veTodayISO());
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const desdeAplicable = anchorFecha && fecha === anchorFecha ? desde : undefined;
 
   const cargar = useCallback(async () => {
     if (!unit?.gps_unit_id) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await trackerService.getRecorridos({ gps_unit_id: unit.gps_unit_id, fecha });
+      const res = await trackerService.getRecorridos({ gps_unit_id: unit.gps_unit_id, fecha, desde: desdeAplicable });
       setData(res);
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Error al cargar los recorridos");
@@ -47,7 +58,7 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
     } finally {
       setLoading(false);
     }
-  }, [unit?.gps_unit_id, fecha]);
+  }, [unit?.gps_unit_id, fecha, desdeAplicable]);
 
   useEffect(() => {
     cargar();
@@ -87,6 +98,11 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
 
         {!loading && !error && data && (
           <>
+            {data.desde_aplicado && (
+              <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-3">
+                Mostrando recorridos a partir de la alerta ({formatHora(data.desde_aplicado)}) — cambia la fecha para ver el día completo.
+              </p>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
               <div className="rounded-xl border border-slate-100 dark:border-white/5 px-3 py-2">
                 <div className="text-[10px] font-bold text-slate-400 uppercase">Recorridos</div>

@@ -94,8 +94,11 @@ const trackerService = {
    * recorridos, primera salida, última llegada, km y horas en
    * movimiento/estacionado). `gps_unit_id` es el ID interno de la
    * plataforma GPS (snapshot.gps_unit_id), no el id de tracker_unit.
+   * `desde` (opcional, ISO con offset) acota el inicio a partir de ese
+   * momento en vez del inicio del día -- se usa al abrir Recorridos desde
+   * una alerta, para ver solo lo que pasó después de que se disparó.
    */
-  getRecorridos: async ({ gps_unit_id, fecha } = {}) => unwrap(await executeTransaction(TX.GET_RECORRIDOS, { gps_unit_id, fecha })),
+  getRecorridos: async ({ gps_unit_id, fecha, desde } = {}) => unwrap(await executeTransaction(TX.GET_RECORRIDOS, { gps_unit_id, fecha, desde })),
 
   /** Puntos GPS de un viaje puntual, para dibujar la ruta en el mapa. */
   getRuta: async ({ gps_unit_id, startdate, enddate } = {}) => unwrap(await executeTransaction(TX.GET_RUTA, { gps_unit_id, startdate, enddate })),
