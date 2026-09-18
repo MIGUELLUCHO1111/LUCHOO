@@ -71,14 +71,15 @@ Este proyecto usa un servidor Node personalizado (`server.ts`) para poder combin
    npx prisma migrate deploy
    npm run build
    ```
-4. Levanta el servidor con PM2 (recomendado, para que se reinicie solo si el servidor se reinicia o el proceso falla):
+4. Levanta el servidor con PM2 (recomendado, para que se reinicie solo si el proceso falla). Usa el `ecosystem.config.cjs` incluido — en Windows, `pm2 start npm -- run start` falla porque PM2 no puede ejecutar `npm.cmd` directamente:
    ```bash
-   pm2 start npm --name "sistema-tickets" -- run start
+   pm2 start ecosystem.config.cjs
    pm2 save
    ```
-   Sin PM2, `npm run start` también funciona pero no se reinicia solo.
+   Sin PM2, `npm run start` también funciona pero no se reinicia solo si el proceso falla. En Windows, `pm2 save` no hace que PM2 arranque solo al reiniciar el servidor — para eso hace falta configurar `pm2` como servicio de Windows (ej. con `pm2-installer`) o una Tarea Programada que corra `pm2 resurrect` al iniciar sesión.
 5. Coloca un proxy inverso (IIS, Nginx, Caddy) delante del puerto de la app si necesitas HTTPS o un dominio interno.
-6. La carpeta `public/uploads/` guarda los archivos adjuntos (actas de entrega, facturas). Asegúrate de que esa carpeta esté en un disco con respaldo/backup.
+6. **Importante**: `src/lib/auth.ts` tiene `trustHost: true` porque la app corre detrás de un dominio/IP propio, no en Vercel. Sin esto, NextAuth rechaza todas las peticiones en modo producción con un error "UntrustedHost".
+7. La carpeta `public/uploads/` guarda los archivos adjuntos (actas de entrega, facturas). Asegúrate de que esa carpeta esté en un disco con respaldo/backup.
 
 ## Notas de diseño
 
