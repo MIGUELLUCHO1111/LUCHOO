@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import session from 'express-session';
 import pgSession from 'connect-pg-simple';
 import bodyParser from 'body-parser';
@@ -43,6 +44,18 @@ class Server {
       .filter(Boolean);
     const allowedOrigins = [...new Set(['http://localhost:5173', ...extraOrigins])];
 
+    // CSP desactivada: esta API no sirve HTML, solo JSON y archivos (fotos de
+    // combustible/tracker) -- el CSP de helmet es para paginas renderizadas.
+    // crossOriginResourcePolicy en 'cross-origin' porque el frontend vive en
+    // un subdominio distinto al backend (app.tudominio.com vs
+    // api.tudominio.com, ver DEPLOYMENT.md) y necesita poder cargar esos
+    // archivos; el default de helmet ('same-origin') los bloquearía.
+    this.app.use(
+      helmet({
+        contentSecurityPolicy: false,
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+      }),
+    );
     this.app.use(
       cors({
         origin: allowedOrigins,

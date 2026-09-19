@@ -1,6 +1,10 @@
 -- ============================================================
 -- seed.sql - Datos iniciales de seguridad (Fullpetro)
--- Usuario admin por defecto: admin01 / Admin1234
+-- Usuario admin por defecto: admin01 (contraseña rotada 17/09/2026 -- la
+-- anterior, "Admin1234", quedaba en texto plano en este mismo archivo/
+-- documentación, expuesta a cualquiera con acceso al repo). La contraseña
+-- real se entregó fuera del repo (chat); cambiala desde el panel apenas
+-- entres, igual que recomienda deploy/DEPLOYMENT.md.
 -- El perfil 'admin' se sincroniza con permission.csv al arrancar.
 -- ============================================================
 
@@ -14,7 +18,7 @@ INSERT INTO "user" (name, email, password_hash, is_solvency, is_active, person_i
 VALUES (
     'admin01',
     'admin01@fullpetro.com',
-    '$2b$10$ER9esvHSoEMWCc60ZEiviugwBDvABLweXcqTd3bx5/fwaO.77uFFu',
+    '$2b$10$emO8.j3uFAfjaDcXRmB3k.YhzFPwOksKC.41IeJOaDiHO9PpgoTVe',
     TRUE,
     TRUE,
     (SELECT id FROM person WHERE document_id = 'ADMIN-00001')
