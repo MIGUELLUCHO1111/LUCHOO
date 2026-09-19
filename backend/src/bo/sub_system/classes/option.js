@@ -95,11 +95,14 @@ const SECTION_PERMISSIONS = {
   '/tracker/map': [
     { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'getLatestSnapshots' },
     { sub_system: 'Tracker', class_name: 'Snapshot', method_name: 'syncNow' },
+    { sub_system: 'Tracker', class_name: 'Recorrido', method_name: 'listar' },
+    { sub_system: 'Tracker', class_name: 'Recorrido', method_name: 'ruta' },
   ],
   '/tracker/report': [
     { sub_system: 'Tracker', class_name: 'Reporte', method_name: 'generarReporte' },
     { sub_system: 'Tracker', class_name: 'Archivo', method_name: 'archivarAhora' },
     { sub_system: 'Tracker', class_name: 'Comportamiento', method_name: 'getAnalisisDelDia' },
+    { sub_system: 'Tracker', class_name: 'Comportamiento', method_name: 'getAnalisisGuardado' },
     { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'notificarCierreDeTurno' },
     { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'verificarAnexoSeguridad' },
   ],

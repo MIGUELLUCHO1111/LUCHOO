@@ -1,5 +1,6 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
+import Snapshot from './snapshot.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -42,14 +43,32 @@ class Reporte {
   constructor() {
     this.dbms = new DBMS();
     this.dbmsReady = this.dbms.init();
+    this.snapshot = new Snapshot();
   }
 
   // Reporte de turno (igual formato que el Excel manual): toma la última
   // lectura de cada unidad DENTRO de la ventana del turno solicitado (o el
   // turno actual si no se especifica), no la más reciente en general -- así
-  // el reporte de las 9am no cambia si se consulta más tarde ese mismo día.
-  generarReporte = async ({ fecha, turno } = {}) => {
+  // el reporte automático de las 9am no cambia si se consulta más tarde ese
+  // mismo día.
+  //
+  // `enVivo: true` (pedido de gerencia, 11/09/2026 -- "Generar ahora" debe
+  // servir a cualquier hora, no solo dentro de la ventana de 1 hora del
+  // turno) se salta esa ventana, sincroniza primero (así "Hora de revisión"
+  // siempre refleja el momento real en que se generó el reporte, no una
+  // sincronización vieja) y usa la última lectura de cada unidad, como el
+  // Mapa en Vivo. Es exclusivo del botón manual: los cron automáticos de
+  // scheduler.js nunca pasan este flag, así que su comportamiento no cambia.
+  generarReporte = async ({ fecha, turno, enVivo = false } = {}) => {
     await this.dbmsReady;
+
+    if (enVivo) {
+      try {
+        await this.snapshot.syncNow();
+      } catch (error) {
+        console.error('[Tracker] No se pudo sincronizar antes de generar el reporte en vivo:', error?.message || error);
+      }
+    }
 
     const resolvedTurno = (turno || detectTurnoActual() || '').toUpperCase();
     const turnoDef = TURNOS[resolvedTurno];
@@ -63,27 +82,38 @@ class Reporte {
     const resolvedFecha = fecha || veDateISO();
     const { start, end } = buildWindow(resolvedFecha, turnoDef);
 
-    const result = await this.dbms.executeNamedQuery({
-      nameQuery: 'getSnapshotsInWindow',
-      params: { window_start: start.toISOString(), window_end: end.toISOString() },
-    });
-
-    let unidades = result?.rows || [];
-
-    // El detalle crudo de ventanas viejas se archiva y se borra (ver
-    // Archivo.archivarAhora / TRACKER_RETENTION_MONTHS): si ya pasó y no
-    // aparece nada en tracker_snapshot, se busca en el resumen permanente
-    // antes de reportar "sin lecturas".
-    if (unidades.length === 0 && end.getTime() < Date.now()) {
-      const summaryResult = await this.dbms.executeNamedQuery({
-        nameQuery: 'getSnapshotSummary',
-        params: { fecha: resolvedFecha, turno: resolvedTurno },
+    let unidades;
+    if (enVivo) {
+      const result = await this.dbms.executeNamedQuery({ nameQuery: 'getLatestSnapshots' });
+      unidades = result?.rows || [];
+    } else {
+      const result = await this.dbms.executeNamedQuery({
+        nameQuery: 'getSnapshotsInWindow',
+        params: { window_start: start.toISOString(), window_end: end.toISOString() },
       });
-      unidades = summaryResult?.rows || [];
+      unidades = result?.rows || [];
+
+      // El detalle crudo de ventanas viejas se archiva y se borra (ver
+      // Archivo.archivarAhora / TRACKER_RETENTION_MONTHS): si ya pasó y no
+      // aparece nada en tracker_snapshot, se busca en el resumen permanente
+      // antes de reportar "sin lecturas".
+      if (unidades.length === 0 && end.getTime() < Date.now()) {
+        const summaryResult = await this.dbms.executeNamedQuery({
+          nameQuery: 'getSnapshotSummary',
+          params: { fecha: resolvedFecha, turno: resolvedTurno },
+        });
+        unidades = summaryResult?.rows || [];
+      }
     }
+
+    // Activas/Estacionadas/Sin señal son mutuamente excluyentes (suman el
+    // total): una unidad sin reporte reciente (is_stale) cuenta como "sin
+    // señal" en vez de activa o estacionada, aunque su tabla siga mostrando
+    // su último estado conocido.
     const total = unidades.length;
-    const activas = unidades.filter((r) => r.status === 'ACTIVO').length;
-    const estacionadas = unidades.filter((r) => r.status === 'ESTACIONADO').length;
+    const activas = unidades.filter((r) => r.status === 'ACTIVO' && !r.is_stale).length;
+    const estacionadas = unidades.filter((r) => r.status === 'ESTACIONADO' && !r.is_stale).length;
+    const sinSenal = unidades.filter((r) => r.is_stale).length;
 
     return {
       statusCode: STATUS_CODES.OK,
@@ -96,6 +126,7 @@ class Reporte {
         total,
         activas,
         estacionadas,
+        sin_senal: sinSenal,
         unidades,
       },
     };

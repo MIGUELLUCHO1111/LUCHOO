@@ -1,7 +1,7 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import TelegramClient from '../../../tracker/telegramClient.js';
-import Reporte from './reporte.js';
+import ReporteArchivo from './reporteArchivo.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -15,31 +15,41 @@ class Notificador {
     this.dbms = new DBMS();
     this.dbmsReady = this.dbms.init();
     this.telegram = new TelegramClient();
-    this.reporte = new Reporte();
+    this.reporteArchivo = new ReporteArchivo();
   }
 
-  // Se llama al cierre de cada ventana de turno (10:05am, 3:05pm, 10:05pm
-  // hora Venezuela, ver scheduler.js). También expuesta por el dispatcher
-  // para poder probarla a mano sin esperar al horario real.
-  notificarCierreDeTurno = async ({ turno, fecha } = {}) => {
+  // Se llama al cierre de cada ventana de turno (9:05am, 2:05pm, 9:05pm
+  // hora Venezuela, ver scheduler.js) -- ahí SIEMPRE respeta la ventana fija
+  // del turno (enVivo no se pasa, default false), para que ese reporte
+  // oficial no cambie si se consulta más tarde.
+  //
+  // También expuesta por el dispatcher para el botón "Generar ahora": con
+  // `enVivo: true` (pedido de gerencia, 11/09/2026) sirve a cualquier hora
+  // del día. La sincronización previa vive en Reporte.generarReporte (no
+  // aquí), para que CUALQUIER camino que pida un reporte en vivo -- este,
+  // o uno futuro -- tenga la misma garantía de datos frescos.
+  notificarCierreDeTurno = async ({ turno, fecha, enVivo = false } = {}) => {
     await this.dbmsReady;
 
     const resolvedFecha = fecha || veDateISO();
-    const resultado = await this.reporte.generarReporte({ fecha: resolvedFecha, turno });
-    const r = resultado.data;
+    const { archivo, reporte: r, pdfBuffer } = await this.reporteArchivo.generarYGuardar({ fecha: resolvedFecha, turno, enVivo });
 
     const mensaje =
       `📋 Reporte ${r.turno} listo (${r.fecha})\n` +
-      `Total: ${r.total} · Activas: ${r.activas} · Estacionadas: ${r.estacionadas}\n` +
+      `Total: ${r.total} · Activas: ${r.activas} · Estacionadas: ${r.estacionadas} · Sin señal: ${r.sin_senal}\n` +
       `Corte: ${r.turno_label}\n` +
-      `Ábrelo en la app para el detalle completo.`;
+      `El PDF va adjunto -- también queda en Excel e imagen en Reportes de Turno Generados.`;
 
-    const notifyResult = await this.telegram.sendMessage(mensaje);
+    const notifyResult = await this.telegram.sendDocument({ buffer: pdfBuffer, filename: archivo?.filename_pdf, caption: mensaje });
+
+    if (notifyResult.sent && archivo?.id) {
+      await this.dbms.executeNamedQuery({ nameQuery: 'markTrackerReportFileNotified', params: { id: archivo.id } });
+    }
 
     return {
       statusCode: STATUS_CODES.OK,
-      data: { ...notifyResult, mensaje },
-      message: notifyResult.sent ? 'Notificación de cierre de turno enviada' : 'No se pudo enviar la notificación',
+      data: { ...notifyResult, mensaje, archivo },
+      message: notifyResult.sent ? 'Notificación de cierre de turno enviada (con el reporte adjunto)' : 'No se pudo enviar la notificación',
     };
   };
 

@@ -27,6 +27,33 @@ export const STATUS_BADGE_STYLES = {
 export const statusBadgeClass = (status) => STATUS_BADGE_STYLES[status] || STATUS_BADGE_STYLES.SIN_DATOS;
 export const statusLabel = (status) => STATUS_LABELS[status] || status;
 
+// Flota pesada (campo) vs liviana -- ver alerta.js: una unidad pesada activa
+// fuera de horario no dispara Telegram (suele estar autorizada), la liviana sí.
+export const FLEET_TYPE_STYLES = {
+  LIVIANA: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  PESADA: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
+};
+
+export const fleetTypeLabel = (fleetType) => fleetType || "SIN CLASIFICAR";
+export const fleetTypeBadgeClass = (fleetType) => FLEET_TYPE_STYLES[fleetType] || "bg-slate-500/10 text-slate-500";
+
+// Horas transcurridas desde la ultima posicion conocida hasta ahora -- para
+// poder priorizar cuales unidades "sin señal" revisar primero en sitio (una
+// con 3 horas no es lo mismo que una con 4 dias). Misma logica que usa el
+// reporte de turno (backend/src/tracker/reportHtml.js).
+export const horasSinConexion = (iso) => {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  return ms / (1000 * 60 * 60);
+};
+
+export const formatHoras = (horas) => {
+  if (horas == null) return "sin datos";
+  if (horas < 48) return `${horas.toFixed(1)} h`;
+  return `${(horas / 24).toFixed(1)} días`;
+};
+
 export const formatHora = (iso) => {
   if (!iso) return "-";
   try {

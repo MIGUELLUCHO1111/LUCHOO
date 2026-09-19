@@ -45,17 +45,47 @@ class Snapshot {
     let matched = 0;
 
     for (const raw of units) {
-      const plateKey = raw.PlateNo ? String(raw.PlateNo).trim().toUpperCase() : null;
-      const unit = plateKey ? byPlate.get(plateKey) : null;
+      // Se recorta aqui (no solo para esta comparacion) porque el mismo
+      // valor se guarda tal cual en tracker_snapshot.plate, y las consultas
+      // de lectura (getLatestSnapshots, getSnapshotsInWindow) cruzan por
+      // igualdad exacta de SQL contra tracker_unit.plate -- un espacio de
+      // mas que trajera la API (visto en una unidad real) rompia ese cruce
+      // aunque el matching de aqui arriba ya lo tolerara.
+      const plate = raw.PlateNo ? String(raw.PlateNo).trim() : null;
+      const plateKey = plate ? plate.toUpperCase() : null;
+      let unit = plateKey ? byPlate.get(plateKey) : null;
+
+      // Auto-registro (pedido de Lguerra, 18/09/2026): la plataforma ya le
+      // pone un código a cada unidad (raw.Name, ej. "FP-CSL.07") -- en vez
+      // de dejarla "sin registrar" hasta que alguien la note en un reporte,
+      // se da de alta sola con ese código y "ROTATIVO" de conductor por
+      // defecto (el mismo valor que ya usa la mayoría de la flota sin
+      // conductor fijo asignado), igual que si se hubiera creado a mano
+      // desde Gestión de Unidades.
+      if (!unit && plateKey && raw.Name) {
+        const code = String(raw.Name).trim();
+        try {
+          const createResult = await this.dbms.executeNamedQuery({
+            nameQuery: 'createTrackerUnit',
+            params: { code, plate, driver_name: 'ROTATIVO', fleet_type: null },
+          });
+          unit = createResult?.rows?.[0];
+          if (unit) {
+            byPlate.set(plateKey, unit);
+            console.log(`[Tracker] Unidad nueva auto-registrada: ${code} (placa ${plate})`);
+          }
+        } catch (error) {
+          console.error(`[Tracker] No se pudo auto-registrar la unidad ${code} (placa ${plate}):`, error?.message || error);
+        }
+      }
       if (unit) matched += 1;
 
-      const locationText = raw.Location ? String(raw.Location).trim() : null;
-      if (locationText) {
-        await this.dbms.executeNamedQuery({
-          nameQuery: 'upsertLocationCategoryAsOtras',
-          params: { location_text: locationText },
-        });
-      }
+      // El proveedor a veces devuelve literalmente "False" en vez de una
+      // direccion (falla puntual de su lado, confirmado contra la respuesta
+      // cruda de la API) -- se descarta para no mostrar "FALSE" como si
+      // fuera un lugar real.
+      let locationText = raw.Location ? String(raw.Location).trim() : null;
+      if (locationText && /^(false|true)$/i.test(locationText)) locationText = null;
 
       const lastReportAt = raw.LastTime || null;
       const ageMs = lastReportAt ? now - new Date(lastReportAt).getTime() : Infinity;
@@ -66,7 +96,8 @@ class Snapshot {
         nameQuery: 'insertTrackerSnapshot',
         params: {
           unit_id: unit ? unit.id : null,
-          plate: raw.PlateNo || null,
+          gps_unit_id: raw.ID ?? null,
+          plate,
           gps_name: raw.Name || null,
           location_text: locationText,
           latitude: raw.yLat ?? null,

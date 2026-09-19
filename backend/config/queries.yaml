@@ -860,27 +860,27 @@
   # ---------- Tracker GPS (Fase 1: motor de datos) ----------
 
   'createTrackerUnit': {
-    query: 'INSERT INTO public.tracker_unit (code, plate, driver_name) VALUES ($1, $2, $3) RETURNING id, code, plate, driver_name, is_active;',
-    structure_params: { code: 'string', plate: 'string|null', driver_name: 'string|null' },
-    orderArray: ['code', 'plate', 'driver_name']
+    query: 'INSERT INTO public.tracker_unit (code, plate, driver_name, fleet_type) VALUES ($1, $2, $3, $4) RETURNING id, code, plate, driver_name, is_active, fleet_type;',
+    structure_params: { code: 'string', plate: 'string|null', driver_name: 'string|null', fleet_type: 'string|null' },
+    orderArray: ['code', 'plate', 'driver_name', 'fleet_type']
   },
 
   'getTrackerUnitById': {
-    query: 'SELECT id, code, plate, driver_name, is_active FROM public.tracker_unit WHERE id = $1 AND deleted_at IS NULL;',
+    query: 'SELECT id, code, plate, driver_name, is_active, fleet_type FROM public.tracker_unit WHERE id = $1 AND deleted_at IS NULL;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
 
   'getAllTrackerUnits': {
-    query: 'SELECT id, code, plate, driver_name, is_active FROM public.tracker_unit WHERE deleted_at IS NULL ORDER BY code;',
+    query: 'SELECT id, code, plate, driver_name, is_active, fleet_type FROM public.tracker_unit WHERE deleted_at IS NULL ORDER BY code;',
     structure_params: {},
     orderArray: []
   },
 
   'updateTrackerUnit': {
-    query: 'UPDATE public.tracker_unit SET plate = $2, driver_name = $3, is_active = $4 WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, plate, driver_name, is_active;',
-    structure_params: { id: 'int', plate: 'string|null', driver_name: 'string|null', is_active: 'boolean' },
-    orderArray: ['id', 'plate', 'driver_name', 'is_active']
+    query: 'UPDATE public.tracker_unit SET plate = $2, driver_name = $3, is_active = $4, fleet_type = $5 WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, plate, driver_name, is_active, fleet_type;',
+    structure_params: { id: 'int', plate: 'string|null', driver_name: 'string|null', is_active: 'boolean', fleet_type: 'string|null' },
+    orderArray: ['id', 'plate', 'driver_name', 'is_active', 'fleet_type']
   },
 
   'deleteTrackerUnit': {
@@ -889,44 +889,65 @@
     orderArray: ['id']
   },
 
-  'getLocationCategory': {
-    query: 'SELECT location_text, category FROM public.tracker_location_category WHERE location_text = $1;',
-    structure_params: { location_text: 'string' },
-    orderArray: ['location_text']
-  },
+  # ---------- Tracker GPS (alias de ubicacion para reportes) ----------
 
-  'upsertLocationCategoryAsOtras': {
-    query: "INSERT INTO public.tracker_location_category (location_text, category) VALUES ($1, 'OTRAS') ON CONFLICT (location_text) DO NOTHING;",
-    structure_params: { location_text: 'string' },
-    orderArray: ['location_text']
-  },
-
-  'getAllLocationCategories': {
-    query: 'SELECT id, location_text, category FROM public.tracker_location_category ORDER BY category, location_text;',
+  'getAllLocationAliases': {
+    query: 'SELECT id, match_text, alias, created_at FROM public.tracker_location_alias ORDER BY alias;',
     structure_params: {},
     orderArray: []
+  },
+
+  # match_text ya no es unico: el mismo texto de direccion puede repetirse
+  # con distintos rangos de coordenadas cuando el proveedor devuelve el
+  # mismo texto generico para dos lugares reales distintos (ver migracion
+  # 024). lat_min/lat_max/lng_min/lng_max en null = aplica solo por texto.
+  'insertLocationAlias': {
+    query: 'INSERT INTO public.tracker_location_alias (match_text, alias, lat_min, lat_max, lng_min, lng_max) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, match_text, alias;',
+    structure_params: { match_text: 'string', alias: 'string', lat_min: 'number|null', lat_max: 'number|null', lng_min: 'number|null', lng_max: 'number|null' },
+    orderArray: ['match_text', 'alias', 'lat_min', 'lat_max', 'lng_min', 'lng_max']
+  },
+
+  'deleteLocationAlias': {
+    query: 'DELETE FROM public.tracker_location_alias WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
   },
 
   'insertTrackerSnapshot': {
-    query: 'INSERT INTO public.tracker_snapshot (unit_id, plate, gps_name, location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, raw_response) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb) RETURNING id;',
-    structure_params: { unit_id: 'int|null', plate: 'string|null', gps_name: 'string|null', location_text: 'string|null', latitude: 'number|null', longitude: 'number|null', speed: 'number|null', ignition: 'boolean|null', status: 'string', is_stale: 'boolean', last_report_at: 'string|null', raw_response: 'string|null' },
-    orderArray: ['unit_id', 'plate', 'gps_name', 'location_text', 'latitude', 'longitude', 'speed', 'ignition', 'status', 'is_stale', 'last_report_at', 'raw_response']
+    query: 'INSERT INTO public.tracker_snapshot (unit_id, gps_unit_id, plate, gps_name, location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, raw_response) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb) RETURNING id;',
+    structure_params: { unit_id: 'int|null', gps_unit_id: 'int|null', plate: 'string|null', gps_name: 'string|null', location_text: 'string|null', latitude: 'number|null', longitude: 'number|null', speed: 'number|null', ignition: 'boolean|null', status: 'string', is_stale: 'boolean', last_report_at: 'string|null', raw_response: 'string|null' },
+    orderArray: ['unit_id', 'gps_unit_id', 'plate', 'gps_name', 'location_text', 'latitude', 'longitude', 'speed', 'ignition', 'status', 'is_stale', 'last_report_at', 'raw_response']
   },
 
-  # "Total" = flota que la API confirma con GPS funcionando (is_stale = false)
-  # ahora mismo -- 100% automático, no depende de que la tabla interna de
-  # unidades tenga la placa correcta. Esa tabla solo se usa aquí para
-  # "enriquecer" con el código interno (FP-XXX) y el conductor cuando la
-  # placa sí coincide; si no coincide, la unidad igual aparece ("sin
-  # registrar") mientras tenga GPS real y reciente.
+  # "Total" = toda unidad que la API haya devuelto en su última sincronización
+  # -- 100% automático, no depende de la tabla interna de unidades (esa tabla
+  # solo "enriquece" con el código interno FP-XXX y el conductor cuando la
+  # placa coincide; si no coincide, la unidad igual aparece "sin registrar").
+  # is_stale ya NO excluye del conteo -- solo marca la fila como "sin señal
+  # reciente" cuando el último reporte de esa unidad es viejo, para que se
+  # vea la diferencia sin esconder la unidad.
+  # Cuando el proveedor no manda direccion (location_text crudo nulo -- por
+  # ejemplo el "False" que a veces devuelve, ya descartado en snapshot.js),
+  # geolocated ubica la unidad por cercania real: busca, entre las demas
+  # unidades de esta misma lectura que SI tienen direccion resuelta, la mas
+  # cercana dentro de ~5km (0.002 en grados al cuadrado, aprox (5/111)^2) y
+  # arma "CERCA DE <esa direccion>" en vez de dejarla en blanco.
   'getLatestSnapshots': {
-    query: "WITH latest AS (SELECT DISTINCT ON (plate) * FROM public.tracker_snapshot WHERE is_stale = FALSE ORDER BY plate, fetched_at DESC) SELECT l.id, l.plate, l.gps_name, l.location_text, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, 'OTRAS') AS location_category FROM latest l LEFT JOIN public.tracker_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = l.location_text ORDER BY u.code NULLS LAST, l.plate;",
+    query: "WITH latest AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot ORDER BY gps_unit_id, fetched_at DESC), resolved AS (SELECT l.id, l.gps_unit_id, l.plate, l.gps_name, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(l.location_text))) AS location_text, l.location_text AS location_raw FROM latest l LEFT JOIN public.tracker_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE l.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR l.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR l.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, location_raw, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
     structure_params: {},
     orderArray: []
   },
 
-  'getActivePlatesForDate': {
-    query: "SELECT DISTINCT plate FROM public.tracker_snapshot WHERE (fetched_at AT TIME ZONE 'America/Caracas')::date = $1 AND is_stale = FALSE AND plate IS NOT NULL;",
+  # ---------- Tracker GPS (analisis diario de comportamiento, guardado) ----------
+
+  'upsertTrackerDailyAnalysis': {
+    query: 'INSERT INTO public.tracker_daily_analysis (fecha, unidades_consultadas, total_viajes, viajes_diurnos, viajes_nocturnos, viajes_mixtos, top_distancia, top_ralenti, eventos_totales, top_excesos_velocidad, eventos_por_tipo, errores) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10::jsonb, $11::jsonb, $12::jsonb) ON CONFLICT (fecha) DO UPDATE SET unidades_consultadas = EXCLUDED.unidades_consultadas, total_viajes = EXCLUDED.total_viajes, viajes_diurnos = EXCLUDED.viajes_diurnos, viajes_nocturnos = EXCLUDED.viajes_nocturnos, viajes_mixtos = EXCLUDED.viajes_mixtos, top_distancia = EXCLUDED.top_distancia, top_ralenti = EXCLUDED.top_ralenti, eventos_totales = EXCLUDED.eventos_totales, top_excesos_velocidad = EXCLUDED.top_excesos_velocidad, eventos_por_tipo = EXCLUDED.eventos_por_tipo, errores = EXCLUDED.errores, generated_at = NOW() RETURNING id, fecha, generated_at;',
+    structure_params: { fecha: 'string', unidades_consultadas: 'int', total_viajes: 'int', viajes_diurnos: 'int', viajes_nocturnos: 'int', viajes_mixtos: 'int', top_distancia: 'string', top_ralenti: 'string', eventos_totales: 'int', top_excesos_velocidad: 'string', eventos_por_tipo: 'string', errores: 'string' },
+    orderArray: ['fecha', 'unidades_consultadas', 'total_viajes', 'viajes_diurnos', 'viajes_nocturnos', 'viajes_mixtos', 'top_distancia', 'top_ralenti', 'eventos_totales', 'top_excesos_velocidad', 'eventos_por_tipo', 'errores']
+  },
+
+  'getTrackerDailyAnalysisByFecha': {
+    query: 'SELECT fecha, unidades_consultadas, total_viajes, viajes_diurnos, viajes_nocturnos, viajes_mixtos, top_distancia, top_ralenti, eventos_totales, top_excesos_velocidad, eventos_por_tipo, errores, generated_at FROM public.tracker_daily_analysis WHERE fecha = $1;',
     structure_params: { fecha: 'string' },
     orderArray: ['fecha']
   },
@@ -957,6 +978,26 @@
     orderArray: ['id']
   },
 
+  # ---------- Tracker GPS (archivos de reporte generados automaticamente) ----------
+
+  'upsertTrackerReportFile': {
+    query: 'INSERT INTO public.tracker_report_file (fecha, turno, filename_xlsx, url_xlsx, size_bytes_xlsx, filename_pdf, url_pdf, size_bytes_pdf, filename_png, url_png, size_bytes_png, total, activas, estacionadas, sin_senal, telegram_sent) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) ON CONFLICT (fecha, turno) DO UPDATE SET filename_xlsx = EXCLUDED.filename_xlsx, url_xlsx = EXCLUDED.url_xlsx, size_bytes_xlsx = EXCLUDED.size_bytes_xlsx, filename_pdf = EXCLUDED.filename_pdf, url_pdf = EXCLUDED.url_pdf, size_bytes_pdf = EXCLUDED.size_bytes_pdf, filename_png = EXCLUDED.filename_png, url_png = EXCLUDED.url_png, size_bytes_png = EXCLUDED.size_bytes_png, total = EXCLUDED.total, activas = EXCLUDED.activas, estacionadas = EXCLUDED.estacionadas, sin_senal = EXCLUDED.sin_senal, telegram_sent = EXCLUDED.telegram_sent, generated_at = NOW() RETURNING id, fecha, turno, filename_xlsx, url_xlsx, size_bytes_xlsx, filename_pdf, url_pdf, size_bytes_pdf, filename_png, url_png, size_bytes_png, total, activas, estacionadas, sin_senal, telegram_sent, generated_at;',
+    structure_params: { fecha: 'string', turno: 'string', filename_xlsx: 'string', url_xlsx: 'string', size_bytes_xlsx: 'int|null', filename_pdf: 'string', url_pdf: 'string', size_bytes_pdf: 'int|null', filename_png: 'string', url_png: 'string', size_bytes_png: 'int|null', total: 'int|null', activas: 'int|null', estacionadas: 'int|null', sin_senal: 'int|null', telegram_sent: 'boolean' },
+    orderArray: ['fecha', 'turno', 'filename_xlsx', 'url_xlsx', 'size_bytes_xlsx', 'filename_pdf', 'url_pdf', 'size_bytes_pdf', 'filename_png', 'url_png', 'size_bytes_png', 'total', 'activas', 'estacionadas', 'sin_senal', 'telegram_sent']
+  },
+
+  'getTrackerReportFiles': {
+    query: 'SELECT id, fecha, turno, filename_xlsx, url_xlsx, size_bytes_xlsx, filename_pdf, url_pdf, size_bytes_pdf, filename_png, url_png, size_bytes_png, total, activas, estacionadas, sin_senal, telegram_sent, generated_at FROM public.tracker_report_file ORDER BY fecha DESC, turno ASC LIMIT $1;',
+    structure_params: { limit: 'int' },
+    orderArray: ['limit']
+  },
+
+  'markTrackerReportFileNotified': {
+    query: 'UPDATE public.tracker_report_file SET telegram_sent = TRUE WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
   # ---------- Tracker GPS (retencion / archivado) ----------
 
   'getDistinctOldSnapshotDates': {
@@ -972,19 +1013,19 @@
   },
 
   'upsertSnapshotSummary': {
-    query: 'INSERT INTO public.tracker_snapshot_summary (fecha, turno, unit_id, plate, gps_name, location_text, location_category, latitude, longitude, speed, ignition, status, is_stale, last_report_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT (fecha, turno, plate) DO UPDATE SET unit_id = EXCLUDED.unit_id, gps_name = EXCLUDED.gps_name, location_text = EXCLUDED.location_text, location_category = EXCLUDED.location_category, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, speed = EXCLUDED.speed, ignition = EXCLUDED.ignition, status = EXCLUDED.status, is_stale = EXCLUDED.is_stale, last_report_at = EXCLUDED.last_report_at, archived_at = NOW();',
-    structure_params: { fecha: 'string', turno: 'string', unit_id: 'int|null', plate: 'string|null', gps_name: 'string|null', location_text: 'string|null', location_category: 'string|null', latitude: 'number|null', longitude: 'number|null', speed: 'number|null', ignition: 'boolean|null', status: 'string|null', is_stale: 'boolean|null', last_report_at: 'string|null' },
-    orderArray: ['fecha', 'turno', 'unit_id', 'plate', 'gps_name', 'location_text', 'location_category', 'latitude', 'longitude', 'speed', 'ignition', 'status', 'is_stale', 'last_report_at']
+    query: 'INSERT INTO public.tracker_snapshot_summary (fecha, turno, unit_id, gps_unit_id, plate, gps_name, location_text, location_category, latitude, longitude, speed, ignition, status, is_stale, last_report_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) ON CONFLICT (fecha, turno, gps_unit_id) DO UPDATE SET unit_id = EXCLUDED.unit_id, plate = EXCLUDED.plate, gps_name = EXCLUDED.gps_name, location_text = EXCLUDED.location_text, location_category = EXCLUDED.location_category, latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, speed = EXCLUDED.speed, ignition = EXCLUDED.ignition, status = EXCLUDED.status, is_stale = EXCLUDED.is_stale, last_report_at = EXCLUDED.last_report_at, archived_at = NOW();',
+    structure_params: { fecha: 'string', turno: 'string', unit_id: 'int|null', gps_unit_id: 'int|null', plate: 'string|null', gps_name: 'string|null', location_text: 'string|null', location_category: 'string|null', latitude: 'number|null', longitude: 'number|null', speed: 'number|null', ignition: 'boolean|null', status: 'string|null', is_stale: 'boolean|null', last_report_at: 'string|null' },
+    orderArray: ['fecha', 'turno', 'unit_id', 'gps_unit_id', 'plate', 'gps_name', 'location_text', 'location_category', 'latitude', 'longitude', 'speed', 'ignition', 'status', 'is_stale', 'last_report_at']
   },
 
   'getSnapshotSummary': {
-    query: "SELECT s.id, s.plate, s.gps_name, s.location_text, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(s.location_category, 'OTRAS') AS location_category FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL WHERE s.fecha = $1 AND s.turno = $2 AND s.is_stale = FALSE ORDER BY u.code NULLS LAST, s.plate;",
+    query: "WITH resolved AS (SELECT s.id, s.gps_unit_id, s.plate, s.gps_name, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(s.location_text))) AS location_text FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE s.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR s.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR s.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE WHERE s.fecha = $1 AND s.turno = $2), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
     structure_params: { fecha: 'string', turno: 'string' },
     orderArray: ['fecha', 'turno']
   },
 
   'getSnapshotsInWindow': {
-    query: "WITH win AS (SELECT DISTINCT ON (plate) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 AND is_stale = FALSE ORDER BY plate, fetched_at DESC) SELECT w.id, w.plate, w.gps_name, w.location_text, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, COALESCE(lc.category, 'OTRAS') AS location_category FROM win w LEFT JOIN public.tracker_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN public.tracker_location_category lc ON lc.location_text = w.location_text ORDER BY u.code NULLS LAST, w.plate;",
+    query: "WITH win AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 ORDER BY gps_unit_id, fetched_at DESC), resolved AS (SELECT w.id, w.gps_unit_id, w.plate, w.gps_name, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(w.location_text))) AS location_text FROM win w LEFT JOIN public.tracker_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE w.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR w.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR w.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
     structure_params: { window_start: 'string', window_end: 'string' },
     orderArray: ['window_start', 'window_end']
   },
@@ -1010,9 +1051,61 @@
   },
 
   'getRecentTrackerAlerts': {
-    query: 'SELECT a.id, a.unit_id, u.code AS unit_code, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id ORDER BY a.triggered_at DESC LIMIT 100;',
+    query: 'SELECT a.id, a.unit_id, u.code AS unit_code, u.fleet_type, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at, s.latitude, s.longitude, s.gps_unit_id FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id LEFT JOIN public.tracker_snapshot s ON s.id = a.snapshot_id ORDER BY a.triggered_at DESC LIMIT 100;',
     structure_params: {},
     orderArray: []
+  },
+
+  'deleteOldTrackerAlerts': {
+    query: 'DELETE FROM public.tracker_alert WHERE triggered_at < $1;',
+    structure_params: { cutoff: 'string' },
+    orderArray: ['cutoff']
+  },
+
+  # ---------- Tracker GPS (geocercas / perimetro permitido) ----------
+
+  'getTrackerGeofences': {
+    query: 'SELECT id, external_id, name, comments, polygon FROM public.tracker_geofence ORDER BY name;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'upsertTrackerGeofence': {
+    query: 'INSERT INTO public.tracker_geofence (external_id, name, comments, polygon, synced_at) VALUES ($1, $2, $3, $4::jsonb, NOW()) ON CONFLICT (external_id) DO UPDATE SET name = EXCLUDED.name, comments = EXCLUDED.comments, polygon = EXCLUDED.polygon, synced_at = NOW() RETURNING id;',
+    structure_params: { external_id: 'string', name: 'string', comments: 'string|null', polygon: 'string' },
+    orderArray: ['external_id', 'name', 'comments', 'polygon']
+  },
+
+  'getGeofenceState': {
+    query: 'SELECT ever_inside FROM public.tracker_geofence_state WHERE unit_id = $1;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'markGeofenceEverInside': {
+    query: 'INSERT INTO public.tracker_geofence_state (unit_id, ever_inside, updated_at) VALUES ($1, TRUE, NOW()) ON CONFLICT (unit_id) DO UPDATE SET ever_inside = TRUE, updated_at = NOW();',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  # ---------- Tracker GPS (suscriptores del bot de Telegram) ----------
+
+  'upsertTelegramSubscriber': {
+    query: 'INSERT INTO public.tracker_telegram_subscriber (chat_id, username, first_name) VALUES ($1, $2, $3) ON CONFLICT (chat_id) DO UPDATE SET username = EXCLUDED.username, first_name = EXCLUDED.first_name;',
+    structure_params: { chat_id: 'string', username: 'string|null', first_name: 'string|null' },
+    orderArray: ['chat_id', 'username', 'first_name']
+  },
+
+  'getActiveTelegramSubscribers': {
+    query: 'SELECT id, chat_id, username, first_name, created_at FROM public.tracker_telegram_subscriber WHERE is_active = TRUE ORDER BY created_at;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'setTelegramSubscriberActive': {
+    query: 'UPDATE public.tracker_telegram_subscriber SET is_active = $2 WHERE id = $1 RETURNING id, chat_id, is_active;',
+    structure_params: { id: 'int', is_active: 'boolean' },
+    orderArray: ['id', 'is_active']
   },
 
   # ========== CONTROL DE HORAS ==========

@@ -128,7 +128,8 @@ ahora depende de esto):
 | `TRACKER_RETENTION_MONTHS` | `6` |
 | `TRACKER_ARCHIVE_CRON` | `0 3 * * *` |
 | `TRACKER_API_CALL_DELAY_MS` | `1200` (ver nota de límite de peticiones más abajo) |
-| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | los mismos que ya tienes configurados |
+| `TELEGRAM_BOT_TOKEN` | el mismo que ya tienes configurado |
+| `TELEGRAM_CHAT_ID` | opcional (puede quedar vacío) -- quien le escriba `/start` al bot queda suscrito solo, no hace falta llenarlo a mano |
 | `TRACKER_NOTIFY_MATUTINO_CRON` / `_VESPERTINO_CRON` / `_NOCTURNO_CRON` | opcional, por defecto `5 10 * * *` / `5 15 * * *` / `5 22 * * *` |
 | `TRACKER_NOTIFY_ANEXO_CRON` | opcional, por defecto `15 22 * * *` |
 

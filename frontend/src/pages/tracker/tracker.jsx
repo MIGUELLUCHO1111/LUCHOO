@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Radio, RefreshCw, Plus, X, Pencil, Trash2 } from "lucide-react";
+import { Radio, RefreshCw, Plus, X, Pencil, Trash2, ChevronDown, Zap, PauseCircle, AlertTriangle, Search, ClipboardList } from "lucide-react";
 import { trackerService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +15,14 @@ import {
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
-import { CATEGORY_STYLES, formatHora, statusBadgeClass, statusLabel } from "@/lib/trackerFormat";
+import {
+  CATEGORY_STYLES,
+  formatHora,
+  fleetTypeLabel,
+  fleetTypeBadgeClass,
+  horasSinConexion,
+  formatHoras,
+} from "@/lib/trackerFormat";
 
 const Tracker = () => {
   const confirm = useConfirm();
@@ -26,12 +33,50 @@ const Tracker = () => {
   const [syncMessage, setSyncMessage] = useState(null);
 
   const [unidades, setUnidades] = useState([]);
-  const [showUnidades, setShowUnidades] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
-  const [form, setForm] = useState({ code: "", plate: "", driver_name: "" });
+  const [form, setForm] = useState({ code: "", plate: "", driver_name: "", fleet_type: "" });
+  const [openBlocks, setOpenBlocks] = useState({ activo: true, estacionado: true, stale: true, unidades: false });
+  const toggleBlock = (key) => setOpenBlocks((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const EMPTY_FILTER = { search: "", fleet: "", category: "" };
+  const [filters, setFilters] = useState({ activo: EMPTY_FILTER, estacionado: EMPTY_FILTER, stale: EMPTY_FILTER, unidades: EMPTY_FILTER });
+  const updateFilter = (key, field, value) =>
+    setFilters((prev) => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  const clearFilter = (key) => setFilters((prev) => ({ ...prev, [key]: EMPTY_FILTER }));
+  const hasActiveFilter = (f) => Boolean(f.search || f.fleet || f.category);
+
+  // Cada bloque (Activas/Estacionadas/Sin señal) filtra de forma
+  // independiente -- por eso el estado de filtros vive por bloque, no global.
+  const applyFilters = (units, f) => {
+    const search = f.search.trim().toLowerCase();
+    return units.filter((s) => {
+      if (search) {
+        const haystack = `${s.unit_code || ""} ${s.plate || ""}`.toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      if (f.fleet && s.fleet_type !== f.fleet) return false;
+      if (f.category && s.location_category !== f.category) return false;
+      return true;
+    });
+  };
+
+  // El registro de unidades no tiene ubicación (no viene de un snapshot GPS),
+  // así que su filtro es su propia función: busca por código/placa/conductor
+  // y acota por flota, sin la opción de categoría.
+  const applyUnidadesFilter = (units, f) => {
+    const search = f.search.trim().toLowerCase();
+    return units.filter((u) => {
+      if (search) {
+        const haystack = `${u.code || ""} ${u.plate || ""} ${u.driver_name || ""}`.toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      if (f.fleet && u.fleet_type !== f.fleet) return false;
+      return true;
+    });
+  };
 
   useEffect(() => {
     loadSnapshots();
@@ -75,7 +120,7 @@ const Tracker = () => {
   };
 
   const resetForm = () => {
-    setForm({ code: "", plate: "", driver_name: "" });
+    setForm({ code: "", plate: "", driver_name: "", fleet_type: "" });
     setEditingId(null);
     setShowForm(false);
     setError(null);
@@ -86,6 +131,7 @@ const Tracker = () => {
       code: unidad.code,
       plate: unidad.plate || "",
       driver_name: unidad.driver_name || "",
+      fleet_type: unidad.fleet_type || "",
     });
     setEditingId(unidad.id);
     setShowForm(true);
@@ -102,12 +148,14 @@ const Tracker = () => {
           plate: form.plate || null,
           driver_name: form.driver_name || null,
           is_active: true,
+          fleet_type: form.fleet_type || null,
         });
       } else {
         await trackerService.createUnidad({
           code: form.code,
           plate: form.plate || null,
           driver_name: form.driver_name || null,
+          fleet_type: form.fleet_type || null,
         });
       }
       resetForm();
@@ -134,8 +182,103 @@ const Tracker = () => {
   };
 
   const total = snapshots.length;
-  const activas = snapshots.filter((s) => s.status === "ACTIVO").length;
-  const estacionadas = snapshots.filter((s) => s.status === "ESTACIONADO").length;
+  const activeUnits = snapshots.filter((s) => s.status === "ACTIVO" && !s.is_stale);
+  const parkedUnits = snapshots.filter((s) => s.status === "ESTACIONADO" && !s.is_stale);
+  const staleUnits = snapshots
+    .filter((s) => s.is_stale)
+    .sort((a, b) => new Date(a.last_report_at || 0) - new Date(b.last_report_at || 0));
+  const activas = activeUnits.length;
+  const estacionadas = parkedUnits.length;
+  const sinSenal = staleUnits.length;
+
+  // Barra de filtros de un bloque: buscar por unidad/placa, y acotar por
+  // flota o por categoria de ubicacion -- independiente por bloque.
+  const renderFilterBar = (key) => {
+    const f = filters[key];
+    return (
+      <div className="px-5 py-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center gap-2 bg-slate-50/50 dark:bg-white/[0.02]">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Buscar por unidad o placa..."
+            value={f.search}
+            onChange={(e) => updateFilter(key, "search", e.target.value)}
+            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+          />
+        </div>
+        <select
+          value={f.fleet}
+          onChange={(e) => updateFilter(key, "fleet", e.target.value)}
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115]"
+        >
+          <option value="">Toda la flota</option>
+          <option value="LIVIANA">Liviana</option>
+          <option value="PESADA">Pesada</option>
+        </select>
+        <select
+          value={f.category}
+          onChange={(e) => updateFilter(key, "category", e.target.value)}
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115]"
+        >
+          <option value="">Toda ubicación</option>
+          <option value="BASE">Base</option>
+          <option value="CAMPO">Campo</option>
+          <option value="OFICINA">Oficina</option>
+          <option value="OTRAS">Otras</option>
+        </select>
+        {hasActiveFilter(f) && (
+          <button
+            type="button"
+            onClick={() => clearFilter(key)}
+            className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline shrink-0"
+          >
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  // Fila compartida entre los bloques de Activas y Estacionadas -- misma
+  // presentacion que tenia la tabla unica, solo que ahora agrupada por
+  // estado en vez de mezclada.
+  const renderUnitRow = (s, i) => (
+    <TableRow key={s.unit_id ?? `p-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+      <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+        {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
+      </TableCell>
+      <TableCell className="text-sm">
+        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(s.fleet_type)}`}>
+          {fleetTypeLabel(s.fleet_type)}
+        </span>
+      </TableCell>
+      <TableCell className="text-sm">{s.plate || "-"}</TableCell>
+      <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
+      <TableCell className="text-sm max-w-xs">
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${CATEGORY_STYLES[s.location_category] || CATEGORY_STYLES.OTRAS}`}>
+            {s.location_category}
+          </span>
+          <span className="truncate">{s.location_text || "-"}</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-sm whitespace-nowrap">{formatHora(s.last_report_at)}</TableCell>
+    </TableRow>
+  );
+
+  const statusGroups = [
+    {
+      key: "activo", title: "Unidades activas", count: activas, units: activeUnits,
+      icon: Zap, iconWrap: "bg-emerald-500 text-white", badge: "bg-emerald-500/10 text-emerald-600",
+      border: "border-emerald-200 dark:border-emerald-500/20", empty: "Ninguna unidad activa en este momento.",
+    },
+    {
+      key: "estacionado", title: "Unidades estacionadas", count: estacionadas, units: parkedUnits,
+      icon: PauseCircle, iconWrap: "bg-red-500 text-white", badge: "bg-red-500/10 text-red-600",
+      border: "border-red-200 dark:border-red-500/20", empty: "Ninguna unidad estacionada en este momento.",
+    },
+  ];
 
   return (
     <PageLayout
@@ -158,6 +301,10 @@ const Tracker = () => {
             <div className="text-[11px] font-bold text-red-600 uppercase">Estacionadas</div>
             <div className="text-2xl font-black text-red-600">{estacionadas}</div>
           </Card>
+          <Card className="px-5 py-3 border-amber-200 dark:border-amber-500/20">
+            <div className="text-[11px] font-bold text-amber-600 uppercase">Sin señal reciente</div>
+            <div className="text-2xl font-black text-amber-600">{sinSenal}</div>
+          </Card>
         </div>
 
         <div className="flex flex-col items-end gap-2">
@@ -173,88 +320,196 @@ const Tracker = () => {
         </div>
       </div>
 
-      <Card className="w-full overflow-hidden mb-8">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Unidad</TableHead>
-              <TableHead>Placa</TableHead>
-              <TableHead>Conductor</TableHead>
-              <TableHead>Ubicación</TableHead>
-              <TableHead>Hora</TableHead>
-              <TableHead>Estado</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loadingSnapshots ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">Cargando...</TableCell>
-              </TableRow>
-            ) : snapshots.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-slate-400">
-                  Sin lecturas todavía — presiona "Sincronizar ahora"
-                </TableCell>
-              </TableRow>
-            ) : (
-              snapshots.map((s, i) => (
-                <TableRow key={s.unit_id ?? `p-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
-                  <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
-                    {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
-                  </TableCell>
-                  <TableCell className="text-sm">{s.plate || "-"}</TableCell>
-                  <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
-                  <TableCell className="text-sm max-w-xs">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${CATEGORY_STYLES[s.location_category] || CATEGORY_STYLES.OTRAS}`}>
-                        {s.location_category}
-                      </span>
-                      <span className="truncate">{s.location_text || "-"}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-sm whitespace-nowrap">
-                    {formatHora(s.last_report_at)}
-                    {s.is_stale && (
-                      <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/10 text-slate-500">
-                        SIN SEÑAL RECIENTE
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${statusBadgeClass(s.status)}`}>
-                      {statusLabel(s.status)}
-                    </span>
-                  </TableCell>
+      {statusGroups.map((group) => {
+        const open = openBlocks[group.key];
+        const Icon = group.icon;
+        return (
+          <Card key={group.key} className={`w-full overflow-hidden mb-4 ${group.border}`}>
+            <button
+              type="button"
+              onClick={() => toggleBlock(group.key)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${group.iconWrap}`}>
+                  <Icon size={16} />
+                </span>
+                <span className="font-bold text-slate-900 dark:text-white">{group.title}</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${group.badge}`}>{group.count}</span>
+              </div>
+              <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+            </button>
+            <div className={`grid transition-all duration-300 ease-in-out ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+              <div className="overflow-hidden">
+                {renderFilterBar(group.key)}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Unidad</TableHead>
+                      <TableHead>Flota</TableHead>
+                      <TableHead>Placa</TableHead>
+                      <TableHead>Conductor</TableHead>
+                      <TableHead>Ubicación</TableHead>
+                      <TableHead>Hora</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(() => {
+                      const filtered = applyFilters(group.units, filters[group.key]);
+                      if (loadingSnapshots) {
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                          </TableRow>
+                        );
+                      }
+                      if (filtered.length === 0) {
+                        return (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-slate-400">
+                              {group.units.length === 0 ? group.empty : "Ningún resultado con estos filtros."}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                      return filtered.map(renderUnitRow);
+                    })()}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </Card>
+        );
+      })}
+
+      <Card className="w-full overflow-hidden mb-8 border-amber-200 dark:border-amber-500/20">
+        <button
+          type="button"
+          onClick={() => toggleBlock("stale")}
+          className="w-full flex items-center justify-between px-5 py-4 bg-amber-50/40 dark:bg-amber-500/[0.02] hover:bg-amber-50 dark:hover:bg-amber-500/[0.05] transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-amber-500 text-white">
+              <AlertTriangle size={16} />
+            </span>
+            <span className="font-bold text-amber-700 dark:text-amber-400">Unidades sin señal reciente — revisar en sitio</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600">{sinSenal}</span>
+          </div>
+          <ChevronDown size={18} className={`text-amber-400 transition-transform duration-300 ${openBlocks.stale ? "rotate-180" : ""}`} />
+        </button>
+        <div className={`grid transition-all duration-300 ease-in-out ${openBlocks.stale ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+          <div className="overflow-hidden">
+            {renderFilterBar("stale")}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Unidad</TableHead>
+                  <TableHead>Placa</TableHead>
+                  <TableHead>Última conexión</TableHead>
+                  <TableHead>Horas sin conexión</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {(() => {
+                  const filteredStale = applyFilters(staleUnits, filters.stale);
+                  if (loadingSnapshots) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                      </TableRow>
+                    );
+                  }
+                  if (filteredStale.length === 0) {
+                    return (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                          {staleUnits.length === 0 ? "Todas las unidades reportaron recientemente." : "Ningún resultado con estos filtros."}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                  return filteredStale.map((s, i) => (
+                    <TableRow key={s.unit_id ?? `stale-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-amber-500/[0.03]"}>
+                      <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                        {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
+                      </TableCell>
+                      <TableCell className="text-sm">{s.plate || "-"}</TableCell>
+                      <TableCell className="text-sm">{formatHora(s.last_report_at)}</TableCell>
+                      <TableCell>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600">
+                          {formatHoras(horasSinConexion(s.last_report_at))}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ));
+                })()}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </Card>
 
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-          Unidades registradas (tabla interna placa-unidad-conductor)
-        </h3>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowUnidades(!showUnidades)} className="rounded-xl text-sm">
-            {showUnidades ? "Ocultar" : `Ver (${unidades.length})`}
-          </Button>
-          {showUnidades && (
-            <Button
-              onClick={() => { resetForm(); setShowForm(!showForm); }}
-              className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm"
-            >
-              {showForm ? <X size={14} /> : <Plus size={14} />}
-              {showForm ? "Cancelar" : "Nueva Unidad"}
-            </Button>
-          )}
-        </div>
-      </div>
+      <Card className="w-full overflow-hidden mb-8 border-orange-200 dark:border-orange-500/20">
+        <button
+          type="button"
+          onClick={() => toggleBlock("unidades")}
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-orange-500 text-white">
+              <ClipboardList size={16} />
+            </span>
+            <span className="font-bold text-slate-900 dark:text-white">Gestión de Unidades</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-500/10 text-orange-600">{unidades.length}</span>
+            <span className="hidden md:inline text-xs text-slate-400 font-normal">
+              — registra, edita o da de baja unidades (código, placa, conductor, tipo de flota)
+            </span>
+          </div>
+          <ChevronDown size={18} className={`text-slate-400 transition-transform duration-300 shrink-0 ${openBlocks.unidades ? "rotate-180" : ""}`} />
+        </button>
+        <div className={`grid transition-all duration-300 ease-in-out ${openBlocks.unidades ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+          <div className="overflow-hidden px-5 pb-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1 pb-4">
+              <div className="flex flex-wrap items-center gap-2 flex-1">
+                <div className="relative flex-1 min-w-[220px]">
+                  <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por código, placa o conductor..."
+                    value={filters.unidades.search}
+                    onChange={(e) => updateFilter("unidades", "search", e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                  />
+                </div>
+                <select
+                  value={filters.unidades.fleet}
+                  onChange={(e) => updateFilter("unidades", "fleet", e.target.value)}
+                  className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115]"
+                >
+                  <option value="">Toda la flota</option>
+                  <option value="LIVIANA">Liviana</option>
+                  <option value="PESADA">Pesada</option>
+                </select>
+                {hasActiveFilter(filters.unidades) && (
+                  <button
+                    type="button"
+                    onClick={() => clearFilter("unidades")}
+                    className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline shrink-0"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+              <Button
+                onClick={() => { resetForm(); setShowForm(!showForm); }}
+                className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm shrink-0"
+              >
+                {showForm ? <X size={14} /> : <Plus size={14} />}
+                {showForm ? "Cancelar" : "Nueva Unidad"}
+              </Button>
+            </div>
 
-      {showUnidades && (
-        <>
-          {showForm && (
+            {showForm && (
             <Card className="mb-6 border-orange-200 dark:border-orange-500/20">
               <CardContent className="p-6">
                 {error && (
@@ -262,7 +517,7 @@ const Tracker = () => {
                     {error}
                   </div>
                 )}
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Código *</Label>
                     <Input
@@ -290,7 +545,19 @@ const Tracker = () => {
                       onChange={(e) => setForm({ ...form, driver_name: e.target.value })}
                     />
                   </div>
-                  <div className="md:col-span-3 flex justify-end gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-sm font-bold">Tipo de flota</Label>
+                    <select
+                      value={form.fleet_type}
+                      onChange={(e) => setForm({ ...form, fleet_type: e.target.value })}
+                      className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm h-10"
+                    >
+                      <option value="">Sin clasificar</option>
+                      <option value="LIVIANA">Liviana</option>
+                      <option value="PESADA">Pesada</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-4 flex justify-end gap-3">
                     <Button type="button" variant="outline" onClick={resetForm} className="rounded-xl">Cancelar</Button>
                     <Button type="submit" disabled={submitting} className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white">
                       {submitting ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
@@ -301,39 +568,58 @@ const Tracker = () => {
             </Card>
           )}
 
-          <Card className="w-full overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Placa</TableHead>
-                  <TableHead>Conductor</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {unidades.map((u, i) => (
-                  <TableRow key={u.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
-                    <TableCell className="font-mono font-bold text-sm">{u.code}</TableCell>
-                    <TableCell className="text-sm">{u.plate || "-"}</TableCell>
-                    <TableCell className="text-sm">{u.driver_name || "-"}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="outline" size="icon" onClick={() => handleEdit(u)} className="h-8 w-8 rounded-lg">
-                          <Pencil size={14} />
-                        </Button>
-                        <Button variant="outline" size="icon" onClick={() => handleDelete(u.id, u.code)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="rounded-xl border border-slate-100 dark:border-white/5 overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Flota</TableHead>
+                    <TableHead>Placa</TableHead>
+                    <TableHead>Conductor</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </>
-      )}
+                </TableHeader>
+                <TableBody>
+                  {(() => {
+                    const filteredUnidades = applyUnidadesFilter(unidades, filters.unidades);
+                    if (filteredUnidades.length === 0) {
+                      return (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                            {unidades.length === 0 ? "Ninguna unidad registrada todavía." : "Ningún resultado con estos filtros."}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }
+                    return filteredUnidades.map((u, i) => (
+                      <TableRow key={u.id} className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
+                        <TableCell className="font-mono font-bold text-sm">{u.code}</TableCell>
+                        <TableCell className="text-sm">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(u.fleet_type)}`}>
+                            {fleetTypeLabel(u.fleet_type)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-sm">{u.plate || "-"}</TableCell>
+                        <TableCell className="text-sm">{u.driver_name || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button variant="outline" size="icon" onClick={() => handleEdit(u)} className="h-8 w-8 rounded-lg">
+                              <Pencil size={14} />
+                            </Button>
+                            <Button variant="outline" size="icon" onClick={() => handleDelete(u.id, u.code)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ));
+                  })()}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+      </Card>
     </PageLayout>
   );
 };

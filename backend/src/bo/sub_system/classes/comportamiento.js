@@ -18,17 +18,6 @@ const timeToHours = (t) => {
   return Number(parts[0]) || 0;
 };
 
-// La API pide fechas como 'YYYYMMDD HH:MM:SS' (sin guiones).
-const toDateParam = (fecha, hora) => `${fecha.replace(/-/g, '')} ${hora}`;
-
-// Pausa entre llamadas para no saturar la API del proveedor (se consulta
-// unidad por unidad porque wsGetTripsSummary_v1 exige 'plateno'). El
-// proveedor tiene un límite de peticiones por minuto -- comprobado en la
-// práctica (ver ForesightClient.extractRows): 104 llamadas en 18s ya lo
-// disparó. 800ms entre cada llamada individual es un margen conservador.
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const CALL_DELAY_MS = Number(process.env.TRACKER_API_CALL_DELAY_MS || 800);
-
 class Comportamiento {
   constructor() {
     this.dbms = new DBMS();
@@ -37,68 +26,49 @@ class Comportamiento {
   }
 
   // Se anexa al reporte del turno Nocturno (fin del día): resume viajes,
-  // horas trabajadas/ralentí y distancia de TODA la flota registrada, tal
-  // como hacía el notebook "Reporte-Diario-Comportamiento-Conductor-FP"
-  // pero sin descargar Excel ni subirlo a mano -- llama a la API de Foresight
-  // directamente, una vez por unidad con placa conocida.
+  // horas trabajadas/ralentí, distancia y eventos de seguridad (exceso de
+  // velocidad, aceleraciones/frenadas/giros bruscos) de TODA la flota con
+  // actividad ese día. Usa el mismo reporte "Comportamiento del Conductor"
+  // que genera el panel web GEvolution -- una sola llamada para TODAS las
+  // unidades (ver ForesightClient.getComportamientoDelDia), no una por
+  // unidad como el método anterior (wsGetTripsSummary_v1 +
+  // GetEventsNotifications), que chocaba con el límite de peticiones del
+  // proveedor apenas la flota superó las ~10 unidades activas por día.
   getAnalisisDelDia = async ({ fecha } = {}) => {
     await this.dbmsReady;
 
     const resolvedFecha = fecha || veDateISO();
-    const startdate = toDateParam(resolvedFecha, '00:00:00');
-    const enddate = toDateParam(resolvedFecha, '23:59:59');
+    const startdate = `${resolvedFecha}T00:00:00.000`;
+    const enddate = `${resolvedFecha}T23:59:59.999`;
 
-    // Solo se consultan unidades con actividad confirmada ese día (no toda la
-    // tabla interna): de ~68 unidades registradas, la gran mayoría no tiene
-    // tracker activo hoy (ver hallazgo de la Fase 1), y consultar cada una
-    // igual disparó el límite de peticiones del proveedor en la práctica.
-    const activeResult = await this.dbms.executeNamedQuery({ nameQuery: 'getActivePlatesForDate', params: { fecha: resolvedFecha } });
-    const plates = [...new Set((activeResult?.rows || []).map((r) => r.plate).filter(Boolean))];
-
-    const viajes = [];
-    const eventos = [];
+    let filas = [];
     const errores = [];
-
-    for (const plate of plates) {
-      try {
-        const rows = await this.client.getTripsSummary({ plateno: plate, startdate, enddate });
-        viajes.push(...rows);
-      } catch (error) {
-        errores.push({ plate, tipo: 'viajes', error: error.message });
-      }
-
-      await sleep(CALL_DELAY_MS);
-
-      try {
-        const rows = await this.client.getEventsNotifications({ plateno: plate, startdate, enddate });
-        eventos.push(...rows.map((e) => ({ ...e, PlateNo: e.PlateNo || plate })));
-      } catch (error) {
-        errores.push({ plate, tipo: 'eventos', error: error.message });
-      }
-
-      await sleep(CALL_DELAY_MS);
+    try {
+      filas = await this.client.getComportamientoDelDia({ startdate, enddate });
+    } catch (error) {
+      errores.push({ tipo: 'reporte', error: error.message });
     }
 
     // Igual que el notebook original: descarta filas de servicio del propio GPS.
-    const viajesLimpios = viajes.filter((v) => !/ForesightGPS/i.test(String(v.Unit || v.PlateNo || '')));
+    const filasLimpias = filas.filter((v) => !/ForesightGPS/i.test(String(v.Unit || '')));
 
-    const topDistancia = viajesLimpios
-      .map((v) => ({ unidad: v.Unit || v.PlateNo, km: Number(v.distancetraveled_aUnit) || 0 }))
+    const topDistancia = filasLimpias
+      .map((v) => ({ unidad: v.Unit, km: Number(v.distancetraveled_aUnit) || 0 }))
       .filter((v) => v.km > 0)
       .sort((a, b) => b.km - a.km)
       .slice(0, 10);
 
-    const topRalenti = viajesLimpios
+    const topRalenti = filasLimpias
       .map((v) => {
         const trabajadas = timeToHours(v.Worked_Hours);
         const ralenti = timeToHours(v.IdleTime);
-        return { unidad: v.Unit || v.PlateNo, movimiento: Math.max(trabajadas - ralenti, 0), ralenti };
+        return { unidad: v.Unit, movimiento: Math.max(trabajadas - ralenti, 0), ralenti };
       })
       .filter((v) => v.ralenti > 0 || v.movimiento > 0)
       .sort((a, b) => b.ralenti - a.ralenti)
       .slice(0, 10);
 
-    const totales = viajesLimpios.reduce(
+    const totales = filasLimpias.reduce(
       (acc, v) => {
         acc.diurnos += Number(v.TripsInDay) || 0;
         acc.nocturnos += Number(v.TripsInNight) || 0;
@@ -108,42 +78,92 @@ class Comportamiento {
       { diurnos: 0, nocturnos: 0, mixtos: 0 },
     );
 
-    // Conteo de eventos de seguridad por unidad y por tipo (ver nota en
-    // foresightClient.getEventsNotifications: hoy vuelve vacío para esta
-    // cuenta aunque el Dashboard de Seguridad de la plataforma sí muestra
-    // datos -- queda listo para cuando se resuelva el acceso).
-    const excesosPorUnidad = new Map();
-    const eventosPorTipo = new Map();
-    for (const e of eventos) {
-      const tipo = String(e.EventType || e.EventName || e.Type || e.Description || 'Sin clasificar');
-      eventosPorTipo.set(tipo, (eventosPorTipo.get(tipo) || 0) + 1);
+    const topExcesosVelocidad = filasLimpias
+      .map((v) => ({ unidad: v.Unit, cantidad: Number(v.Speeding) || 0 }))
+      .filter((v) => v.cantidad > 0)
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 10);
 
-      if (/veloc|speed/i.test(tipo)) {
-        const unidad = e.PlateNo || 'Desconocida';
-        excesosPorUnidad.set(unidad, (excesosPorUnidad.get(unidad) || 0) + 1);
-      }
+    const eventosPorTipo = [
+      { tipo: 'Exceso de velocidad', cantidad: filasLimpias.reduce((s, v) => s + (Number(v.Speeding) || 0), 0) },
+      { tipo: 'Aceleración brusca', cantidad: filasLimpias.reduce((s, v) => s + (Number(v.HarshAcceleration) || 0), 0) },
+      { tipo: 'Frenada brusca', cantidad: filasLimpias.reduce((s, v) => s + (Number(v.Harshbreaking) || 0), 0) },
+      { tipo: 'Giro brusco', cantidad: filasLimpias.reduce((s, v) => s + (Number(v.sharpturns) || 0), 0) },
+    ]
+      .filter((e) => e.cantidad > 0)
+      .sort((a, b) => b.cantidad - a.cantidad);
+
+    const data = {
+      fecha: resolvedFecha,
+      unidades_consultadas: filasLimpias.length,
+      total_viajes: totales.diurnos + totales.nocturnos + totales.mixtos,
+      viajes_diurnos: totales.diurnos,
+      viajes_nocturnos: totales.nocturnos,
+      viajes_mixtos: totales.mixtos,
+      top_distancia: topDistancia,
+      top_ralenti: topRalenti,
+      eventos_totales: eventosPorTipo.reduce((s, e) => s + e.cantidad, 0),
+      top_excesos_velocidad: topExcesosVelocidad,
+      eventos_por_tipo: eventosPorTipo,
+      errores,
+    };
+
+    // Se guarda para no depender de que alguien lo vuelva a pedir desde la
+    // pantalla -- permite mostrarlo ya calculado (ver getAnalisisGuardado) y
+    // que el cron de madrugada lo deje listo sin intervención manual.
+    await this.dbms.executeNamedQuery({
+      nameQuery: 'upsertTrackerDailyAnalysis',
+      params: {
+        fecha: resolvedFecha,
+        unidades_consultadas: data.unidades_consultadas,
+        total_viajes: data.total_viajes,
+        viajes_diurnos: data.viajes_diurnos,
+        viajes_nocturnos: data.viajes_nocturnos,
+        viajes_mixtos: data.viajes_mixtos,
+        top_distancia: JSON.stringify(data.top_distancia),
+        top_ralenti: JSON.stringify(data.top_ralenti),
+        eventos_totales: data.eventos_totales,
+        top_excesos_velocidad: JSON.stringify(data.top_excesos_velocidad),
+        eventos_por_tipo: JSON.stringify(data.eventos_por_tipo),
+        errores: JSON.stringify(data.errores),
+      },
+    });
+
+    return { statusCode: STATUS_CODES.OK, data };
+  };
+
+  // Trae el análisis ya calculado y guardado para una fecha, sin volver a
+  // golpear la API del proveedor -- para que la pantalla lo muestre solo con
+  // abrir el turno, en vez de exigir el botón "Generar análisis del día".
+  getAnalisisGuardado = async ({ fecha } = {}) => {
+    await this.dbmsReady;
+    const resolvedFecha = fecha || veDateISO();
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'getTrackerDailyAnalysisByFecha',
+      params: { fecha: resolvedFecha },
+    });
+    const row = result?.rows?.[0];
+    if (!row) {
+      return { statusCode: STATUS_CODES.OK, data: null };
     }
 
     return {
       statusCode: STATUS_CODES.OK,
       data: {
-        fecha: resolvedFecha,
-        unidades_consultadas: plates.length,
-        total_viajes: totales.diurnos + totales.nocturnos + totales.mixtos,
-        viajes_diurnos: totales.diurnos,
-        viajes_nocturnos: totales.nocturnos,
-        viajes_mixtos: totales.mixtos,
-        top_distancia: topDistancia,
-        top_ralenti: topRalenti,
-        eventos_totales: eventos.length,
-        top_excesos_velocidad: [...excesosPorUnidad.entries()]
-          .map(([unidad, cantidad]) => ({ unidad, cantidad }))
-          .sort((a, b) => b.cantidad - a.cantidad)
-          .slice(0, 10),
-        eventos_por_tipo: [...eventosPorTipo.entries()]
-          .map(([tipo, cantidad]) => ({ tipo, cantidad }))
-          .sort((a, b) => b.cantidad - a.cantidad),
-        errores,
+        fecha: row.fecha,
+        unidades_consultadas: row.unidades_consultadas,
+        total_viajes: row.total_viajes,
+        viajes_diurnos: row.viajes_diurnos,
+        viajes_nocturnos: row.viajes_nocturnos,
+        viajes_mixtos: row.viajes_mixtos,
+        top_distancia: row.top_distancia,
+        top_ralenti: row.top_ralenti,
+        eventos_totales: row.eventos_totales,
+        top_excesos_velocidad: row.top_excesos_velocidad,
+        eventos_por_tipo: row.eventos_por_tipo,
+        errores: row.errores,
+        generated_at: row.generated_at,
       },
     };
   };

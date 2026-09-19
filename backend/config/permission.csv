@@ -158,3 +158,7 @@ id;sub_system;class;method;profile
 157;Horas;Equipo;quitarAsignacion;admin
 158;Horas;Reporte;getResumenHoras;admin
 159;Horas;Reporte;getResumenPorDia;admin
+160;Tracker;ReporteArchivo;listar;admin
+161;Tracker;Comportamiento;getAnalisisGuardado;admin
+162;Tracker;Recorrido;listar;admin
+163;Tracker;Recorrido;ruta;admin

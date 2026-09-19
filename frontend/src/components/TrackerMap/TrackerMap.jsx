@@ -7,11 +7,19 @@ const STATUS_COLOR = {
   ACTIVO: "#10b981", // verde: en movimiento / encendida
   ESTACIONADO: "#ef4444", // rojo: apagada / detenida
 };
-const STALE_COLOR = "#94a3b8"; // gris: sin señal reciente
+const STALE_COLOR = "#f59e0b"; // amarillo: sin señal reciente -- revisar en sitio
 
 // Centro por defecto: Zulia, Venezuela (zona de operación de la flota).
 const DEFAULT_CENTER = [10.35, -71.6];
 const DEFAULT_ZOOM = 9;
+
+const MARKER_RADIUS = 8;
+const MARKER_RADIUS_HOVER = 10;
+// Acercamiento sutil al seleccionar (unos pocos niveles desde donde ya
+// estaba el mapa, nunca un salto directo a un zoom fijo alto) -- pedido de
+// Lguerra, 17/09/2026, tras ver que ir directo a zoom 15 se sentia brusco.
+const CLICK_ZOOM_STEP = 3;
+const CLICK_ZOOM_MAX = 14;
 
 const formatHora = (iso) => {
   if (!iso) return "-";
@@ -30,12 +38,22 @@ const formatHora = (iso) => {
 /**
  * Mapa en vivo de la flota (Fase 3). Recibe los mismos snapshots que la
  * tabla de estado; solo dibuja los que tienen coordenadas válidas.
+ *
+ * `onSelectUnit(snapshot)` -- Fase 3 Recorridos (18/09/2026): se llama al
+ * hacer clic en un punto, ademas del acercamiento y el popup, para que la
+ * pagina pueda abrir el panel de Recorridos de esa unidad sin duplicar el
+ * manejo de clics del mapa.
+ * `routePoints` -- lista de {lat, lng} de un viaje puntual (ver
+ * Recorrido.ruta en el backend); al cambiar, dibuja/reemplaza la linea de
+ * la ruta en el mapa y hace zoom a su extension.
  */
-export default function TrackerMap({ snapshots = [] }) {
+export default function TrackerMap({ snapshots = [], onSelectUnit, routePoints }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const boundsRef = useRef(null);
+  const hasFitBoundsRef = useRef(false);
+  const routeLayerRef = useRef(null);
 
   // Inicializa el mapa una sola vez.
   useEffect(() => {
@@ -82,11 +100,12 @@ export default function TrackerMap({ snapshots = [] }) {
       const color = s.is_stale ? STALE_COLOR : STATUS_COLOR[s.status] || STALE_COLOR;
 
       const marker = L.circleMarker([Number(s.latitude), Number(s.longitude)], {
-        radius: 8,
+        radius: MARKER_RADIUS,
         color: "#ffffff",
         weight: 2,
         fillColor: color,
         fillOpacity: 0.9,
+        className: "tracker-marker",
       });
 
       const label = s.unit_code || s.plate || "Unidad sin identificar";
@@ -98,6 +117,23 @@ export default function TrackerMap({ snapshots = [] }) {
           `Hora: ${formatHora(s.last_report_at)}`
       );
 
+      // Acercamiento animado a la unidad seleccionada, ademas de la etiqueta
+      // (el popup ya se abre solo por bindPopup) -- pedido de Lguerra,
+      // 17/09/2026, para que se sienta interactivo en vez de solo mostrar el
+      // cartel en el mismo zoom en que estaba el mapa. Solo unos pocos
+      // niveles desde el zoom actual, no un salto fijo (se sentia brusco).
+      marker.on("click", () => {
+        const targetZoom = Math.min(map.getZoom() + CLICK_ZOOM_STEP, CLICK_ZOOM_MAX);
+        map.flyTo(marker.getLatLng(), Math.max(targetZoom, map.getZoom()), { duration: 0.8 });
+        onSelectUnit?.(s);
+      });
+
+      // Crecimiento leve al pasar el cursor (sin necesidad de hacer clic) --
+      // la transicion suave de "r" viene de la clase .tracker-marker en
+      // index.css.
+      marker.on("mouseover", () => marker.setRadius(MARKER_RADIUS_HOVER));
+      marker.on("mouseout", () => marker.setRadius(MARKER_RADIUS));
+
       marker.addTo(map);
       markersRef.current.push(marker);
     }
@@ -106,9 +142,37 @@ export default function TrackerMap({ snapshots = [] }) {
       const bounds = L.latLngBounds(withCoords.map((s) => [Number(s.latitude), Number(s.longitude)]));
       boundsRef.current = bounds;
       map.invalidateSize();
-      map.fitBounds(bounds.pad(0.2));
+      // Solo se ajusta la vista a toda la flota la primera vez que llegan
+      // datos -- el refresco automático cada 30s (ver trackerMap.jsx,
+      // AUTO_REFRESH_MS) volvía a alejar el mapa y deshacía el acercamiento
+      // apenas alguien le daba clic a una unidad para verla de cerca.
+      if (!hasFitBoundsRef.current) {
+        map.fitBounds(bounds.pad(0.2));
+        hasFitBoundsRef.current = true;
+      }
     }
-  }, [snapshots]);
+  }, [snapshots, onSelectUnit]);
+
+  // Dibuja la ruta del viaje seleccionado (Recorridos) -- reemplaza la
+  // anterior si ya habia una, y la quita si routePoints llega vacio/null
+  // (por ejemplo al cerrar el panel de recorridos).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current);
+      routeLayerRef.current = null;
+    }
+
+    const valid = (routePoints || []).filter((p) => p.lat != null && p.lng != null);
+    if (valid.length < 2) return;
+
+    const latLngs = valid.map((p) => [p.lat, p.lng]);
+    const line = L.polyline(latLngs, { color: "#2563eb", weight: 4, opacity: 0.85 }).addTo(map);
+    routeLayerRef.current = line;
+    map.fitBounds(line.getBounds().pad(0.2));
+  }, [routePoints]);
 
   return <div ref={containerRef} className="w-full h-full rounded-2xl overflow-hidden" />;
 }

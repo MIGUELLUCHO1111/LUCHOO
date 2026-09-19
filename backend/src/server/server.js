@@ -12,6 +12,7 @@ import Security from '../security/security.js';
 import dispatcherRouter from '../dispatcher/dispatcherRoutes.js';
 import fuelPhotoRouter from '../fuel/fuelPhotoRoutes.js';
 import trackerAttachmentRouter from '../tracker/trackerAttachmentRoutes.js';
+import trackerReportFileRouter from '../tracker/trackerReportFileRoutes.js';
 import authMiddleware from '../auth/authMiddleware.js';
 import { startTrackerScheduler } from '../tracker/scheduler.js';
 
@@ -92,6 +93,7 @@ class Server {
     this.app.use('/user', userRouter);
     this.app.use('/fuel', fuelPhotoRouter);
     this.app.use('/tracker', trackerAttachmentRouter);
+    this.app.use('/tracker', trackerReportFileRouter);
   }
 
   async init() {
