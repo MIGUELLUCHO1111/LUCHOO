@@ -48,21 +48,21 @@ const SidebarItem = ({
         className={`relative flex items-center h-12 mx-3 cursor-pointer transition-colors duration-200 group z-10
           ${
             active
-              ? "text-blue-600 dark:text-white"
+              ? "text-brand-navy dark:text-white"
               : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
       >
         {active && (
           <motion.div
             layoutId="leftIndicator"
-            className="absolute -left-[2px] top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-md z-20"
+            className="absolute -left-[2px] top-1/2 -translate-y-1/2 w-1 h-6 bg-brand-navy rounded-md z-20"
           />
         )}
 
         {active && (
           <motion.div
             layoutId="activeSidebarTab"
-            className="absolute inset-0 bg-blue-50 dark:bg-white/10 rounded-md z-0"
+            className="absolute inset-0 bg-brand-navy/10 dark:bg-white/10 rounded-md z-0"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
         )}
@@ -107,7 +107,7 @@ const SidebarItem = ({
               <div
                 key={idx}
                 onClick={() => onClick?.(child.url)}
-                className="flex items-center h-10 pl-12 rounded-md text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer transition-all"
+                className="flex items-center h-10 pl-12 rounded-md text-slate-500 dark:text-slate-400 hover:text-brand-navy dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer transition-all"
               >
                 <span className="text-sm font-medium">{child.title}</span>
               </div>
@@ -256,7 +256,7 @@ export const Sidebar = () => {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -5 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute left-4 text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest"
+                  className="absolute left-4 text-sm font-display text-slate-800 dark:text-white uppercase tracking-widest"
                 >
                   Tablero
                 </motion.span>
@@ -282,7 +282,7 @@ export const Sidebar = () => {
                 ) : (
                   <Menu
                     size={22}
-                    className="text-slate-500 dark:text-slate-400 group-hover:text-blue-600"
+                    className="text-slate-500 dark:text-slate-400 group-hover:text-brand-navy"
                   />
                 )}
               </motion.div>

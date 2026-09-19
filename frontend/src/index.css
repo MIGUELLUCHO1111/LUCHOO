@@ -2,7 +2,34 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Tipografía de marca (línea gráfica Fullpetro, brand book BRND Consulting
+   11/2025). El libro de marca especifica Aeonik + ITC Avant Garde Gothic
+   Std, pero el archivo de Aeonik entregado es una versión TRIAL sin
+   glifos acentuados (á, é, í, ó, ú, ñ, ¿, ¡ salen como tofu/placeholder
+   "COTYPE") -- inutilizable para una app en español. Nexa se usa en su
+   lugar para los títulos/elementos destacados (soporta el set completo de
+   acentos); el resto del texto sigue con la pila de fuentes del sistema
+   para no arriesgar legibilidad, ya que Nexa solo trae los pesos
+   ExtraLight y Heavy (sin un peso intermedio cómodo para texto de cuerpo).
+   Si se consigue una licencia completa de Aeonik (o de ITC Avant Garde
+   Gothic Std) con el set de acentos, reemplazar aquí. */
+@font-face {
+  font-family: "Nexa";
+  src: url("./assets/fonts/Nexa-Heavy.ttf") format("truetype");
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Nexa";
+  src: url("./assets/fonts/Nexa-ExtraLight.ttf") format("truetype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
+  --font-display: "Nexa", ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -41,6 +68,16 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Paleta de marca Fullpetro (brand book BRND Consulting, 11/2025):
+     navy + dorado + carbón, tomados por muestreo de píxel de las páginas
+     de swatches del PDF (el libro no trae valores HEX/CMYK impresos). */
+  --color-brand-navy: #144763;
+  --color-brand-navy-light: #1d5c7f;
+  --color-brand-navy-dark: #0d3549;
+  --color-brand-gold: #ffcc00;
+  --color-brand-gold-dark: #e0b400;
+  --color-brand-charcoal: #191919;
 }
 
 :root {
@@ -125,6 +162,17 @@
   body {
     @apply bg-background text-foreground;
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Tailwind's font-display utility only sets font-family. Nexa only
+     registers weights 200 and 800-900 (see @font-face above) -- without an
+     explicit weight, browsers request 400 and pick the *nearest* face,
+     which is 200 (ExtraLight), not the intended Heavy. Force 900 here so
+     font-display always resolves to Nexa Heavy. */
+  .font-display {
+    font-weight: 900;
   }
 }
 
