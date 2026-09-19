@@ -1,5 +1,5 @@
 -- ============================================================
--- 017_control_horas.sql
+-- 032_control_horas.sql
 -- Nueva sección "Control de Horas": reemplaza el control manual en Excel
 -- (horas ejecutadas/PTO/stand-by por equipo pesado, día a día) con una
 -- jerarquía Empresa -> Proyecto -> Equipo (asignación con vigencia) ->

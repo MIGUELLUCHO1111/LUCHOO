@@ -1,5 +1,5 @@
 -- ============================================================
--- 020_assignment_unique_open_row.sql
+-- 035_assignment_unique_open_row.sql
 -- El invariante "un equipo tiene, a lo sumo, UNA asignación vigente
 -- (assigned_to IS NULL) a la vez" hasta ahora solo lo garantizaba el
 -- código de la aplicación (Equipo.asignarAProyecto). Un bug ya corregido

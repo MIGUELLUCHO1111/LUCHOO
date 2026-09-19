@@ -223,7 +223,8 @@ proyecto) cuando llegue su propio documento.
 ## Estado de implementación (ver plan completo en el historial de planes)
 
 Fase 1 (Izamiento) implementada de punta a punta: migración
-`017_control_horas.sql` (tablas `company`/`project`/`equipment`/
+`032_control_horas.sql` (renumerada al mezclar con la cadena de
+migraciones 017-031 de Tracker; tablas `company`/`project`/`equipment`/
 `project_equipment_assignment`/`hours_daily_entry`), subsistema backend
 `Horas` (clases `Empresa`/`Proyecto`/`Equipo`/`Registro`), permisos
 132-152 verificados contra la BD real, y 4 páginas de frontend bajo

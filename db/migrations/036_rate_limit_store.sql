@@ -1,5 +1,5 @@
 -- ============================================================
--- 021_rate_limit_store.sql
+-- 036_rate_limit_store.sql
 -- El rate limiter de las rutas de auth (login/registro/forgot/reset) usaba
 -- el MemoryStore por defecto de express-rate-limit: cada proceso PM2 lleva
 -- su propio contador. Bajo cluster (8 procesos) el límite real de intentos

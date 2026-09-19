@@ -1,5 +1,5 @@
 -- ============================================================
--- 019_project_equipment_assignment_check.sql
+-- 034_project_equipment_assignment_check.sql
 -- Un bug ya corregido en Equipo.asignarAProyecto (llamadas repetidas para
 -- el mismo equipo+proyecto generaban una fila con assigned_to anterior a
 -- assigned_from) dejó filas de historial con rango de fechas invertido --
