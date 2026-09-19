@@ -1,6 +1,6 @@
 // Lista de barras horizontales simple (sin librería de gráficos), mismo
 // espíritu minimalista que Donut/TankBar ya usados en el proyecto.
-export function BarList({ items, valueKey, labelKey, unit = "", color = "#f97316", emptyLabel = "Sin datos" }) {
+export function BarList({ items, valueKey, labelKey, unit = "", color = "#144763", emptyLabel = "Sin datos" }) {
   const max = Math.max(1, ...items.map((it) => Number(it[valueKey]) || 0));
 
   if (items.length === 0) {

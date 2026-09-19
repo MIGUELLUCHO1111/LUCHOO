@@ -89,7 +89,7 @@ const TrackerMapPage = () => {
   const sinSenal = snapshots.filter((s) => s.is_stale).length;
 
   return (
-    <PageLayout icon={Map} title="Mapa en Vivo" subtitle="TRACKER GPS DE FLOTA" accentColor="orange">
+    <PageLayout icon={Map} title="Mapa en Vivo" subtitle="TRACKER GPS DE FLOTA">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <span className="flex items-center gap-2">
@@ -115,7 +115,7 @@ const TrackerMapPage = () => {
           <Button
             onClick={handleSync}
             disabled={syncing}
-            className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-orange-500 hover:bg-orange-600 text-white text-sm"
+            className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white text-sm"
           >
             <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
             {syncing ? "Sincronizando..." : "Sincronizar ahora"}

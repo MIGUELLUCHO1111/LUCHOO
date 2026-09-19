@@ -31,8 +31,8 @@ export const ProtectedRoute = () => {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-[var(--bg-main)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          <p className="text-blue-500 font-medium animate-pulse">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-navy"></div>
+          <p className="text-brand-navy font-medium animate-pulse">
             Verificando sesión...
           </p>
         </div>
@@ -59,7 +59,7 @@ export const ProtectedRoute = () => {
   if (!user) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-[var(--bg-main)]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-navy"></div>
       </div>
     );
   }

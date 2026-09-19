@@ -169,7 +169,7 @@ export default function TrackerMap({ snapshots = [], onSelectUnit, routePoints }
     if (valid.length < 2) return;
 
     const latLngs = valid.map((p) => [p.lat, p.lng]);
-    const line = L.polyline(latLngs, { color: "#2563eb", weight: 4, opacity: 0.85 }).addTo(map);
+    const line = L.polyline(latLngs, { color: "#144763", weight: 4, opacity: 0.85 }).addTo(map);
     routeLayerRef.current = line;
     map.fitBounds(line.getBounds().pad(0.2));
   }, [routePoints]);

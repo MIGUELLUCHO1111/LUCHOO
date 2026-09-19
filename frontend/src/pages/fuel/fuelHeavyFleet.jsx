@@ -343,7 +343,7 @@ const FuelHeavyFleet = () => {
       icon={Truck}
       title="Combustible · Flota Pesada"
       subtitle={`GASOIL • ${new Date().toLocaleDateString()}`}
-      accentColor="amber"
+      accentColor="navy"
     >
       {/* ---------- Aviso de error ---------- */}
       {error && (
@@ -369,7 +369,7 @@ const FuelHeavyFleet = () => {
                   onClick={() => setUnit("galones")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
                     unit === "galones"
-                      ? "bg-amber-500 text-white"
+                      ? "bg-brand-navy text-white"
                       : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
@@ -380,7 +380,7 @@ const FuelHeavyFleet = () => {
                   onClick={() => setUnit("litros")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
                     unit === "litros"
-                      ? "bg-amber-500 text-white"
+                      ? "bg-brand-navy text-white"
                       : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
@@ -453,7 +453,7 @@ const FuelHeavyFleet = () => {
                             type="checkbox"
                             checked={filters.unitIds.includes(Number(v.id))}
                             onChange={() => toggleUnitFilter(Number(v.id))}
-                            className="accent-amber-500"
+                            className="accent-brand-navy"
                           />
                           {v.code} - {v.name}
                         </label>
@@ -480,7 +480,7 @@ const FuelHeavyFleet = () => {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Total consumido</Label>
-              <div className="flex items-center gap-2 h-10 px-3 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-500/10 text-sm font-black text-amber-700 dark:text-amber-400">
+              <div className="flex items-center gap-2 h-10 px-3 rounded-xl border border-brand-gold/30 dark:border-brand-gold/20 bg-brand-gold/10 text-sm font-black text-brand-gold-dark dark:text-brand-gold">
                 {unit === "galones"
                   ? `${totals.gallons} gal`
                   : `${totals.liters} L`}
@@ -494,7 +494,7 @@ const FuelHeavyFleet = () => {
       <Card className="mb-6">
         <CardContent className="p-5 flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-3">
-            <Fuel size={26} className="text-amber-500 shrink-0" />
+            <Fuel size={26} className="text-brand-navy shrink-0" />
             <div>
               <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 {gasoilTank ? gasoilTank.name : "Tanque de gasoil"}
@@ -540,7 +540,7 @@ const FuelHeavyFleet = () => {
             resetForm();
             setShowForm(!showForm);
           }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-amber-500 hover:bg-amber-600 text-white transition-transform hover:scale-105 text-sm"
+          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? "Cancelar" : "Nueva Carga"}
@@ -555,9 +555,9 @@ const FuelHeavyFleet = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            <Card className="border-amber-200 dark:border-amber-500/20">
+            <Card className="border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white mb-4">
                   {editingId ? "Editar Carga Pesada" : "Registrar Carga Pesada"}
                 </h3>
 
@@ -691,7 +691,7 @@ const FuelHeavyFleet = () => {
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Foto (opcional)</Label>
-                    <label className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-amber-400 transition-colors overflow-hidden">
+                    <label className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-brand-navy-light transition-colors overflow-hidden">
                       {photoPreview ? (
                         <>
                           <img
@@ -737,7 +737,7 @@ const FuelHeavyFleet = () => {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white"
+                      className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                     >
                       {submitting
                         ? "Guardando..."
@@ -793,7 +793,7 @@ const FuelHeavyFleet = () => {
                       : "bg-slate-50/60 dark:bg-white/[0.02]"
                   }
                 >
-                  <TableCell className="text-sm font-mono text-amber-600 dark:text-amber-400">
+                  <TableCell className="text-sm font-mono text-brand-navy dark:text-brand-navy-light">
                     {r.transaction_no || "—"}
                   </TableCell>
                   <TableCell className="text-sm">{fmtDate(r.filled_at)}</TableCell>
@@ -879,7 +879,7 @@ const FuelHeavyFleet = () => {
               className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
                   Detalle de carga pesada
                 </h3>
                 <Button
@@ -938,7 +938,7 @@ const Info = ({ label, value, mono }) => (
     </p>
     <p
       className={`font-semibold text-slate-900 dark:text-white ${
-        mono ? "font-mono text-amber-600 dark:text-amber-400" : ""
+        mono ? "font-mono text-brand-navy dark:text-brand-navy-light" : ""
       }`}
     >
       {value}

@@ -258,7 +258,7 @@ const DailyEntry = () => {
       icon={CalendarClock}
       title="Control de Horas"
       subtitle={`REGISTRO DIARIO • ${new Date().toLocaleDateString()}`}
-      accentColor="orange"
+      accentColor="navy"
     >
       <Card className="mb-6">
         <CardContent className="p-6">
@@ -350,7 +350,7 @@ const DailyEntry = () => {
                             type="checkbox"
                             checked={includedIds.has(eq.id)}
                             onChange={() => toggleEquipo(eq)}
-                            className="accent-orange-500"
+                            className="accent-brand-navy"
                           />
                           {eq.code} {eq.name ? `- ${eq.name}` : ""}
                         </label>
@@ -520,7 +520,7 @@ const DailyEntry = () => {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-xl font-bold flex items-center gap-2 px-6 h-11 bg-orange-500 hover:bg-orange-600 text-white text-sm"
+            className="rounded-xl font-bold flex items-center gap-2 px-6 h-11 bg-brand-navy hover:bg-brand-navy-light text-white text-sm"
           >
             <Save size={16} />
             {saving ? "Guardando..." : "Guardar día"}

@@ -11,7 +11,7 @@ export const Dashboard = () => {
       icon={User}
       title={`Bienvenido, ${user?.username}`}
       subtitle={`PANEL DE LA URU • ${new Date().toLocaleDateString()}`}
-      accentColor="blue"
+      accentColor="navy"
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -19,8 +19,8 @@ export const Dashboard = () => {
         className="relative z-10 w-full max-w-5xl"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-8 rounded-[32px] border border-slate-100 dark:border-white/5 shadow-sm transition-all duration-300 hover:border-blue-500/30">
-            <h3 className="text-xs font-black uppercase text-blue-500 mb-3 tracking-widest">
+          <div className="bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-8 rounded-[32px] border border-slate-100 dark:border-white/5 shadow-sm transition-all duration-300 hover:border-brand-navy/30">
+            <h3 className="text-xs font-black uppercase text-brand-navy mb-3 tracking-widest">
               Estado
             </h3>
             <p className="text-3xl font-bold text-slate-900 dark:text-white">
@@ -28,8 +28,8 @@ export const Dashboard = () => {
             </p>
           </div>
 
-          <div className="bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-8 rounded-[32px] border border-slate-100 dark:border-white/5 shadow-sm transition-all duration-300 hover:border-blue-500/30">
-            <h3 className="text-xs font-black uppercase text-blue-500 mb-3 tracking-widest">
+          <div className="bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-8 rounded-[32px] border border-slate-100 dark:border-white/5 shadow-sm transition-all duration-300 hover:border-brand-navy/30">
+            <h3 className="text-xs font-black uppercase text-brand-navy mb-3 tracking-widest">
               Usuario ID
             </h3>
             <p className="text-3xl font-bold italic text-slate-900 dark:text-white">
@@ -37,8 +37,8 @@ export const Dashboard = () => {
             </p>
           </div>
 
-          <div className="bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-8 rounded-[32px] border border-slate-100 dark:border-white/5 shadow-sm flex items-center justify-center transition-all duration-300 hover:border-blue-500/30">
-            <LayoutDashboard size={48} className="text-blue-600/20" />
+          <div className="bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-8 rounded-[32px] border border-slate-100 dark:border-white/5 shadow-sm flex items-center justify-center transition-all duration-300 hover:border-brand-navy/30">
+            <LayoutDashboard size={48} className="text-brand-navy/20" />
           </div>
         </div>
       </motion.div>

@@ -388,14 +388,14 @@ const FuelLightFleet = () => {
       icon={Fuel}
       title="Combustible · Flota Liviana"
       subtitle={`GESTIÓN DE COMBUSTIBLE • ${new Date().toLocaleDateString()}`}
-      accentColor="orange"
+      accentColor="navy"
     >
       {/* ---------- Barra de filtros ---------- */}
       <Card className="mb-6">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
-              <Filter size={16} className="text-orange-500" /> Filtrar
+              <Filter size={16} className="text-brand-navy" /> Filtrar
             </h3>
             <div className="flex gap-2">
               <Button
@@ -469,7 +469,7 @@ const FuelLightFleet = () => {
                             type="checkbox"
                             checked={filters.unitIds.includes(Number(v.id))}
                             onChange={() => toggleUnitFilter(Number(v.id))}
-                            className="accent-orange-500"
+                            className="accent-brand-navy"
                           />
                           {v.code} - {v.name}
                         </label>
@@ -529,7 +529,7 @@ const FuelLightFleet = () => {
             resetForm();
             setShowForm(!showForm);
           }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-orange-500 hover:bg-orange-600 text-white transition-transform hover:scale-105 text-sm"
+          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? "Cancelar" : "Nuevo Llenado"}
@@ -544,9 +544,9 @@ const FuelLightFleet = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            <Card className="border-orange-200 dark:border-orange-500/20">
+            <Card className="border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white mb-4">
                   {editingId ? "Editar Llenado" : "Registrar Llenado de Combustible"}
                 </h3>
 
@@ -723,7 +723,7 @@ const FuelLightFleet = () => {
                       )}
                     </Label>
                     <label
-                      className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-orange-400 transition-colors overflow-hidden"
+                      className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-brand-navy-light transition-colors overflow-hidden"
                     >
                       {photoPreview ? (
                         <>
@@ -770,7 +770,7 @@ const FuelLightFleet = () => {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                      className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                     >
                       {submitting
                         ? "Guardando..."
@@ -851,7 +851,7 @@ const FuelLightFleet = () => {
                       : "bg-slate-50/60 dark:bg-white/[0.02]"
                   }
                 >
-                  <TableCell className="text-sm font-mono text-orange-600 dark:text-orange-400">
+                  <TableCell className="text-sm font-mono text-brand-navy dark:text-brand-navy-light">
                     {r.transaction_no || "—"}
                   </TableCell>
                   <TableCell className="text-sm">{fmtDate(r.filled_at)}</TableCell>
@@ -939,7 +939,7 @@ const FuelLightFleet = () => {
               className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
                   Detalle de llenado
                 </h3>
                 <Button
@@ -1033,7 +1033,7 @@ const Info = ({ label, value, mono }) => (
     </p>
     <p
       className={`font-semibold text-slate-900 dark:text-white capitalize ${
-        mono ? "font-mono text-orange-600 dark:text-orange-400" : ""
+        mono ? "font-mono text-brand-navy dark:text-brand-navy-light" : ""
       }`}
     >
       {value}

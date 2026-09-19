@@ -126,12 +126,12 @@ const Vehicles = () => {
       icon={Truck}
       title="Unidades"
       subtitle={`GESTIÓN DE VEHÍCULOS • ${new Date().toLocaleDateString()}`}
-      accentColor="orange"
+      accentColor="navy"
     >
       <div className="flex justify-end mb-4">
         <Button
           onClick={() => { resetForm(); setShowForm(!showForm); }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-orange-500 hover:bg-orange-600 text-white transition-transform hover:scale-105 text-sm"
+          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? "Cancelar" : "Nueva Unidad"}
@@ -146,9 +146,9 @@ const Vehicles = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            <Card className="border-orange-200 dark:border-orange-500/20">
+            <Card className="border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white mb-4">
                   {editingId ? "Editar Unidad" : "Nueva Unidad"}
                 </h3>
 
@@ -225,7 +225,7 @@ const Vehicles = () => {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                      className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                     >
                       {submitting ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
                     </Button>
@@ -276,7 +276,7 @@ const Vehicles = () => {
                   <TableCell className="text-sm">{v.plate || "-"}</TableCell>
                   <TableCell className="text-sm">{v.tank_capacity_liters ? `${v.tank_capacity_liters}L` : "-"}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "pesada" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"}`}>
+                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "pesada" ? "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold" : "bg-brand-navy/10 text-brand-navy dark:text-brand-navy-light"}`}>
                       {v.fleet_type === "pesada" ? "Pesada" : "Liviana"}
                     </span>
                   </TableCell>

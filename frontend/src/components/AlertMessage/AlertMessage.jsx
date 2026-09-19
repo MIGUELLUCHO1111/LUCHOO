@@ -66,7 +66,7 @@ export const AlertMessage = ({
         </div>
       </motion.div>
 
-      <h1 className="text-xl font-extrabold tracking-tight mb-2 text-slate-900 dark:text-white">
+      <h1 className="font-display text-xl tracking-tight mb-2 text-slate-900 dark:text-white">
         {title}
       </h1>
 

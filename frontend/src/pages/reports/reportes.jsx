@@ -17,7 +17,12 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { fuelService, hoursService } from "@/services";
 import { veTodayISO, formatFechaISO } from "@/lib/trackerFormat";
 
-const PALETTE = ["#3b82f6", "#8b5cf6", "#06b6d4", "#f59e0b", "#10b981", "#ef4444", "#ec4899", "#9ca3af"];
+// Paleta categórica de marca para las donas (navy + dorado Fullpetro, con
+// tonos de apoyo neutros/oscuros para cuando un gráfico necesita más de 3-4
+// series) -- reemplaza la paleta genérica azul/violeta/verde/rojo anterior.
+// Los índices se mantienen (0 y 3 para Liviana/Pesada, 4 y 5 para Cobro
+// Completo/Stand-By, el resto para el ciclo por vehículo de "Gasto en USD").
+const PALETTE = ["#144763", "#191919", "#0d3549", "#ffcc00", "#1d5c7f", "#e0b400", "#64748b", "#a8842a"];
 
 // Aritmética de fechas "puras" (YYYY-MM-DD) anclada a medianoche UTC, igual
 // que en dailyEntry.jsx -- evita que un new Date(iso) local se corra un día
@@ -211,7 +216,7 @@ const Reports = () => {
   const horasTotalHrs = horasTotals.cobro_completo + horasTotals.standby;
 
   return (
-    <PageLayout icon={FileText} title="Reportes" maxWidth="max-w-7xl" accentColor="orange">
+    <PageLayout icon={FileText} title="Reportes" maxWidth="max-w-7xl">
       <div className="flex flex-col gap-8">
         {/* ---------- Filtro de fechas ---------- */}
         <Card>
@@ -250,7 +255,7 @@ const Reports = () => {
                 />
               </div>
               {filterType === "personalizado" && (
-                <Button onClick={() => loadSummary()} className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white">
+                <Button onClick={() => loadSummary()} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">
                   Aplicar
                 </Button>
               )}
@@ -262,7 +267,7 @@ const Reports = () => {
         {/* ---------- Donas ---------- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start justify-items-center">
           <div className="w-full max-w-lg flex flex-col items-center gap-4">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
+            <h3 className="text-sm font-display uppercase tracking-widest text-slate-900 dark:text-white">
               Combustible por Flota
             </h3>
             <Card className="w-full">
@@ -296,7 +301,7 @@ const Reports = () => {
           </div>
 
           <div className="w-full max-w-lg flex flex-col items-center gap-4">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
+            <h3 className="text-sm font-display uppercase tracking-widest text-slate-900 dark:text-white">
               Gasto en USD por Vehículo
             </h3>
             <Card className="w-full">
@@ -363,7 +368,7 @@ const Reports = () => {
                     <TableCell className="font-mono font-bold text-slate-900 dark:text-white">{v.code}</TableCell>
                     <TableCell>{v.name}</TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "pesada" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-orange-500/10 text-orange-600 dark:text-orange-400"}`}>
+                      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "pesada" ? "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold" : "bg-brand-navy/10 text-brand-navy dark:text-brand-navy-light"}`}>
                         {v.fleet_type === "pesada" ? "Pesada" : "Liviana"}
                       </span>
                     </TableCell>
@@ -382,7 +387,7 @@ const Reports = () => {
         {/* ---------- Control de Horas: cobro completo vs stand-by ---------- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start justify-items-center">
           <div className="w-full max-w-lg flex flex-col items-center gap-4">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
+            <h3 className="text-sm font-display uppercase tracking-widest text-slate-900 dark:text-white">
               Control de Horas — Cobro Completo vs Stand-By
             </h3>
             <Card className="w-full">
@@ -416,7 +421,7 @@ const Reports = () => {
           </div>
 
           <div className="w-full max-w-lg flex flex-col items-center gap-4">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
+            <h3 className="text-sm font-display uppercase tracking-widest text-slate-900 dark:text-white">
               Horas por Proyecto
             </h3>
             <Card className="w-full overflow-hidden">
@@ -505,7 +510,7 @@ const Reports = () => {
 
         {/* ---------- Control de Horas: resumen día por día (todos los días del rango) ---------- */}
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
+          <h3 className="text-sm font-display uppercase tracking-widest text-slate-900 dark:text-white">
             Control de Horas — Resumen por Día
           </h3>
           <Card className="w-full overflow-hidden">
@@ -558,7 +563,7 @@ const Reports = () => {
 
         {/* ---------- Control de Horas: detalle de un día por equipo (solo lectura) ---------- */}
         <div className="flex flex-col gap-3">
-          <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
+          <h3 className="text-sm font-display uppercase tracking-widest text-slate-900 dark:text-white">
             Control de Horas — Detalle de un Día
           </h3>
           <Card className="w-full">

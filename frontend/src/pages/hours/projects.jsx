@@ -224,12 +224,12 @@ const Projects = () => {
       icon={FolderKanban}
       title="Proyectos"
       subtitle={`CONTROL DE HORAS • ${new Date().toLocaleDateString()}`}
-      accentColor="orange"
+      accentColor="navy"
     >
       <div className="flex justify-end mb-4">
         <Button
           onClick={() => { resetForm(); setShowForm(!showForm); }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-orange-500 hover:bg-orange-600 text-white transition-transform hover:scale-105 text-sm"
+          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? "Cancelar" : "Nuevo Proyecto"}
@@ -244,9 +244,9 @@ const Projects = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            <Card className="border-orange-200 dark:border-orange-500/20">
+            <Card className="border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white mb-4">
                   {editingId ? "Editar Proyecto" : "Nuevo Proyecto"}
                 </h3>
 
@@ -317,7 +317,7 @@ const Projects = () => {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                      className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                     >
                       {submitting ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
                     </Button>
@@ -359,7 +359,7 @@ const Projects = () => {
                   <TableCell className="text-sm">{p.company_name}</TableCell>
                   <TableCell className="font-bold text-slate-900 dark:text-white text-sm">{p.name}</TableCell>
                   <TableCell>
-                    <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-orange-500/10 text-orange-600 dark:text-orange-400 capitalize">
+                    <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-brand-navy/10 text-brand-navy dark:text-brand-navy-light capitalize">
                       {p.tipo}
                     </span>
                   </TableCell>
@@ -374,7 +374,7 @@ const Projects = () => {
                         variant="outline"
                         size="icon"
                         onClick={() => openEquipos(p)}
-                        className="h-8 w-8 rounded-lg text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-500/10"
+                        className="h-8 w-8 rounded-lg text-brand-navy hover:text-brand-navy-light hover:bg-brand-navy/10 dark:hover:bg-brand-navy-light/10"
                         title="Equipos asignados a este proyecto"
                       >
                         <Wrench size={14} />
@@ -383,7 +383,7 @@ const Projects = () => {
                         variant="outline"
                         size="icon"
                         onClick={() => openAccess(p)}
-                        className="h-8 w-8 rounded-lg text-orange-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-500/10"
+                        className="h-8 w-8 rounded-lg text-brand-navy hover:text-brand-navy-light hover:bg-brand-navy/10 dark:hover:bg-brand-navy-light/10"
                         title="Quién puede rellenar este proyecto"
                       >
                         <Users size={14} />
@@ -426,7 +426,7 @@ const Projects = () => {
               className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
                   Acceso a {managingAccess.name}
                 </h3>
                 <Button variant="ghost" size="icon" onClick={() => setManagingAccess(null)} className="h-8 w-8">
@@ -453,7 +453,7 @@ const Projects = () => {
                       type="checkbox"
                       checked={assignedProfiles.includes(pr.name)}
                       onChange={() => toggleProfileAccess(pr.name)}
-                      className="accent-orange-500"
+                      className="accent-brand-navy"
                     />
                     {pr.name}
                   </label>
@@ -466,7 +466,7 @@ const Projects = () => {
               </div>
 
               <div className="flex justify-end mt-4">
-                <Button type="button" onClick={() => setManagingAccess(null)} className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white">
+                <Button type="button" onClick={() => setManagingAccess(null)} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">
                   Cerrar
                 </Button>
               </div>
@@ -493,7 +493,7 @@ const Projects = () => {
               className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
                   Equipos de {managingEquipos.name}
                 </h3>
                 <Button variant="ghost" size="icon" onClick={() => setManagingEquipos(null)} className="h-8 w-8">
@@ -526,7 +526,7 @@ const Projects = () => {
                         checked={assignedHere}
                         disabled={isToggling}
                         onChange={() => toggleEquipoAssignment(eq)}
-                        className="accent-orange-500"
+                        className="accent-brand-navy"
                       />
                       <span>
                         {eq.code} {eq.name ? `- ${eq.name}` : ""}
@@ -545,7 +545,7 @@ const Projects = () => {
               </div>
 
               <div className="flex justify-end mt-4">
-                <Button type="button" onClick={() => setManagingEquipos(null)} className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white">
+                <Button type="button" onClick={() => setManagingEquipos(null)} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">
                   Cerrar
                 </Button>
               </div>

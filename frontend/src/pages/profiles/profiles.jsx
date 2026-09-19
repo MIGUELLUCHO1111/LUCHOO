@@ -301,7 +301,7 @@ const Profiles = () => {
       icon={ShieldCheck}
       title="Perfiles"
       subtitle={`ROLES Y ACCESOS • ${new Date().toLocaleDateString()}`}
-      accentColor="orange"
+      accentColor="navy"
     >
       {banner && (
         <div className="mb-6 p-3 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm flex items-center justify-between gap-4">
@@ -350,7 +350,7 @@ const Profiles = () => {
                 >
                   <form
                     onSubmit={handleSubmit}
-                    className="rounded-xl border border-orange-200 dark:border-orange-500/20 p-4 space-y-3"
+                    className="rounded-xl border border-brand-navy/20 dark:border-brand-navy-light/20 p-4 space-y-3"
                   >
                     <div className="flex flex-col gap-1.5">
                       <Label className="text-sm font-bold">Nombre del rol *</Label>
@@ -398,7 +398,7 @@ const Profiles = () => {
                             return (
                               <label
                                 key={optionId}
-                                className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-500/40 cursor-pointer text-sm"
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-brand-navy/40 dark:hover:border-brand-navy-light/40 cursor-pointer text-sm"
                               >
                                 <input
                                   type="checkbox"
@@ -409,7 +409,7 @@ const Profiles = () => {
                                       [optionId]: e.target.checked,
                                     })
                                   }
-                                  className="accent-orange-500 h-4 w-4"
+                                  className="accent-brand-navy h-4 w-4"
                                 />
                                 {s.description || s.name}
                               </label>
@@ -433,7 +433,7 @@ const Profiles = () => {
                         type="submit"
                         disabled={submitting}
                         size="sm"
-                        className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                        className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                       >
                         {submitting
                           ? "Guardando..."
@@ -520,7 +520,7 @@ const Profiles = () => {
         <Card className="overflow-hidden">
           <CardContent className="p-5">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-              <UserCog size={16} className="text-orange-500" /> Asignar roles a
+              <UserCog size={16} className="text-brand-navy" /> Asignar roles a
               usuarios
             </h3>
 
@@ -559,7 +559,7 @@ const Profiles = () => {
               >
                 <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Roles para{" "}
-                  <span className="text-orange-600 dark:text-orange-400">
+                  <span className="text-brand-navy dark:text-brand-navy-light">
                     {selectedUser?.first_name} {selectedUser?.last_name}
                   </span>
                 </p>
@@ -567,7 +567,7 @@ const Profiles = () => {
                   {roles.map((r) => (
                     <label
                       key={r.id}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-orange-300 dark:hover:border-orange-500/40 cursor-pointer transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-brand-navy/40 dark:hover:border-brand-navy-light/40 cursor-pointer transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -575,7 +575,7 @@ const Profiles = () => {
                         onChange={(e) =>
                           setAssigningSel({ ...assigningSel, [r.id]: e.target.checked })
                         }
-                        className="accent-orange-500 h-4 w-4"
+                        className="accent-brand-navy h-4 w-4"
                       />
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-slate-900 dark:text-white">
@@ -593,7 +593,7 @@ const Profiles = () => {
                 <Button
                   onClick={saveAssignment}
                   disabled={savingAssignment}
-                  className="mt-4 w-full rounded-xl bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2"
+                  className="mt-4 w-full rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white flex items-center gap-2"
                 >
                   <Save size={16} />
                   {savingAssignment ? "Guardando..." : "Guardar asignación"}

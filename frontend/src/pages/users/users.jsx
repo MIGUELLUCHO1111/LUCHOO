@@ -234,7 +234,7 @@ const Users = () => {
       icon={UserCog}
       title="Usuarios"
       subtitle={`USUARIOS DEL SISTEMA • ${new Date().toLocaleDateString()}`}
-      accentColor="orange"
+      accentColor="navy"
     >
       {banner && (
         <div className="mb-6 p-3 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm flex items-center justify-between gap-4">
@@ -255,7 +255,7 @@ const Users = () => {
             resetForm();
             setShowForm(!showForm);
           }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-orange-500 hover:bg-orange-600 text-white transition-transform hover:scale-105 text-sm"
+          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? "Cancelar" : "Nuevo Usuario"}
@@ -270,9 +270,9 @@ const Users = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            <Card className="border-orange-200 dark:border-orange-500/20">
+            <Card className="border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white mb-1">
                   {editingId ? "Editar Usuario" : "Registrar Usuario"}
                 </h3>
                 <p className="text-xs text-slate-400 mb-4">
@@ -435,7 +435,7 @@ const Users = () => {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                      className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                     >
                       {submitting
                         ? "Guardando..."
@@ -494,7 +494,7 @@ const Users = () => {
                   </TableCell>
                   <TableCell className="text-sm">{u.email || "-"}</TableCell>
                   <TableCell className="text-sm">
-                    <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold">
                       {roleName(u.profile_id) || u.profile_name || "-"}
                     </span>
                   </TableCell>
