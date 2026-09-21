@@ -37,8 +37,10 @@ class Snapshot {
 
     const registryResult = await this.dbms.executeNamedQuery({ nameQuery: 'getAllTrackerUnits' });
     const byPlate = new Map();
+    const byCode = new Map();
     for (const u of registryResult?.rows || []) {
       if (u.plate) byPlate.set(String(u.plate).trim().toUpperCase(), u);
+      if (u.code) byCode.set(String(u.code).trim().toUpperCase(), u);
     }
 
     const now = Date.now();
@@ -64,18 +66,44 @@ class Snapshot {
       // desde Gestión de Unidades.
       if (!unit && plateKey && raw.Name) {
         const code = String(raw.Name).trim();
-        try {
-          const createResult = await this.dbms.executeNamedQuery({
-            nameQuery: 'createTrackerUnit',
-            params: { code, plate, driver_name: 'ROTATIVO', fleet_type: null },
-          });
-          unit = createResult?.rows?.[0];
-          if (unit) {
+        const codeKey = code.toUpperCase();
+        // El cruce de arriba es solo por placa: varias unidades ya existían
+        // en el registro con código pero sin placa (creadas a mano antes de
+        // tener este dato). Si no matcheó por placa pero SÍ existe por
+        // código, es esa misma unidad -- rellenar la placa que faltaba, no
+        // intentar crear una fila nueva (choca con la restricción única del
+        // código y quedaba sin auto-registrar en cada sync, en silencio).
+        const existingByCode = byCode.get(codeKey);
+        if (existingByCode) {
+          try {
+            const updateResult = await this.dbms.executeNamedQuery({
+              nameQuery: 'setTrackerUnitPlateIfMissing',
+              params: { code, plate },
+            });
+            unit = updateResult?.rows?.[0] || existingByCode;
             byPlate.set(plateKey, unit);
-            console.log(`[Tracker] Unidad nueva auto-registrada: ${code} (placa ${plate})`);
+            if (updateResult?.rows?.[0]) {
+              console.log(`[Tracker] Placa completada para unidad existente: ${code} (placa ${plate})`);
+            }
+          } catch (error) {
+            console.error(`[Tracker] No se pudo completar la placa de la unidad ${code} (placa ${plate}):`, error?.message || error);
+            unit = existingByCode;
           }
-        } catch (error) {
-          console.error(`[Tracker] No se pudo auto-registrar la unidad ${code} (placa ${plate}):`, error?.message || error);
+        } else {
+          try {
+            const createResult = await this.dbms.executeNamedQuery({
+              nameQuery: 'createTrackerUnit',
+              params: { code, plate, driver_name: 'ROTATIVO', fleet_type: null },
+            });
+            unit = createResult?.rows?.[0];
+            if (unit) {
+              byPlate.set(plateKey, unit);
+              byCode.set(codeKey, unit);
+              console.log(`[Tracker] Unidad nueva auto-registrada: ${code} (placa ${plate})`);
+            }
+          } catch (error) {
+            console.error(`[Tracker] No se pudo auto-registrar la unidad ${code} (placa ${plate}):`, error?.message || error);
+          }
         }
       }
       if (unit) matched += 1;

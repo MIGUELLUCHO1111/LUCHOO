@@ -883,6 +883,18 @@
     orderArray: ['id', 'plate', 'driver_name', 'is_active', 'fleet_type']
   },
 
+  # Usada solo por el auto-registro de Snapshot.syncNow: una unidad ya
+  # existente por código pero sin placa (creada a mano antes de que la API
+  # confirmara una) -- rellena solo la placa, sin tocar driver_name/
+  # is_active/fleet_type como sí hace updateTrackerUnit (que requiere
+  # mandarlos todos y pisaría lo que ya tenía la unidad con valores por
+  # defecto). El WHERE plate IS NULL la hace segura de reintentar.
+  'setTrackerUnitPlateIfMissing': {
+    query: 'UPDATE public.tracker_unit SET plate = $2 WHERE code = $1 AND plate IS NULL AND deleted_at IS NULL RETURNING id, code, plate, driver_name, is_active, fleet_type;',
+    structure_params: { code: 'string', plate: 'string' },
+    orderArray: ['code', 'plate']
+  },
+
   'deleteTrackerUnit': {
     query: 'UPDATE public.tracker_unit SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
     structure_params: { id: 'int' },
