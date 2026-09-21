@@ -130,22 +130,19 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Horas', class_name: 'Empresa', method_name: 'updateEmpresa' },
     { sub_system: 'Horas', class_name: 'Empresa', method_name: 'deleteEmpresa' },
   ],
+  // Solo lectura a propósito: create/update/delete/asignarPerfil/
+  // quitarPerfil/getPerfilesAsignados y la gestión de Equipo quedaron
+  // fuera de esta lista porque Julio pidió que un perfil nuevo (no-admin)
+  // con acceso a Proyectos solo pueda VER sus proyectos, nunca editarlos,
+  // eliminarlos ni tocar quién tiene acceso a ellos -- eso sigue siendo
+  // solo de admin (que no depende de esta lista, ya tiene su propio
+  // acceso directo vía permission.csv). Si algún día hace falta un perfil
+  // "gestor de proyectos" con más permisos, se vuelve a evaluar entonces.
   '/hours/projects': [
-    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'createProyecto' },
     { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectoById' },
     { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getAllProyectos' },
-    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'updateProyecto' },
-    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'deleteProyecto' },
     { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectosByEmpresa' },
     { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getAllEmpresas' },
-    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'asignarPerfil' },
-    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'quitarPerfil' },
-    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getPerfilesAsignados' },
-    // La asignación de equipos se gestiona desde esta página (desplegable
-    // por proyecto), no desde Equipos -- de ahí estos 3 métodos de Equipo.
-    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'getAllEquipos' },
-    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'asignarAProyecto' },
-    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'quitarAsignacion' },
   ],
   '/hours/equipment': [
     { sub_system: 'Horas', class_name: 'Equipo', method_name: 'createEquipo' },

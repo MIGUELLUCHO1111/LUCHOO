@@ -1157,33 +1157,33 @@
   # ---------- Proyecto ----------
 
   'createProyecto': {
-    query: 'INSERT INTO public.project (company_id, name, tipo) VALUES ($1, $2, $3) RETURNING id, company_id, name, tipo, is_active;',
-    structure_params: { company_id: 'int', name: 'string', tipo: 'string' },
-    orderArray: ['company_id', 'name', 'tipo']
+    query: 'INSERT INTO public.project (company_id, name, tipo, responsible_person_id) VALUES ($1, $2, $3, $4) RETURNING id, company_id, name, tipo, is_active, responsible_person_id;',
+    structure_params: { company_id: 'int', name: 'string', tipo: 'string', responsible_person_id: 'int|null' },
+    orderArray: ['company_id', 'name', 'tipo', 'responsible_person_id']
   },
 
   'getProyectoById': {
-    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active FROM public.project p JOIN public.company c ON c.id = p.company_id WHERE p.id = $1 AND p.deleted_at IS NULL;',
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active, p.responsible_person_id, resp.first_name || '' '' || resp.last_name AS responsible_name, resp.degree AS responsible_degree FROM public.project p JOIN public.company c ON c.id = p.company_id LEFT JOIN public.person resp ON resp.id = p.responsible_person_id WHERE p.id = $1 AND p.deleted_at IS NULL;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
 
   'getAllProyectos': {
-    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active FROM public.project p JOIN public.company c ON c.id = p.company_id WHERE p.deleted_at IS NULL ORDER BY c.name, p.name;',
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active, p.responsible_person_id, resp.first_name || '' '' || resp.last_name AS responsible_name, resp.degree AS responsible_degree FROM public.project p JOIN public.company c ON c.id = p.company_id LEFT JOIN public.person resp ON resp.id = p.responsible_person_id WHERE p.deleted_at IS NULL ORDER BY c.name, p.name;',
     structure_params: {},
     orderArray: []
   },
 
   'getProyectosByEmpresa': {
-    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active FROM public.project p JOIN public.company c ON c.id = p.company_id WHERE p.company_id = $1 AND p.deleted_at IS NULL ORDER BY p.name;',
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active, p.responsible_person_id, resp.first_name || '' '' || resp.last_name AS responsible_name, resp.degree AS responsible_degree FROM public.project p JOIN public.company c ON c.id = p.company_id LEFT JOIN public.person resp ON resp.id = p.responsible_person_id WHERE p.company_id = $1 AND p.deleted_at IS NULL ORDER BY p.name;',
     structure_params: { company_id: 'int' },
     orderArray: ['company_id']
   },
 
   'updateProyecto': {
-    query: 'UPDATE public.project SET name = $2, tipo = $3, is_active = $4 WHERE id = $1 AND deleted_at IS NULL RETURNING id, company_id, name, tipo, is_active;',
-    structure_params: { id: 'int', name: 'string', tipo: 'string', is_active: 'boolean' },
-    orderArray: ['id', 'name', 'tipo', 'is_active']
+    query: 'UPDATE public.project SET name = $2, tipo = $3, is_active = $4, responsible_person_id = $5 WHERE id = $1 AND deleted_at IS NULL RETURNING id, company_id, name, tipo, is_active, responsible_person_id;',
+    structure_params: { id: 'int', name: 'string', tipo: 'string', is_active: 'boolean', responsible_person_id: 'int|null' },
+    orderArray: ['id', 'name', 'tipo', 'is_active', 'responsible_person_id']
   },
 
   'deleteProyecto': {

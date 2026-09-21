@@ -11,7 +11,7 @@ class Proyecto {
     this.dbmsReady = this.dbms.init();
   }
 
-  createProyecto = async ({ company_id, name, tipo }) => {
+  createProyecto = async ({ company_id, name, tipo, responsible_person_id = null }) => {
     await this.dbmsReady;
 
     if (!company_id || !name || !tipo) {
@@ -23,14 +23,14 @@ class Proyecto {
 
     const result = await this.dbms.executeNamedQuery({
       nameQuery: 'createProyecto',
-      params: { company_id, name, tipo },
+      params: { company_id, name, tipo, responsible_person_id },
     });
 
     const proyecto = result?.rows?.[0];
     return { statusCode: STATUS_CODES.CREATED, data: proyecto, message: 'Proyecto creado exitosamente' };
   };
 
-  getProyectoById = async ({ id }) => {
+  getProyectoById = async ({ id, caller_profile }) => {
     await this.dbmsReady;
 
     if (!id) {
@@ -39,6 +39,8 @@ class Proyecto {
         statusCode: STATUS_CODES.BAD_REQUEST,
       }));
     }
+
+    await assertProjectAccess(this.dbms, { caller_profile, project_id: id });
 
     const result = await this.dbms.executeNamedQuery({
       nameQuery: 'getProyectoById',
@@ -172,7 +174,7 @@ class Proyecto {
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
   };
 
-  updateProyecto = async ({ id, name, tipo, is_active }) => {
+  updateProyecto = async ({ id, name, tipo, is_active, responsible_person_id = null }) => {
     await this.dbmsReady;
 
     if (!id || !name || !tipo) {
@@ -184,7 +186,7 @@ class Proyecto {
 
     const result = await this.dbms.executeNamedQuery({
       nameQuery: 'updateProyecto',
-      params: { id, name, tipo, is_active: is_active !== false },
+      params: { id, name, tipo, is_active: is_active !== false, responsible_person_id },
     });
 
     const proyecto = result?.rows?.[0];

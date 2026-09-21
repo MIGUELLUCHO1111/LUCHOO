@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FolderKanban, Plus, X, Pencil, Trash2, Users, Wrench } from "lucide-react";
-import { hoursService, profileService } from "@/services";
+import { hoursService, profileService, personService } from "@/services";
 import { veTodayISO } from "@/lib/trackerFormat";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { useConfirm } from "@/context";
+import { useAuth, useConfirm } from "@/context";
 
 // Único tipo de proyecto con variables confirmadas por ahora (ver
 // ROADMAP_HORAS_RENTABILIDAD.md) -- se agregan más opciones cuando llegue
@@ -25,9 +25,18 @@ import { useConfirm } from "@/context";
 const TIPOS_PROYECTO = [{ value: "izamiento", label: "Izamiento" }];
 
 const Projects = () => {
+  const { user } = useAuth();
   const confirm = useConfirm();
+  // Solo admin crea/edita/elimina proyectos o gestiona su acceso -- un
+  // perfil restringido con esta sección concedida solo puede ver sus
+  // proyectos (el backend ya lo hace cumplir en paralelo: ver
+  // SECTION_PERMISSIONS['/hours/projects'] en option.js, que a partir de
+  // ahora no le da esos métodos a ningún perfil que no sea admin).
+  const isAdmin = user?.profiles?.some((p) => p.name === "admin");
+
   const [projects, setProjects] = useState([]);
   const [companies, setCompanies] = useState([]);
+  const [persons, setPersons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -39,6 +48,7 @@ const Projects = () => {
     name: "",
     tipo: TIPOS_PROYECTO[0].value,
     is_active: true,
+    responsible_person_id: "",
   });
 
   useEffect(() => {
@@ -58,10 +68,24 @@ const Projects = () => {
     } finally {
       setLoading(false);
     }
+
+    // Personas solo hace falta para el <select> de Responsable, que es
+    // admin-only -- un perfil restringido no tiene permiso sobre
+    // Security.Person.getAllPersons (no está en ninguna sección que se le
+    // pueda otorgar hoy), así que ni se pide para no romper el resto de
+    // la carga de la página con un 403.
+    if (isAdmin) {
+      try {
+        const personsRes = await personService.getAll();
+        setPersons(Array.isArray(personsRes) ? personsRes : []);
+      } catch (err) {
+        console.error("Error cargando personas:", err);
+      }
+    }
   };
 
   const resetForm = () => {
-    setForm({ company_id: "", name: "", tipo: TIPOS_PROYECTO[0].value, is_active: true });
+    setForm({ company_id: "", name: "", tipo: TIPOS_PROYECTO[0].value, is_active: true, responsible_person_id: "" });
     setEditingId(null);
     setShowForm(false);
     setError(null);
@@ -73,6 +97,7 @@ const Projects = () => {
       name: project.name,
       tipo: project.tipo,
       is_active: project.is_active,
+      responsible_person_id: project.responsible_person_id ? String(project.responsible_person_id) : "",
     });
     setEditingId(project.id);
     setShowForm(true);
@@ -84,18 +109,22 @@ const Projects = () => {
     setSubmitting(true);
     setError(null);
 
+    const responsible_person_id = form.responsible_person_id ? Number(form.responsible_person_id) : null;
+
     try {
       if (editingId) {
         await hoursService.updateProyecto(editingId, {
           name: form.name,
           tipo: form.tipo,
           is_active: form.is_active,
+          responsible_person_id,
         });
       } else {
         await hoursService.createProyecto({
           company_id: Number(form.company_id),
           name: form.name,
           tipo: form.tipo,
+          responsible_person_id,
         });
       }
       resetForm();
@@ -226,18 +255,20 @@ const Projects = () => {
       subtitle={`CONTROL DE HORAS • ${new Date().toLocaleDateString()}`}
       accentColor="navy"
     >
-      <div className="flex justify-end mb-4">
-        <Button
-          onClick={() => { resetForm(); setShowForm(!showForm); }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
-        >
-          {showForm ? <X size={16} /> : <Plus size={16} />}
-          {showForm ? "Cancelar" : "Nuevo Proyecto"}
-        </Button>
-      </div>
+      {isAdmin && (
+        <div className="flex justify-end mb-4">
+          <Button
+            onClick={() => { resetForm(); setShowForm(!showForm); }}
+            className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
+          >
+            {showForm ? <X size={16} /> : <Plus size={16} />}
+            {showForm ? "Cancelar" : "Nuevo Proyecto"}
+          </Button>
+        </div>
+      )}
 
       <AnimatePresence>
-        {showForm && (
+        {isAdmin && showForm && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -297,6 +328,22 @@ const Projects = () => {
                     </select>
                   </div>
 
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-sm font-bold">Responsable</Label>
+                    <select
+                      value={form.responsible_person_id}
+                      onChange={(e) => setForm({ ...form, responsible_person_id: e.target.value })}
+                      className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
+                    >
+                      <option value="">Sin responsable</option>
+                      {persons.map((p) => (
+                        <option key={p.person_id} value={p.person_id}>
+                          {p.first_name} {p.last_name}{p.degree ? ` — ${p.degree}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {editingId && (
                     <div className="flex flex-col gap-1.5">
                       <Label className="text-sm font-bold">Activo</Label>
@@ -337,19 +384,20 @@ const Projects = () => {
               <TableHead>Proyecto</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead>Responsable</TableHead>
+              {isAdmin && <TableHead className="text-right">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-slate-400">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : projects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                <TableCell colSpan={isAdmin ? 6 : 5} className="text-center py-8 text-slate-400">
                   No hay proyectos registrados
                 </TableCell>
               </TableRow>
@@ -368,6 +416,19 @@ const Projects = () => {
                       {p.is_active ? "Activo" : "Inactivo"}
                     </span>
                   </TableCell>
+                  <TableCell className="text-sm">
+                    {p.responsible_name ? (
+                      <span>
+                        {p.responsible_name}
+                        {p.responsible_degree && (
+                          <span className="text-slate-400"> — {p.responsible_degree}</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </TableCell>
+                  {isAdmin && (
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button
@@ -401,6 +462,7 @@ const Projects = () => {
                       </Button>
                     </div>
                   </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
