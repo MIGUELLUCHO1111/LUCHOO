@@ -33,7 +33,7 @@ export const ResetLayout = () => {
         <AlertMessage 
           type="success"
           title="Â¡Clave Actualizada!"
-          message="Tu contraseÃ±a ha sido cambiada con Ã©xito. Ya puedes iniciar sesiÃ³n."
+          message="Tu contraseña ha sido cambiada con éxito. Ya puedes iniciar sesión."
           buttonText="Ir al Login"
           onConfirm={() => navigate("/login")}
         />
@@ -56,7 +56,7 @@ export const ResetLayout = () => {
       <div className="fixed top-8 left-8 right-8 flex justify-between items-center z-50">
         <img
           src={theme === "light" ? LogoLight : LogoDark}
-          alt="Logo URU"
+          alt="Logo Fullpetro"
           className="h-10 w-auto object-contain"
         />
         <Button
@@ -87,12 +87,12 @@ export const ResetLayout = () => {
         className="relative z-10 w-full max-w-md px-6 flex justify-center"
       >
         <AuthForm 
-          title="Nueva ContraseÃ±a"
-          subtitle="Define tu nueva clave de acceso para URU"
+          title="Nueva Contraseña"
+          subtitle="Define tu nueva clave de acceso para Fullpetro"
           schema={resetPasswordSchema}
           fields={[
-            { name: "password", label: "ContraseÃ±a", type: "password", placeholder: "â€¢â€¢â€¢â€¢â€¢â€¢", icon: <Lock size={14}/> },
-            { name: "confirmPassword", label: "Confirmar", type: "password", placeholder: "â€¢â€¢â€¢â€¢â€¢â€¢", icon: <Lock size={14}/> }
+            { name: "password", label: "Contraseña", type: "password", placeholder: "••••••", icon: <Lock size={14}/> },
+            { name: "confirmPassword", label: "Confirmar", type: "password", placeholder: "••••••", icon: <Lock size={14}/> }
           ]}
           onSubmit={onSubmit}
           submitText="Restablecer"

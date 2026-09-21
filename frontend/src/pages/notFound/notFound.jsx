@@ -37,7 +37,7 @@ export const NotFound = () => {
         >
           <img
             src={theme === "light" ? LogoLight : LogoDark}
-            alt="Logo URU"
+            alt="Logo Fullpetro"
             className="h-10 w-auto object-contain filter drop-shadow-sm"
           />
         </motion.div>
@@ -87,8 +87,8 @@ export const NotFound = () => {
       >
         <AlertMessage
           title="Error 404"
-          message="La pÃ¡gina que estÃ¡s buscando no existe o ha sido movida. Verifica la direcciÃ³n e intenta de nuevo."
-          buttonText="Ir al inicio de sesiÃ³n"
+          message="La página que estás buscando no existe o ha sido movida. Verifica la dirección e intenta de nuevo."
+          buttonText="Ir al inicio de sesión"
           onConfirm={() => navigate("/login")}
           type="error"
         />

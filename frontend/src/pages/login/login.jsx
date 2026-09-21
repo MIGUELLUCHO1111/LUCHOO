@@ -33,7 +33,7 @@ export const Login = () => {
         >
           <img
             src={theme === "light" ? LogoLight : LogoDark}
-            alt="Logo URU"
+            alt="Logo Fullpetro"
             className="h-36 w-auto object-contain filter drop-shadow-sm"
           />
         </motion.div>
