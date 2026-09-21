@@ -407,7 +407,7 @@ const Projects = () => {
                   <TableCell className="text-sm">{p.company_name}</TableCell>
                   <TableCell className="font-bold text-slate-900 dark:text-white text-sm">{p.name}</TableCell>
                   <TableCell>
-                    <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-brand-navy/10 text-brand-navy dark:text-brand-navy-light capitalize">
+                    <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-brand-navy/10 text-brand-navy dark:text-brand-gold capitalize">
                       {p.tipo}
                     </span>
                   </TableCell>

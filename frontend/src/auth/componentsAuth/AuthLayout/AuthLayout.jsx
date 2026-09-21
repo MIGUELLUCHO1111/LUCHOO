@@ -118,7 +118,7 @@ export const AuthLayout = () => {
                       variant="link"
                       type="button"
                       onClick={() => navigate("/forgot-password")}
-                      className="px-0 h-auto text-[10px] font-medium text-brand-navy hover:text-brand-navy-dark dark:text-brand-navy-light cursor-pointer"
+                      className="px-0 h-auto text-[10px] font-medium text-brand-navy hover:text-brand-navy-dark dark:text-brand-gold cursor-pointer"
                     >
                       ¿Olvidaste tu contraseña?
                     </Button>

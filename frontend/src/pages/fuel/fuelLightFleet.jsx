@@ -814,7 +814,7 @@ const FuelLightFleet = () => {
                       : "bg-slate-50/60 dark:bg-white/[0.02]"
                   }
                 >
-                  <TableCell className="text-sm font-mono text-brand-navy dark:text-brand-navy-light">
+                  <TableCell className="text-sm font-mono text-brand-navy dark:text-brand-gold">
                     {r.transaction_no || "—"}
                   </TableCell>
                   <TableCell className="text-sm">{fmtDate(r.filled_at)}</TableCell>
@@ -996,7 +996,7 @@ const Info = ({ label, value, mono }) => (
     </p>
     <p
       className={`font-semibold text-slate-900 dark:text-white capitalize ${
-        mono ? "font-mono text-brand-navy dark:text-brand-navy-light" : ""
+        mono ? "font-mono text-brand-navy dark:text-brand-gold" : ""
       }`}
     >
       {value}

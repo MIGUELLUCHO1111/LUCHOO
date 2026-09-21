@@ -368,7 +368,7 @@ const Reports = () => {
                     <TableCell className="font-mono font-bold text-slate-900 dark:text-white">{v.code}</TableCell>
                     <TableCell>{v.name}</TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "pesada" ? "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold" : "bg-brand-navy/10 text-brand-navy dark:text-brand-navy-light"}`}>
+                      <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "pesada" ? "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold" : "bg-brand-navy/10 text-brand-navy dark:text-white"}`}>
                         {v.fleet_type === "pesada" ? "Pesada" : "Liviana"}
                       </span>
                     </TableCell>

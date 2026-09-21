@@ -326,7 +326,7 @@ const FuelTank = () => {
                 <CardContent className="p-5 flex flex-col gap-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-mono text-xs text-brand-navy dark:text-brand-navy-light font-bold">
+                      <p className="font-mono text-xs text-brand-navy dark:text-brand-gold font-bold">
                         {t.code}
                       </p>
                       <p className="font-bold text-slate-900 dark:text-white">{t.name}</p>

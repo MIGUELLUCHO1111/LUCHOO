@@ -559,7 +559,7 @@ const Profiles = () => {
               >
                 <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
                   Roles para{" "}
-                  <span className="text-brand-navy dark:text-brand-navy-light">
+                  <span className="text-brand-navy dark:text-brand-gold">
                     {selectedUser?.first_name} {selectedUser?.last_name}
                   </span>
                 </p>

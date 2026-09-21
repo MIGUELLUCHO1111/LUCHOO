@@ -103,7 +103,7 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
         {!loading && !error && data && (
           <>
             {data.desde_aplicado && (
-              <p className="text-xs font-bold text-brand-navy dark:text-brand-navy-light mb-3">
+              <p className="text-xs font-bold text-brand-navy dark:text-brand-gold mb-3">
                 Mostrando recorridos a partir de la alerta ({formatHora(data.desde_aplicado)}) — cambia la fecha para ver el día completo.
               </p>
             )}
