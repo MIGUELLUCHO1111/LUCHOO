@@ -608,12 +608,12 @@ const Reports = () => {
                     <TableRow>
                       <TableHead>Equipo</TableHead>
                       <TableHead>Ejecutadas</TableHead>
-                      <TableHead>PTO</TableHead>
+                      <TableHead>Horas Disponibles</TableHead>
                       <TableHead>Total</TableHead>
                       <TableHead>Stand-By</TableHead>
                       <TableHead>Hrs. Totales</TableHead>
                       <TableHead>% Stand-By</TableHead>
-                      <TableHead>% Ejec.+PTO</TableHead>
+                      <TableHead>% Ejec.+Disp.</TableHead>
                       <TableHead>Nota</TableHead>
                     </TableRow>
                   </TableHeader>

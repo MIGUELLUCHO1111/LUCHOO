@@ -46,9 +46,14 @@ export const PageLayout = ({
         }}
       />
 
+      {/* z-[5]: por debajo del contenido (z-10, botones de Salir/tema
+          incluidos) para que el logo nunca los tape -- antes estaba en
+          z-50, por encima de todo, y el logo terminaba dibujado sobre los
+          botones del encabezado en vez de detrás. Sigue por encima del
+          fondo de cuadrícula (z-0). */}
       <div
         style={{ position: "fixed" }}
-        className="hidden md:block top-8 right-10 z-50 pointer-events-none"
+        className="hidden md:block top-8 right-10 z-[5] pointer-events-none"
       >
         <img
           src={theme === "dark" ? logoDark : logoWhite}
