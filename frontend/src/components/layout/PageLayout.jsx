@@ -82,7 +82,7 @@ export const PageLayout = ({
               <img
                 src={theme === "dark" ? logoDark : logoWhite}
                 alt="Fullpetro Logo"
-                className="h-10 w-auto object-contain transition-all duration-500"
+                className="h-16 w-auto object-contain transition-all duration-500"
               />
               <Button
                 variant="outline"
