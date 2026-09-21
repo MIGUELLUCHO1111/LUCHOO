@@ -1,5 +1,6 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
+import { generateFuelTransactionNo } from './fuelTransactionNo.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -15,7 +16,11 @@ class Pesada {
   // Crea la carga pesada y, si hay un tanque de gasoil activo, descuenta los
   // litros equivalentes en una sola transacción real (begin/commit/rollback):
   // si el movimiento del tanque falla, la carga pesada tampoco queda creada.
-  createPesada = async ({ vehicle_id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes, created_by }) => {
+  // transaction_no ya no lo manda el cliente (Julio, 21/09/2026) -- se
+  // genera solo, FP-AADSMMDD### (DS = flota pesada/gasoil), dentro de la
+  // misma transacción (mismo client) para que un rollback también revierta
+  // el consecutivo consumido si el resto de la creación falla.
+  createPesada = async ({ vehicle_id, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes, created_by }) => {
     await this.dbmsReady;
 
     if (!vehicle_id || !gallons) {
@@ -33,15 +38,23 @@ class Pesada {
     }
 
     const resolvedFuelType = fuel_type || 'gasoil';
+    const resolvedFilledAt = filled_at || new Date().toISOString();
     const client = await this.dbms.beginTransaction();
     try {
+      const transaction_no = await generateFuelTransactionNo({
+        dbms: this.dbms,
+        client,
+        filled_at: resolvedFilledAt,
+        fleetCode: 'DS',
+      });
+
       const pesadaResult = await this.dbms.executeNamedQuery({
         nameQuery: 'createPesada',
         client,
         params: {
           vehicle_id,
-          transaction_no: transaction_no || null,
-          filled_at: filled_at || new Date().toISOString(),
+          transaction_no,
+          filled_at: resolvedFilledAt,
           requester: requester || null,
           fuel_type: resolvedFuelType,
           measurement_value: measurement_value ?? null,
@@ -127,7 +140,7 @@ class Pesada {
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
   };
 
-  updatePesada = async ({ id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes }) => {
+  updatePesada = async ({ id, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes }) => {
     await this.dbmsReady;
 
     if (!id) {
@@ -141,7 +154,6 @@ class Pesada {
       nameQuery: 'updatePesada',
       params: {
         id,
-        transaction_no: transaction_no || null,
         filled_at: filled_at || new Date().toISOString(),
         requester: requester || null,
         fuel_type: fuel_type || 'gasoil',

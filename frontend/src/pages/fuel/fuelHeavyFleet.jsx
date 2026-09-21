@@ -177,7 +177,6 @@ const FuelHeavyFleet = () => {
         : new Date(form.fecha).toISOString();
 
       const payload = {
-        transaction_no: form.transaction_no || null,
         filled_at: filledAtISO,
         requester: form.requester || null,
         vehicle_id: parseInt(form.unidad),
@@ -565,16 +564,12 @@ const FuelHeavyFleet = () => {
                   onSubmit={handleSubmit}
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                 >
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-sm font-bold">Transaction ID</Label>
-                    <Input
-                      placeholder="Nomenclatura por definir"
-                      value={form.transaction_no}
-                      onChange={(e) =>
-                        setForm({ ...form, transaction_no: e.target.value })
-                      }
-                    />
-                  </div>
+                  {editingId && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-sm font-bold">Transaction ID</Label>
+                      <Input value={form.transaction_no} disabled className="font-mono opacity-70" />
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Fecha *</Label>

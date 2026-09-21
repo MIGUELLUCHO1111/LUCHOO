@@ -693,6 +693,16 @@
     orderArray: ['id']
   },
 
+  # Consecutivo diario por flota para el Transaction ID auto-generado
+  # (FP-AAMMDD### -- ver Carga/Pesada.createXxx). ON CONFLICT DO UPDATE es
+  # atomico: dos llenados del mismo dia casi al mismo tiempo nunca sacan el
+  # mismo numero, aunque los atienda un proceso distinto del cluster.
+  'incrementFuelTransactionCounter': {
+    query: 'INSERT INTO public.fuel_transaction_counter (fecha, fleet_code, last_seq) VALUES ($1, $2, 1) ON CONFLICT (fecha, fleet_code) DO UPDATE SET last_seq = fuel_transaction_counter.last_seq + 1 RETURNING last_seq;',
+    structure_params: { fecha: 'string', fleet_code: 'string' },
+    orderArray: ['fecha', 'fleet_code']
+  },
+
   'createCarga': {
     query: 'INSERT INTO public.fuel_carga (vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type;',
     structure_params: { vehicle_id: 'int', transaction_no: 'string|null', filled_at: 'string|null', liters: 'int', tank_full: 'boolean', station: 'string|null', odometer: 'int|null', amount: 'int|null', notes: 'string|null', responsible_id: 'int|null', fuel_type: 'string|null', created_by: 'int|null' },
@@ -717,10 +727,13 @@
     orderArray: []
   },
 
+  # Sin transaction_no a proposito: se genera solo al crear (ver
+  # Carga.createCarga) y queda fijo -- editar una carga (corregir litros,
+  # monto, etc.) no debe recalcular ni permitir cambiar su Transaction ID.
   'updateCarga': {
-    query: 'UPDATE public.fuel_carga SET transaction_no = $2, liters = $3, tank_full = $4, station = $5, odometer = $6, amount = $7, notes = $8, responsible_id = $9, fuel_type = $10 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type;',
-    structure_params: { id: 'int', transaction_no: 'string|null', liters: 'int', tank_full: 'boolean', station: 'string|null', odometer: 'int|null', amount: 'int|null', notes: 'string|null', responsible_id: 'int|null', fuel_type: 'string|null' },
-    orderArray: ['id', 'transaction_no', 'liters', 'tank_full', 'station', 'odometer', 'amount', 'notes', 'responsible_id', 'fuel_type']
+    query: 'UPDATE public.fuel_carga SET liters = $2, tank_full = $3, station = $4, odometer = $5, amount = $6, notes = $7, responsible_id = $8, fuel_type = $9 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type;',
+    structure_params: { id: 'int', liters: 'int', tank_full: 'boolean', station: 'string|null', odometer: 'int|null', amount: 'int|null', notes: 'string|null', responsible_id: 'int|null', fuel_type: 'string|null' },
+    orderArray: ['id', 'liters', 'tank_full', 'station', 'odometer', 'amount', 'notes', 'responsible_id', 'fuel_type']
   },
 
   'deleteCarga': {
@@ -749,10 +762,12 @@
     orderArray: []
   },
 
+  # Sin transaction_no a proposito -- mismo criterio que updateCarga: se
+  # genera solo al crear y queda fijo.
   'updatePesada': {
-    query: 'UPDATE public.fuel_pesada SET transaction_no = $2, filled_at = $3, requester = $4, fuel_type = $5, measurement_value = $6, measurement_type = $7, gallons = $8, notes = $9 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes;',
-    structure_params: { id: 'int', transaction_no: 'string|null', filled_at: 'string|null', requester: 'string|null', fuel_type: 'string|null', measurement_value: 'number|null', measurement_type: 'string|null', gallons: 'number', notes: 'string|null' },
-    orderArray: ['id', 'transaction_no', 'filled_at', 'requester', 'fuel_type', 'measurement_value', 'measurement_type', 'gallons', 'notes']
+    query: 'UPDATE public.fuel_pesada SET filled_at = $2, requester = $3, fuel_type = $4, measurement_value = $5, measurement_type = $6, gallons = $7, notes = $8 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes;',
+    structure_params: { id: 'int', filled_at: 'string|null', requester: 'string|null', fuel_type: 'string|null', measurement_value: 'number|null', measurement_type: 'string|null', gallons: 'number', notes: 'string|null' },
+    orderArray: ['id', 'filled_at', 'requester', 'fuel_type', 'measurement_value', 'measurement_type', 'gallons', 'notes']
   },
 
   'deletePesada': {
