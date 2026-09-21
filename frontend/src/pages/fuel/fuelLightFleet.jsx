@@ -19,7 +19,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { TankBar } from "@/components/ui/tankBar";
 import {
   Table,
   TableHeader,
@@ -370,17 +369,6 @@ const FuelLightFleet = () => {
       console.error("Error exportando Excel:", err);
       alert("No se pudo exportar el Excel.");
     }
-  };
-
-  // Aproximación: el nivel actual = litros del último llenado registrado
-  // (refuels ya viene ordenado por fecha desc). No resta consumo entre
-  // llenados — cuando se lleve el kilometraje por unidad se podrá afinar.
-  const getTankLevel = (vehicleId) => {
-    const vehicle = vehicles.find((v) => v.id === vehicleId);
-    const capacity = parseFloat(vehicle?.tank_capacity_liters || 0);
-    const lastRefuel = refuels.find((r) => r.vehicle_id === vehicleId);
-    const liters = lastRefuel ? parseFloat(lastRefuel.liters) : 0;
-    return { level: liters, capacity };
   };
 
   return (
@@ -785,31 +773,6 @@ const FuelLightFleet = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ---------- Nivel de tanques ---------- */}
-      <div className="mb-6">
-        <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white mb-3">
-          Nivel de Tanques
-        </h3>
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {lightVehicles.map((v) => {
-            const { level, capacity } = getTankLevel(v.id);
-            return (
-              <Card key={v.id} className="min-w-[100px] shrink-0">
-                <CardContent className="p-4 flex flex-col items-center gap-2">
-                  <TankBar level={level} capacity={capacity} />
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 text-center">
-                    {v.code}
-                  </span>
-                </CardContent>
-              </Card>
-            );
-          })}
-          {lightVehicles.length === 0 && (
-            <p className="text-sm text-slate-400">No hay vehículos registrados</p>
-          )}
-        </div>
-      </div>
 
       {/* ---------- Tabla ---------- */}
       <Card className="w-full overflow-hidden">

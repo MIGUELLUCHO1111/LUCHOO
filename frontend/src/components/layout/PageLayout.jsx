@@ -46,22 +46,6 @@ export const PageLayout = ({
         }}
       />
 
-      {/* z-[5]: por debajo del contenido (z-10, botones de Salir/tema
-          incluidos) para que el logo nunca los tape -- antes estaba en
-          z-50, por encima de todo, y el logo terminaba dibujado sobre los
-          botones del encabezado en vez de detrás. Sigue por encima del
-          fondo de cuadrícula (z-0). */}
-      <div
-        style={{ position: "fixed" }}
-        className="hidden md:block top-8 right-10 z-[5] pointer-events-none"
-      >
-        <img
-          src={theme === "dark" ? logoDark : logoWhite}
-          alt="Fullpetro Logo"
-          className="h-36 w-auto object-contain transition-all duration-500"
-        />
-      </div>
-
       <Sidebar />
 
       <div className="flex-1 px-8 pb-8 pt-20 md:pt-8 relative flex flex-col items-center overflow-auto ml-0 md:ml-[76px]">
@@ -88,6 +72,18 @@ export const PageLayout = ({
             </div>
 
             <div className="flex items-center gap-3 mt-8">
+              {/* Antes vivía en un div aparte con position:fixed en la
+                  esquina, independiente de este grupo de botones -- eso es
+                  justo lo que hacía que se viera "moverse distinto" al
+                  hacer scroll (además de taparlos al estar en z-50). Ahora
+                  es un elemento más de este mismo grupo: se mueve y se
+                  desvanece exactamente igual que Salir/tema, sin lógica de
+                  posicionamiento propia. */}
+              <img
+                src={theme === "dark" ? logoDark : logoWhite}
+                alt="Fullpetro Logo"
+                className="h-10 w-auto object-contain transition-all duration-500"
+              />
               <Button
                 variant="outline"
                 size="icon"
