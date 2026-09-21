@@ -102,6 +102,24 @@ class Server {
     await this.security.syncTransactions();
     await this.security.syncUserProfiles();
     startTrackerScheduler();
+
+    // Bajo PM2 cluster cada proceso tiene su propia instancia de Security
+    // (singleton por proceso, no compartido) -- si un admin cambia el perfil
+    // de un usuario o los permisos de un perfil, solo el proceso que atendió
+    // esa petición actualiza su copia en memoria; los otros 7 quedan con
+    // datos viejos hasta que reinicien. Sin esto, "revocar" un acceso podía
+    // seguir funcionando en otro proceso durante horas. Se repite cada minuto
+    // en vez de solo al arrancar -- una consulta liviana (permission.csv +
+    // un par de tablas chicas) es un precio bajo por no depender de
+    // reiniciar PM2 a mano cada vez que se toca Seguridad.
+    setInterval(() => {
+      this.security.syncPermissions().catch((err) => {
+        console.error('[Security] Error re-sincronizando permisos:', err?.message || err);
+      });
+      this.security.syncUserProfiles().catch((err) => {
+        console.error('[Security] Error re-sincronizando perfiles de usuario:', err?.message || err);
+      });
+    }, 60 * 1000);
   }
 
   start() {
