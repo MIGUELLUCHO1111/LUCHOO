@@ -27,6 +27,21 @@ class Server {
     }
 
     this.app = express();
+    // En producción, NGINX hace de proxy inverso delante de este proceso
+    // (ver deploy/nginx-fullpetro.conf). Sin esto, Express ve TODAS las
+    // peticiones viniendo de 127.0.0.1 (la IP de NGINX, no la del usuario
+    // real) -- req.ip siempre sería la misma para todo el mundo, y el rate
+    // limiter de login/registro (keyGenerator basado en req.ip) trataría a
+    // TODOS los usuarios como una sola IP compartiendo un único cupo de 20
+    // intentos cada 15 minutos, en vez de 20 por persona. 'trust proxy: 1'
+    // confía solo en el primer salto (NGINX, en la misma máquina) y lee la
+    // IP real del header X-Forwarded-For que NGINX ya reenvía. Solo en
+    // producción: en desarrollo no hay proxy real delante, así que confiar
+    // en X-Forwarded-For dejaría que cualquiera lo mande a mano y falsee su
+    // propia IP para saltarse el rate limit localmente.
+    if (process.env.NODE_ENV === 'production') {
+      this.app.set('trust proxy', 1);
+    }
     this.PORT = process.env.PORT || 3000;
     this.configuration();
     this.routes();
