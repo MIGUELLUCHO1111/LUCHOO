@@ -139,16 +139,18 @@ ahora depende de esto):
 | `FRONTEND_URL` | `https://app.tudominio.com` (ver sección de NGINX) |
 | `FORESIGHT_BASIC_USER`, `FORESIGHT_BASIC_PASSWORD`, `FORESIGHT_CONNCODE` | los mismos valores que ya tienes en tu `.env` local (auth HTTP básica del API de Foresight) |
 | `FORESIGHT_PLATFORM_API_URL` | `https://flexapi.foresightgps.com/ForesightFlexAPI.ashx` (no es secreto, ya viene en `.env.example`) |
-| `FORESIGHT_USERID`, `FORESIGHT_COMPANYID`, `FORESIGHT_REPORT_ID_COMPORTAMIENTO` | **TODO: pendiente** -- identifican la cuenta y el reporte guardado dentro del panel GEvolution. Sin esto, Tracker en vivo (posición, geocercas, Recorridos, Comportamiento del Conductor) queda inerte -- ver `INTEGRACION_GPS_FORESIGHT.md` |
-| `TRACKER_AUTO_SYNC` | **`false`** -- déjalo así hasta que Julio confirme que la negociación con el proveedor terminó (quiere cero tráfico automatizado contra su API mientras tanto). En `false`, "Sincronizar ahora" en Tracker sigue funcionando a mano |
-| `TRACKER_SYNC_CRON` | `*/10 * * * *` (solo aplica si `TRACKER_AUTO_SYNC=true`) |
+| `FORESIGHT_USERID`, `FORESIGHT_COMPANYID`, `FORESIGHT_REPORT_ID_COMPORTAMIENTO` | pídeselos a Julio o Luis (identifican la cuenta y el reporte guardado dentro del panel GEvolution, no son secretos pero tampoco van en este repo) — confirmados y probados en vivo el 21/09/2026 (sync trae las 74 unidades reales) |
+| `TRACKER_AUTO_SYNC` | `true` — autorizado por Julio 21/09/2026 (alertas de fuera de horario/geocerca son de seguridad, no dependen de un clic manual) |
+| `TRACKER_SYNC_CRON` | `0 9 * * *;0 14 * * *;5 20 * * *;35 20 * * *;0 21 * * *` (5 disparos/día, no cada 10 min — cae justo antes de los reportes automáticos de cada turno, ver `TRACKER_AUTO_REPORTES_TURNO` abajo) |
 | `TRACKER_STALE_HOURS` | `24` |
 | `TRACKER_CURFEW_HOUR` | `20` (8:00 p.m., ajustable) |
 | `TRACKER_RETENTION_MONTHS` | `6` |
 | `TRACKER_ARCHIVE_CRON` | `0 3 * * *` |
+| `TRACKER_AUTO_REPORTES_TURNO` | `true` — pedido de gerencia (11/09/2026): reportes de turno (Excel/PDF/imagen) se generan solos al cierre de cada turno y se mandan por Telegram |
+| `TRACKER_AUTO_REPORTS` | `false` — análisis diario de comportamiento y archivado de retención quedan manuales (botones en Reportes) mientras se resuelven dudas de acceso al API |
 | `PDF_CHROME_PATH` | solo si `chromium-browser` no quedó en una ruta estándar (ver sección de Chrome más arriba) -- si no, se detecta solo |
-| `TELEGRAM_BOT_TOKEN` | **TODO: pendiente** -- sin esto, notificaciones/reportes de turno por Telegram no se envían (el resto de la app funciona igual) |
-| `TELEGRAM_CHAT_ID` | opcional (puede quedar vacío) -- quien le escriba `/start` al bot queda suscrito solo, no hace falta llenarlo a mano |
+| `TELEGRAM_BOT_TOKEN` | pídeselo a Julio o Luis (token real del bot, confirmado funcionando el 21/09/2026) |
+| `TELEGRAM_CHAT_ID` | opcional además de los suscriptores automáticos (quien le escriba `/start` al bot queda suscrito solo) — Julio/Luis tienen la lista de chat_id fijos actual si quieres replicarla |
 | `TRACKER_NOTIFY_MATUTINO_CRON` / `_VESPERTINO_CRON` / `_NOCTURNO_CRON` | opcional, por defecto `5 10 * * *` / `5 15 * * *` / `5 22 * * *` |
 | `TRACKER_NOTIFY_ANEXO_CRON` | opcional, por defecto `15 22 * * *` |
 
@@ -260,11 +262,10 @@ se acceden por `localhost`, que ya funciona sin tocar el firewall.
 2. Inicia sesión y entra a Tracker GPS → Estado y Alertas → "Sincronizar
    ahora" — confirma que trae datos reales (necesita las credenciales de la
    plataforma GEvolution del paso 4, `FORESIGHT_USERID`/`COMPANYID`/etc.).
-3. Con `TRACKER_AUTO_SYNC=false` (el valor recomendado por ahora) no debe
-   aparecer sincronización automática sola en `pm2 logs fullpetro-backend`
-   — eso es lo esperado, no un error. Si en algún momento Julio confirma que
-   ya se puede automatizar, cambiar a `true` y ahí sí revisar que aparezca
-   sola cada `TRACKER_SYNC_CRON`.
+3. Con `TRACKER_AUTO_SYNC=true`, revisa `pm2 logs fullpetro-backend` a la
+   siguiente hora programada en `TRACKER_SYNC_CRON` (9am, 2pm, 8:05pm,
+   8:35pm o 9pm) — debe aparecer la sincronización sola, **una sola vez**
+   (no 8, ver nota de `NODE_APP_INSTANCE` más arriba).
 4. Revisa que llegó el mensaje de prueba a Telegram si generaste un reporte
    o notificación a mano (requiere `TELEGRAM_BOT_TOKEN` configurado).
 
