@@ -2,6 +2,7 @@ import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import TelegramClient from '../../../tracker/telegramClient.js';
 import Recorrido from './recorrido.js';
+import ForesightClient from '../../../tracker/foresightClient.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -20,47 +21,24 @@ const veHour = (date = new Date()) => {
   return parseInt(hourStr, 10) % 24;
 };
 
-// Ray casting clasico: ¿el punto [lng, lat] cae dentro del poligono? (mismo
-// algoritmo que usan Leaflet/Google Maps internamente; suficiente para
-// geocercas de este tamaño, no hace falta geometria geodesica).
-const pointInPolygon = ([lng, lat], polygon) => {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [xi, yi] = polygon[i];
-    const [xj, yj] = polygon[j];
-    const intersect = (yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-};
+// Entradas/salidas de geocerca (pedido de Lguerra, 22/09/2026): reemplazan a
+// la antigua alerta propia de "fuera de geocerca" (perimetro global). Ahora
+// se toman tal cual las detecta GEvolution -- cada geocerca con su regla de
+// "Entrada y salida" configurada alla, y su nivel: si en GEvolution esta
+// marcada como critica llega como ALARMA, si no como ATENCION. Solo de dia
+// (antes de CURFEW_HOUR): de noche lo unico que se notifica es "fuera de
+// horario".
+const GEOFENCE_EVENT_TYPE = '2';
+const GEOFENCE_DAY_START_HOUR = Number(process.env.TRACKER_GEOFENCE_DAY_START_HOUR || 6);
+// Al arrancar el backend (o si se cayo un rato), GEvolution todavia devuelve
+// la ultima hora de eventos: los mas viejos que esto se guardan en el
+// historial pero no se mandan a Telegram, para no llegar tarde y en rafaga.
+const GEOFENCE_MAX_DELAY_MIN = Number(process.env.TRACKER_GEOFENCE_MAX_DELAY_MIN || 30);
 
-const isInsideAnyGeofence = (lng, lat, geofences) => geofences.some((g) => pointInPolygon([lng, lat], g.polygon));
+const veDateISO = (date = new Date()) => date.toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
 
-// Excepcion a la alerta de geocerca (pedido de Lguerra, 17/09/2026): las
-// unidades que circulan dentro de Maracaibo o San Francisco (oficina,
-// taller, vueltas normales de trabajo) estan autorizadas aunque esos puntos
-// no caigan dentro de ninguna de las geocercas dibujadas -- para ellas solo
-// aplica la alerta de fuera de horario, nunca la de fuera de geocerca. Las
-// unidades pesadas que van al Taller San Francisco quedan cubiertas por lo
-// mismo, sin necesidad de una regla aparte.
-//
-// 18/09/2026: una lista de nombres de calles (Circunvalación 1, Cacique
-// Mara...) nunca iba a alcanzar -- Maracaibo "incluye muchas vias". El
-// texto SIMPLIFICADO (location_text) le quita el municipio para que se vea
-// limpio en la app/reportes, pero el texto CRUDO que devuelve el GPS
-// (location_raw, ver getLatestSnapshots) siempre trae "Municipio Maracaibo"
-// o "Municipio San Francisco" sin importar la calle -- es la forma
-// confiable de detectar la ciudad completa de una sola vez.
-const GEOFENCE_EXEMPT_MUNICIPIOS = ['MUNICIPIO MARACAIBO', 'MUNICIPIO SAN FRANCISCO'];
-const GEOFENCE_EXEMPT_KEYWORDS = ['MARACAIBO', 'SAN FRANCISCO'];
-const isExemptFromGeofence = (locationText, locationRaw) => {
-  const raw = (locationRaw || '').toUpperCase();
-  if (GEOFENCE_EXEMPT_MUNICIPIOS.some((kw) => raw.includes(kw))) return true;
-  // Respaldo por si location_raw no trae el municipio (ej. cuando se usa
-  // "CERCA DE <otra unidad>" por falta de geocodificacion propia).
-  const text = (locationText || '').toUpperCase();
-  return GEOFENCE_EXEMPT_KEYWORDS.some((kw) => text.includes(kw));
-};
+// "Entrada y salida Puente Gral Rafael Urdaneta" -> "Puente Gral Rafael Urdaneta"
+const geofenceNameOf = (eventName) => String(eventName || '').replace(/^\s*entrada\s*(y|\/)\s*salida\s*(de\s*)?/i, '').trim() || eventName;
 
 // Regla de la propuesta (Fase 2): fuera del horario de circulación
 // permitido, la unidad debería estar ESTACIONADO; si aparece ACTIVO
@@ -71,6 +49,7 @@ class Alerta {
     this.dbmsReady = this.dbms.init();
     this.telegram = new TelegramClient();
     this.recorrido = new Recorrido();
+    this.foresight = new ForesightClient();
   }
 
   // Se llama automáticamente después de cada sincronización (manual o por
@@ -79,70 +58,10 @@ class Alerta {
     await this.dbmsReady;
     const isCurfew = veHour() >= CURFEW_HOUR;
 
-    // Perimetro permitido (Fase 3, pedido de Lguerra 16/09/2026): una sola
-    // zona permitida global, formada por la union de todas las geocercas
-    // sincronizadas desde GEvolution -- no hay una geocerca especifica por
-    // unidad. Si todavia no se sincronizo ninguna, se omite la regla en vez
-    // de alertar a toda la flota por falta de configuracion.
-    const geofenceResult = await this.dbms.executeNamedQuery({ nameQuery: 'getTrackerGeofences' });
-    const geofences = (geofenceResult?.rows || []).map((g) => ({
-      ...g,
-      polygon: typeof g.polygon === 'string' ? JSON.parse(g.polygon) : g.polygon,
-    }));
-
     for (const s of snapshots) {
       if (s.is_stale) continue; // no alertar con datos viejos (trackers desconectados)
 
       const key = { unit_id: s.unit_id ?? null, plate: s.unit_id ? null : s.plate ?? null };
-
-      // Solo se vigilan las unidades que YA se vieron dentro de alguna
-      // geocerca alguna vez (ever_inside) -- unidades sin unit_id (no
-      // registradas) no tienen donde guardar ese estado, se omiten. Pedido
-      // de Lguerra 16/09/2026: con solo 8 geocercas dibujadas todavia, ~35
-      // unidades (oficina, refineria, taller...) nunca han estado dentro de
-      // ninguna -- avisar que estan "fuera" desde el primer momento no tiene
-      // sentido para ellas. La alerta real es "se alejo de su geocerca", no
-      // "nunca ha estado cerca de una conocida". Segun se agreguen mas
-      // geocercas en GEvolution, mas unidades entraran solas a este control.
-      if (geofences.length > 0 && s.unit_id != null && s.latitude != null && s.longitude != null) {
-        const dentro = isInsideAnyGeofence(Number(s.longitude), Number(s.latitude), geofences);
-
-        if (dentro) {
-          await this.dbms.executeNamedQuery({ nameQuery: 'markGeofenceEverInside', params: { unit_id: s.unit_id } });
-        }
-        const stateResult = await this.dbms.executeNamedQuery({ nameQuery: 'getGeofenceState', params: { unit_id: s.unit_id } });
-        const everInside = dentro || stateResult?.rows?.[0]?.ever_inside === true;
-        const exenta = isExemptFromGeofence(s.location_text, s.location_raw);
-
-        await this.checkRule({
-          ...key,
-          alertType: 'fuera_de_geocerca',
-          isViolation: everInside && !dentro && !exenta,
-          // A diferencia de fuera_de_horario, aqui SI se notifica a toda la
-          // flota (pedido explicito: "todas aquellas" unidades) -- salir del
-          // perimetro operativo es una alerta de seguridad, no algo que la
-          // flota pesada suela tener autorizado.
-          buildMessage: () => {
-            const ahora = new Date();
-            const fecha = ahora.toLocaleDateString('es-VE', { timeZone: 'America/Caracas' });
-            const hora = ahora.toLocaleTimeString('es-VE', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const mapa = `https://www.google.com/maps?q=${s.latitude},${s.longitude}`;
-            return (
-              `🚨 ALERTA - Fuera de geocerca\n` +
-              `Unidad: ${s.unit_code || 'sin registrar'}\n` +
-              `Tipo de flota: ${s.fleet_type || 'LIVIANA'}\n` +
-              `Placa: ${s.plate || '(sin placa)'}\n` +
-              `Fecha: ${fecha}\n` +
-              `Hora: ${hora}\n` +
-              `Ubicación: ${s.location_text || 'desconocida'}\n` +
-              `Mapa: ${mapa}\n` +
-              `Motivo: Unidad fuera del perímetro permitido`
-            );
-          },
-          snapshotId: s.id,
-          gpsUnitId: s.gps_unit_id,
-        });
-      }
 
       await this.checkRule({
         ...key,
@@ -247,6 +166,88 @@ class Alerta {
         params: { unit_id, plate, alert_type: alertType },
       });
     }
+  };
+
+  // Entradas/salidas de geocerca detectadas por GEvolution (ver comentario de
+  // GEOFENCE_EVENT_TYPE). La llama el cron TRACKER_GEOFENCE_EVENTS_CRON: la
+  // API solo devuelve ~la ultima hora, asi que hay que revisarla seguido --
+  // pero cada evento se notifica UNA sola vez (external_event_id), y solo los
+  // que pasaron de dia. Los de noche se ignoran (ni se guardan).
+  procesarEventosGeocerca = async () => {
+    await this.dbmsReady;
+    const eventos = await this.foresight.getEventosGenerados({ fecha: veDateISO() });
+    const deGeocerca = eventos
+      .filter((e) => e.eventType === GEOFENCE_EVENT_TYPE && e.startTime && !Number.isNaN(e.startTime.getTime()))
+      .filter((e) => {
+        const h = veHour(e.startTime);
+        return h >= GEOFENCE_DAY_START_HOUR && h < CURFEW_HOUR;
+      })
+      .sort((a, b) => a.startTime - b.startTime);
+    if (deGeocerca.length === 0) return { nuevos: 0, notificados: 0 };
+
+    // Unidad registrada (codigo, placa, flota) por id del GPS, desde la
+    // ultima lectura guardada -- misma fuente que el resto de alertas.
+    const latest = await this.dbms.executeNamedQuery({ nameQuery: 'getLatestSnapshots' });
+    const porGps = new Map((latest?.rows || []).map((s) => [String(s.gps_unit_id), s]));
+
+    let nuevos = 0;
+    let notificados = 0;
+    for (const e of deGeocerca) {
+      const existe = await this.dbms.executeNamedQuery({
+        nameQuery: 'existsTrackerAlertExternalEvent',
+        params: { external_event_id: e.id },
+      });
+      if (existe?.rows?.length) continue;
+
+      const s = porGps.get(e.gpsUnitId) || {};
+      const alertType = e.inZone ? 'entrada_geocerca' : 'salida_geocerca';
+      const mensaje = this.buildGeofenceEventMessage(e, s) + (await this.buildRecorridoSection(e.gpsUnitId));
+      const tarde = Date.now() - e.startTime.getTime() > GEOFENCE_MAX_DELAY_MIN * 60 * 1000;
+      const notifyResult = tarde
+        ? { sent: false, reason: `Evento de hace mas de ${GEOFENCE_MAX_DELAY_MIN} min al revisarlo -- solo se guarda en el historial` }
+        : await this.telegram.sendMessage(mensaje);
+
+      await this.dbms.executeNamedQuery({
+        nameQuery: 'createTrackerGeofenceEventAlert',
+        params: {
+          unit_id: s.unit_id ?? null,
+          plate: s.unit_id ? null : s.plate ?? null,
+          alert_type: alertType,
+          message: mensaje,
+          snapshot_id: s.id ?? null,
+          notified: notifyResult.sent,
+          notify_error: notifyResult.sent ? null : notifyResult.reason || 'error desconocido',
+          triggered_at: e.startTime.toISOString(),
+          external_event_id: e.id,
+        },
+      });
+      nuevos += 1;
+      if (notifyResult.sent) notificados += 1;
+    }
+    return { nuevos, notificados };
+  };
+
+  // Mismo formato que las demas alertas (y mismo texto en Telegram y en el
+  // historial). Fecha/hora = las del evento en GEvolution, no las de la
+  // revision -- entre una revision y otra pueden pasar varios minutos.
+  buildGeofenceEventMessage = (e, s) => {
+    const fecha = e.startTime.toLocaleDateString('es-VE', { timeZone: 'America/Caracas' });
+    const hora = e.startTime.toLocaleTimeString('es-VE', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const nivel = e.critical ? '🚨 ALARMA' : '⚠️ ATENCIÓN';
+    const accion = e.inZone ? '🟢 Unidad entrando a geocerca' : '🔴 Unidad saliendo de geocerca';
+    const mapa = e.lat != null && e.lng != null ? `https://www.google.com/maps?q=${e.lat},${e.lng}` : 'no disponible';
+    return (
+      `${nivel} - ${accion}\n` +
+      `Geocerca: ${geofenceNameOf(e.name)}\n` +
+      `Unidad: ${s.unit_code || e.unitName || 'sin registrar'}\n` +
+      `Tipo de flota: ${s.fleet_type || 'LIVIANA'}\n` +
+      `Placa: ${s.plate || '(sin placa)'}\n` +
+      `Fecha: ${fecha}\n` +
+      `Hora: ${hora}\n` +
+      `Ubicación: ${e.location || 'desconocida'}\n` +
+      (e.speed != null ? `Velocidad: ${e.speed} km/h\n` : '') +
+      `Mapa: ${mapa}`
+    );
   };
 
   getRecentAlerts = async () => {

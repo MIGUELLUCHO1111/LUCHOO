@@ -18,7 +18,7 @@ import { TURNOS } from '../bo/sub_system/classes/reporte.js';
  * se resuelven dudas sobre el acceso a la API del proveedor, cada pieza se
  * puede prender o apagar por separado sin tocar código):
  *   - TRACKER_AUTO_SYNC=false desactiva la sincronización y, con ella, las
- *     alertas de fuera de horario/fuera de zona (se evalúan justo después de
+ *     alertas de fuera de horario y de entrada/salida de geocerca (fuera de horario se evalúa justo después de
  *     cada sincronización, ver Alerta.evaluateSnapshots).
  *   - TRACKER_AUTO_REPORTES_TURNO=true activa los 3 reportes de turno
  *     (Excel/PDF/imagen, guardados en el historial y enviados por Telegram)
@@ -63,7 +63,7 @@ export function startTrackerScheduler() {
   }
 
   // Geocercas (perimetro permitido, Fase 3): se copian una vez al arrancar
-  // (para que la alerta de "fuera de geocerca" tenga datos desde el primer
+  // (para que el mapa y la app tengan las geocercas desde el primer
   // momento) y despues una vez al dia -- los limites de las geocercas casi
   // nunca cambian, a diferencia de la posicion de las unidades.
   const geocerca = new Geocerca();
@@ -113,6 +113,34 @@ export function startTrackerScheduler() {
     console.log(`[Tracker] Limpieza automática de alertas programada (${alertCleanupExpression}, America/Caracas)`);
   } else {
     console.error(`[Tracker] TRACKER_ALERT_CLEANUP_CRON inválido: '${alertCleanupExpression}' -- limpieza de alertas no programada`);
+  }
+
+  // Entradas/salidas de geocerca (pedido de Lguerra, 22/09/2026): las detecta
+  // GEvolution en tiempo real, pero su API solo guarda ~la ultima hora --
+  // por eso se revisa cada 10 minutos (una sola llamada liviana). No es un
+  // aviso continuo: cada entrada/salida se notifica una sola vez y solo las
+  // de dia (ver Alerta.procesarEventosGeocerca); de noche no se manda nada.
+  if (process.env.TRACKER_AUTO_SYNC !== 'false') {
+    const geofenceEventsExpression = process.env.TRACKER_GEOFENCE_EVENTS_CRON || '*/10 * * * *';
+    if (cron.validate(geofenceEventsExpression)) {
+      cron.schedule(
+        geofenceEventsExpression,
+        async () => {
+          try {
+            const r = await alerta.procesarEventosGeocerca();
+            if (r.nuevos > 0) {
+              console.log(`[Tracker] Entradas/salidas de geocerca: ${r.nuevos} nueva(s), ${r.notificados} enviada(s) a Telegram`);
+            }
+          } catch (error) {
+            console.error('[Tracker] Error revisando entradas/salidas de geocerca:', error?.message || error);
+          }
+        },
+        { timezone: 'America/Caracas' },
+      );
+      console.log(`[Tracker] Entradas/salidas de geocerca programadas (${geofenceEventsExpression}, America/Caracas)`);
+    } else {
+      console.error(`[Tracker] TRACKER_GEOFENCE_EVENTS_CRON inválido: '${geofenceEventsExpression}' -- entradas/salidas de geocerca no programadas`);
+    }
   }
 
   if (process.env.TRACKER_AUTO_SYNC === 'false') {

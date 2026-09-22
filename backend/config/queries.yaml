@@ -1036,6 +1036,22 @@
     orderArray: ['unit_id', 'plate', 'alert_type']
   },
 
+  # Entradas/salidas de geocerca que ya detecta GEvolution (ver
+  # Alerta.procesarEventosGeocerca): son eventos puntuales, no episodios
+  # abiertos -- se guardan ya resueltos, con la hora real del evento y el id
+  # del evento de GEvolution para no notificarlo dos veces.
+  'existsTrackerAlertExternalEvent': {
+    query: 'SELECT 1 FROM public.tracker_alert WHERE external_event_id = $1 LIMIT 1;',
+    structure_params: { external_event_id: 'string' },
+    orderArray: ['external_event_id']
+  },
+
+  'createTrackerGeofenceEventAlert': {
+    query: 'INSERT INTO public.tracker_alert (unit_id, plate, alert_type, message, snapshot_id, notified, notify_error, triggered_at, resolved_at, external_event_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9) ON CONFLICT DO NOTHING RETURNING id;',
+    structure_params: { unit_id: 'int|null', plate: 'string|null', alert_type: 'string', message: 'string', snapshot_id: 'int|null', notified: 'boolean', notify_error: 'string|null', triggered_at: 'string', external_event_id: 'string' },
+    orderArray: ['unit_id', 'plate', 'alert_type', 'message', 'snapshot_id', 'notified', 'notify_error', 'triggered_at', 'external_event_id']
+  },
+
   'getRecentTrackerAlerts': {
     query: 'SELECT a.id, a.unit_id, u.code AS unit_code, u.fleet_type, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at, s.latitude, s.longitude, s.gps_unit_id FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id LEFT JOIN public.tracker_snapshot s ON s.id = a.snapshot_id ORDER BY a.triggered_at DESC LIMIT 100;',
     structure_params: {},

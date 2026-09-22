@@ -17,17 +17,31 @@ import { formatHora, formatFechaISO, TURNOS, fleetTypeLabel, fleetTypeBadgeClass
 
 const veDateOf = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
 
-// Un botón por tipo de violación (fuera de geocerca / fuera de horario),
+// Un botón por tipo de violación (geocerca / fuera de horario),
 // pedido de Lguerra 18/09/2026 ("mas interactivo" que un solo botón que
 // cambia de nombre): cada uno se ancla a la alerta MAS RECIENTE de ese tipo
 // para la MISMA unidad en el MISMO día de la fila -- así desde cualquier
 // alerta se puede ver el recorrido de la otra violación si también ocurrió
 // ese día, sin tener que ir a buscarla. Si la unidad no tuvo ese tipo de
 // alerta ese día, el botón queda deshabilitado.
+//
+// 22/09/2026: la alerta de "fuera de geocerca" (perimetro global) se
+// reemplazo por las entradas/salidas que detecta GEvolution -- el boton de
+// geocerca agrupa ambas (y las viejas "fuera_de_geocerca" que sigan en el
+// historial), anclado a la mas reciente de cualquiera de ellas.
 const RECORRIDO_TIPOS = [
-  { tipo: "fuera_de_geocerca", label: "Fuera de la geocerca", icon: MapPinned },
-  { tipo: "fuera_de_horario", label: "Fuera de horario", icon: Clock },
+  { tipo: "geocerca", label: "Entrada/salida de geocerca", icon: MapPinned },
+  { tipo: "horario", label: "Fuera de horario", icon: Clock },
 ];
+
+const grupoDe = (alertType) => (alertType === "fuera_de_horario" ? "horario" : "geocerca");
+
+const TIPO_BADGE = {
+  entrada_geocerca: { label: "Entrada a geocerca", className: "bg-emerald-500/10 text-emerald-600" },
+  salida_geocerca: { label: "Salida de geocerca", className: "bg-red-500/10 text-red-600" },
+  fuera_de_horario: { label: "Fuera de horario", className: "bg-orange-500/10 text-orange-600" },
+  fuera_de_geocerca: { label: "Fuera de zona", className: "bg-orange-500/10 text-orange-600" },
+};
 
 // Dos apartados de la misma pantalla de Notificaciones: lo que se generó
 // como Alarma y lo que se generó como Reporte de Turno enviado a Telegram
@@ -102,7 +116,7 @@ const TrackerAlerts = () => {
   const latestByUnitDayTipo = new Map();
   for (const a of alerts) {
     if (a.gps_unit_id == null) continue;
-    const key = `${a.unit_id ?? a.plate}__${veDateOf(a.triggered_at)}__${a.alert_type}`;
+    const key = `${a.unit_id ?? a.plate}__${veDateOf(a.triggered_at)}__${grupoDe(a.alert_type)}`;
     const prev = latestByUnitDayTipo.get(key);
     if (!prev || new Date(a.triggered_at) > new Date(prev.triggered_at)) {
       latestByUnitDayTipo.set(key, a);
@@ -190,8 +204,8 @@ const TrackerAlerts = () => {
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">
-                        <span className="px-2 py-1 rounded-full text-[11px] font-bold bg-orange-500/10 text-orange-600">
-                          {a.alert_type === "fuera_de_horario" ? "Fuera de horario" : "Fuera de zona"}
+                        <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${(TIPO_BADGE[a.alert_type] || TIPO_BADGE.fuera_de_geocerca).className}`}>
+                          {(TIPO_BADGE[a.alert_type] || TIPO_BADGE.fuera_de_geocerca).label}
                         </span>
                       </TableCell>
                       <TableCell className="text-xs max-w-md whitespace-pre-line text-slate-500 dark:text-slate-400">

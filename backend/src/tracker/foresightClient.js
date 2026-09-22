@@ -143,6 +143,53 @@ export default class ForesightClient {
       }));
   }
 
+  // Alertas que ya genero la propia plataforma (panel "Notificaciones" de
+  // GEvolution, capturado con HAR el 22/09/2026): una sola llamada trae todo
+  // lo reciente -- exceso de velocidad, bateria baja y las entradas/salidas
+  // de geocerca (eventType '2', inzone 'true' = entro, 'false' = salio;
+  // criticality '1' = marcada como critica en GEvolution). OJO: no trae el
+  // dia completo, solo aproximadamente la ultima hora -- quien la use debe
+  // consultarla con frecuencia (ver TRACKER_GEOFENCE_EVENTS_CRON).
+  //
+  // Las horas llegan con offset -05:00 pero la hora "de pared" es la de
+  // Venezuela (-04:00, comprobado contra el reloj del panel) -- por eso se
+  // descarta el offset y se interpreta como hora de Caracas.
+  async getEventosGenerados({ fecha }) {
+    const body = {
+      userid: this.userId,
+      systemuserid: this.userId,
+      function: '0',
+      rvid: '',
+      rvdate: '',
+      monitoringgroupid: '0',
+      searchunit: '',
+      alertsunattended: 'false',
+      rownum: '1000',
+      searchdate: fecha,
+      prefix: 'true',
+      conncode: this.conncode,
+      method: 'TRACKINGPANEL_GetGeneratedAlertsEvents',
+    };
+    const data = await this.post(body, this.platformURL);
+    const rows = this.extractRows(data);
+    const veDate = (s) => (s ? new Date(`${String(s).slice(0, 19)}-04:00`) : null);
+
+    return rows.map((r) => ({
+      id: String(r.EventNotificationID),
+      eventType: String(r.eventType),
+      name: r.EventName,
+      critical: String(r.criticality) === '1',
+      inZone: String(r.inzone) === 'true',
+      startTime: veDate(r.EventStartTime),
+      location: r.Location ? String(r.Location).split('~')[0] : null,
+      speed: r.Speed != null ? Number(r.Speed) : null,
+      gpsUnitId: r.TobjectID != null ? String(r.TobjectID) : null,
+      unitName: r.TobjectName || null,
+      lat: r.ylat != null ? Number(r.ylat) : null,
+      lng: r.xlong != null ? Number(r.xlong) : null,
+    }));
+  }
+
   // Recorridos por vehiculo (Fase 3, pedido de Lguerra 17/09/2026): mismas
   // dos llamadas que hace el "Panel de Monitoreo-Recorridos" del panel web
   // (confirmado por captura de red real, 18/09/2026). TRIPSPOINTS_MOD trae
