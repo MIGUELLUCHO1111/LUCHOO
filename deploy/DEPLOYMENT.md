@@ -262,6 +262,13 @@ se acceden por `localhost`, que ya funciona sin tocar el firewall.
 2. Inicia sesión y entra a Tracker GPS → Estado y Alertas → "Sincronizar
    ahora" — confirma que trae datos reales (necesita las credenciales de la
    plataforma GEvolution del paso 4, `FORESIGHT_USERID`/`COMPANYID`/etc.).
+   Esta sincronización es también la forma en que se puebla `fleet_unit`
+   (el registro compartido de unidades entre Combustible/Tracker/Horas,
+   ver migraciones 039/040) — una base nueva empieza sin ninguna unidad y
+   las recibe todas solas en este paso, no hace falta cargarlas a mano.
+   **Excepción:** `FP-BA-04` (grúa de Izamiento) no tiene GPS, así que
+   nunca la trae el sync — agrégala una sola vez a mano desde Combustible
+   → Unidades o Control de Horas → Equipos después de este paso.
 3. Con `TRACKER_AUTO_SYNC=true`, revisa `pm2 logs fullpetro-backend` a la
    siguiente hora programada en `TRACKER_SYNC_CRON` (9am, 2pm, 8:05pm,
    8:35pm o 9pm) — debe aparecer la sincronización sola, **una sola vez**
