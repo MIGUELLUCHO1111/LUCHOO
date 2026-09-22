@@ -1,33 +1,83 @@
 # Fullpetro API — notas para Claude Code
 
-## Arrancar a trabajar
-Antes de tocar el backend, siempre:
+Este archivo es la memoria del proyecto **Tracker GPS de Flota**. Cualquier sesión de Claude Code que se abra en esta carpeta —en esta computadora o en cualquier otra donde se haya clonado el repositorio— lo lee automáticamente. El objetivo es que Lguerra (usuario principal, no técnico, dicta sus mensajes) no tenga que volver a explicar nada de esto.
+
+## Quién es el usuario y cómo prefiere trabajar
+- Lguerra (aborges@fullpetro.com) no es programador — dicta instrucciones, a veces en mayúsculas, a veces con errores de tipeo. Interpretar la intención, no exigir precisión técnica.
+- Cuando algo requiere pasos manuales de su parte (terminal, git, GitHub), dar instrucciones **paso a paso, literales, para copiar y pegar** — no asumir que sabe qué es una terminal, una rama, un commit, etc.
+- Prefiere resultados directos: generar, enviar, corregir — sin pedir demasiada confirmación para tareas ya establecidas (reportes, alertas).
+
+## Arrancar a trabajar (SIEMPRE al inicio de una sesión)
 ```bash
 pm2 resurrect
 pm2 list   # confirmar fullpetro-backend y fullpetro-frontend "online"
 ```
 Después de cualquier cambio en código del backend: `pm2 restart fullpetro-backend`.
 
+**Importante:** la base de datos y el backend corren **localmente en esta computadora** (`DB_HOST=localhost` en `backend/.env`) — no hay un servidor compartido en la nube. Si el proyecto se clona en OTRA computadora, esa copia NO tiene acceso a los datos reales de la flota ni al bot de Telegram a menos que se monte ahí también su propio backend+base de datos+credenciales (trabajo largo), o se use Control Remoto de Claude Code para conectarse a la sesión que corre aquí (mucho más rápido). No asumir que "clonar el repo" es suficiente para que todo funcione en otra máquina.
+
 Zona horaria del negocio: `America/Caracas` (UTC-4 fijo, sin horario de verano).
 Turnos: MATUTINO 9am, VESPERTINO 2pm, NOCTURNO 9pm.
 
+## Reglas de Git — no cambiar sin confirmar
+- **`main` no se toca nunca**, bajo ninguna circunstancia, salvo pedido explícito.
+- El trabajo va a `feature/gps-tracker` y se refleja (fast-forward) en `Luis`.
+- Existe además un remoto `personal` (`origin`→`https://github.com/juliomoran10/API-Fullpetro.git`, `personal`→ el GitHub personal del usuario) — cuando se pide subir, se sube a los tres: `feature/gps-tracker`, `Luis` y `personal` (ramas `Luis` y `feature/gps-tracker` en `personal` también).
+- El permiso de Bash para `git push personal:*` ya está autorizado en `.claude/settings.local.json` (no versionado) — si aparece bloqueado por el clasificador de auto mode en una sesión nueva, hay que volver a autorizarlo ahí.
+
+## El origen de los datos: API interna de GEvolution (no la API "oficial" del proveedor)
+La API de socio original (`wsuser`/`wspassword`, `ForesightFlexAPIv3`) solo devolvía una fracción de la flota real (~8-28 de ~70 unidades) y se topaba con límites de tasa. La solución fue **capturar el tráfico real del navegador** (Chrome DevTools → Network → "Preserve log" → exportar como `.har`) mientras el usuario navegaba el dashboard web GEvolution (`cloud.ve.trackergps.com`) con su propia cuenta — nunca metiendo Claude una contraseña en ningún navegador. Eso reveló la API interna que usa el propio dashboard:
+- Host: `https://flexapi.foresightgps.com/ForesightFlexAPI.ashx` (sin `v3` en la ruta).
+- Autenticación con `userid`/`companyid` (identificadores de cuenta, no secretos) en vez de `wsuser`/`wspassword`.
+- `usersearchplatform` → lista completa de la flota (70 unidades reales).
+- `REPORT_EXECUTE` con `reportid` específico → reportes del dashboard en una sola llamada (ej. `reportid: 134` = "Comportamiento del Conductor", usado por `getComportamientoDelDia`).
+- `TRIPSPOINTS_MOD` → viajes/recorridos de una unidad en un rango de fechas (usado por Recorridos).
+- `HISTORYSPOINTS` → puntos GPS crudos de un viaje puntual (para dibujar la ruta en el mapa).
+
+**Si en el futuro algún dato de Tracker GPS vuelve a verse incompleto o limitado por tasa**, la solución casi seguro es la misma: pedirle al usuario que reproduzca esa pantalla en el dashboard web con "Preserve log" activo ANTES de navegar/recargar, exportar el HAR, y buscar la llamada única del dashboard en vez de asumir que hace falta un loop por unidad.
+
+## Funcionalidades ya construidas (Tracker GPS de Flota)
+
+### Estado de Flota (`/tracker`)
+Vista en vivo: total, activas, estacionadas, sin señal reciente — todo sale de la última lectura guardada por unidad, sin cálculos manuales. Cuatro bloques desplegables (Activas / Estacionadas / Sin señal / Gestión de Unidades, este último en naranja) cada uno con su propio buscador.
+
+### Gestión de Unidades
+Registro interno placa–unidad–conductor–tipo de flota (LIVIANA/PESADA), es solo referencia, no participa en los conteos. **Las unidades nuevas se auto-registran solas** apenas aparece su placa por primera vez en la API (usa el código que ya le pone la plataforma, `raw.Name`, y "ROTATIVO" de conductor por defecto) — pedido de Lguerra, 18/09/2026. Ya no queda nada "sin registrar" esperando que alguien lo note.
+
+### Mapa en Vivo (`/tracker/map`)
+Mapa Leaflet con un marcador por unidad coloreado por estado, refresco automático cada 30s. El mapa va **primero** en la página, el selector de Recorridos debajo (pedido explícito).
+
+### Recorridos (viajes de una unidad)
+Se puede abrir de dos formas simultáneas (pedido explícito, "TERMINA COMO VENIAS HACIENDO DE AMBAS FORMAS"): haciendo clic en una unidad del mapa, o eligiéndola en un selector aparte. Muestra KPIs (número de recorridos, primera salida, última llegada, km, tiempo en movimiento/estacionado) y la lista de viajes, con botón "Ver ruta" que dibuja el viaje real sobre el mapa (polyline + auto-zoom). El mismo panel (`RecorridosPanel.jsx`) se reutiliza también desde Notificaciones/Alertas.
+
+### Notificaciones (`/tracker/alerts`) — dos pestañas
+1. **Alarmas**: historial de alertas "fuera de horario" y "fuera de geocerca". Cada fila tiene DOS botones de Recorridos (uno por tipo de violación), cada uno anclado a la alerta más reciente de ESE tipo para esa unidad ese día — al hacer clic, se despliega el panel de Recorridos **directamente debajo de esa fila** (no un panel compartido al final de la tabla), mostrando los viajes **a partir del momento de la alerta** (no el día completo — eso es solo para Mapa en Vivo). Si la unidad no tuvo ese tipo de alerta ese día, el botón queda deshabilitado.
+2. **Reporte enviado a Telegram**: historial de los reportes de cierre de turno ya enviados.
+
+### Alertas — reglas de negocio
+- **Fuera de horario**: unidad reporta encendida/en movimiento después de las 8pm (`TRACKER_CURFEW_HOUR`). La flota PESADA se guarda en el historial pero **no se notifica por Telegram** (para no saturar, suele estar autorizada). La LIVIANA sí se notifica.
+- **Fuera de geocerca**: unidad fuera del perímetro operativo (unión de las geocercas sincronizadas desde GEvolution). Se notifica a **toda** la flota sin excepción. Maracaibo y San Francisco están exentos (se detecta por el texto crudo geocodificado conteniendo "Municipio Maracaibo"/"Municipio San Francisco", no por nombres de calles — más confiable). Solo se vigilan unidades que alguna vez estuvieron dentro de una geocerca conocida (`ever_inside`) para no alarmar de entrada a unidades sin geocerca definida cerca (oficina, taller, etc.).
+- Cada mensaje de alerta (el mismo texto que se guarda y el que se manda a Telegram — son idénticos) incluye al final una sección **"🛣️ Recorrido de hoy (hasta ahora)"** con el resumen de viajes/km/tiempo en movimiento del día completo hasta ese momento (no se puede anclar "a partir de la alerta" en Telegram porque se envía justo cuando se dispara, todavía no pasó nada después).
+- **Limpieza automática**: el historial de alertas se borra solo, todos los días a las 3:30am, después de 8 días (`TRACKER_ALERT_RETENTION_DAYS`) — son datos "solo de revisión", no se guardan para siempre. Corre independiente del interruptor `TRACKER_AUTO_REPORTS`.
+
+### Reportes de Turno (`/tracker/report`)
+Ver la sección siguiente — **hay DOS formatos de reporte, no confundirlos.**
+
 ## Los dos reportes de Tracker GPS — NO son lo mismo
 
-Hay **dos formatos de reporte completamente distintos** para la misma flota. Cuando Lguerra pide "el reporte", hay que distinguir cuál:
-
 ### 1. Reporte de la app ("Reportes de Turno")
-- Es el que genera y guarda la propia aplicación (`ReporteArchivo.generarYGuardar`), visible en la pantalla Reportes de Turno.
+- Lo genera y guarda la propia aplicación (`ReporteArchivo.generarYGuardar`), visible en la pantalla Reportes de Turno.
 - Se genera solo al cerrar cada turno, o a mano con "Generar ahora".
 - Ordena las unidades **por categoría de ubicación** (Base, Campo, Oficina, Otras).
-- Queda guardado permanentemente (Excel, PDF e imagen) y es lo que se manda automáticamente por Telegram al cerrar turno.
+- Queda guardado permanentemente (Excel, PDF e imagen) y es lo que se manda automáticamente por Telegram al cerrar turno (`Notificador.notificarCierreDeTurno`).
 
 ### 2. Reporte "modelo interno"
-- Es un formato Excel aparte que replica el diseño que ya usaban a mano antes de la app (mismo layout con las mismas leyendas de color).
-- **Mantiene el orden natural de las unidades — nunca se ordena por categoría de ubicación** (eso es solo para el reporte de la app). Este punto se pidió explícitamente y se corrigió una vez porque se había ordenado mal.
+- Formato Excel aparte que replica el diseño manual que usaban antes de la app (mismo layout, mismas leyendas de color).
+- **Mantiene el orden natural de las unidades — nunca se ordena por categoría de ubicación** (eso es exclusivo del reporte de la app). Se corrigió una vez porque se había ordenado mal por asumir que compartían esa lógica.
 - **Nunca se guarda ni se comitea** — se genera con un script de un solo uso, se envía, y se borra.
-- Se pide con frases como "dame el reporte como el modelo interno" o "el reporte del modelo interno".
+- Se pide con frases como "dame el reporte como el modelo interno".
 
-**Cómo generarlo** (turno = MATUTINO | VESPERTINO | NOCTURNO, según la hora del pedido; usar `enVivo: true` siempre para datos frescos):
+**Cómo generarlo** (turno = MATUTINO | VESPERTINO | NOCTURNO, según la hora del pedido; `enVivo: true` siempre para datos frescos):
 
 1. Crear `backend/_fetch_reporte.mjs`:
    ```js
@@ -39,22 +89,23 @@ Hay **dos formatos de reporte completamente distintos** para la misma flota. Cua
    console.log('OK');
    process.exit(0);
    ```
-2. Crear `backend/_build_modelo_interno.mjs` — script ExcelJS que lee `_reporte_data.json` y arma el Excel con el diseño de siempre (encabezado azul marino, KPIs de total/activas/estacionadas, leyenda de colores por categoría de ubicación y por estado, tabla de unidades **sin reordenar**). El archivo de salida va al scratchpad de la sesión, nombrado `Reporte_Tracker_<TURNO>_<DDMMYYYY>_formato_interno_<hhmmss>.xlsx`.
+2. Crear `backend/_build_modelo_interno.mjs` — script ExcelJS que lee `_reporte_data.json` y arma el Excel: encabezado azul marino (`FF1F3864`) con el título y fecha/corte, fila de KPIs (total/activas/estacionadas con sus colores), leyenda de colores por categoría de ubicación (BASE/CAMPO/OFICINA/OTRAS) y por estado (ACTIVO/ESTACIONADO), y la tabla de unidades (Unidad, Placa, Conductor, Ubicación, Hora, Estado) coloreada por esas mismas categorías — **iterando `r.unidades` tal cual viene, sin reordenar**. El archivo de salida va al scratchpad de la sesión: `Reporte_Tracker_<TURNO>_<DDMMYYYY>_formato_interno_<hhmmss>.xlsx`.
 3. Ejecutar ambos: `node _fetch_reporte.mjs && node _build_modelo_interno.mjs`.
 4. Enviar el `.xlsx` resultante al usuario (adjunto en el chat).
 5. Borrar los dos scripts temporales y el `_reporte_data.json` — nunca deben quedar commiteados.
 
-Si Claude Code no tiene ya este script guardado en la sesión, se puede reconstruir siguiendo esta misma estructura; los detalles exactos de estilo (colores ARGB, leyenda) se pueden ver en el historial de git de sesiones anteriores si hace falta, pero lo esencial es: **mismo diseño que el reporte de la app, pero SIN ordenar por categoría de ubicación, y sin guardar el archivo en ningún lado permanente.**
+## Alertas y Telegram — cómo responder a pedidos frecuentes
 
-## Alertas y Telegram
+- **"¿Hay alertas activas?"**: consultar `Alerta.getRecentAlerts()` (`backend/src/bo/sub_system/classes/alerta.js`) y filtrar `!x.resolved_at`. Responder con unidad, tipo y hora.
+- **"Mándamelas por Telegram" / "como siempre"**: reenviar el `message` completo de cada alerta activa **tal cual, uno por mensaje separado** (nunca combinados en un solo mensaje resumido) usando `TelegramClient.sendMessage(a.message)` (`backend/src/tracker/telegramClient.js`). No inventar un resumen propio — el campo `message` ya trae el texto exacto que se manda normalmente, incluida la sección de Recorrido.
+- El bot de Telegram tiene actualmente 2 suscriptores registrados (cuentas propias del usuario) — enviar mensajes de prueba no llega a terceros.
 
-- Las alertas activas se consultan con `Alerta.getRecentAlerts()` (clase en `backend/src/bo/sub_system/classes/alerta.js`) y se filtran por `!x.resolved_at`.
-- Cada alerta ya trae su `message` completo — el mismo texto exacto que se mandó (o se hubiera mandado) por Telegram, incluyendo la sección "🛣️ Recorrido de hoy" que se le agregó a cada alerta.
-- Cuando Lguerra pide "mándamelas por Telegram" o "como siempre": se reenvía el `message` de cada alerta activa **tal cual, uno por mensaje separado** (nunca combinados en un solo mensaje) usando `TelegramClient.sendMessage(a.message)`.
-- El historial de alertas se borra solo después de 8 días (limpieza automática diaria a las 3:30am) — no hace falta limpiarlo a mano.
+## Diapositivas (`informes/Tracker_GPS_de_Flota.pptx` + `.pdf`)
+Deck de 6 diapositivas (Portada, Índice interactivo con hipervínculos a cada sección, Estado+Gestión, Mapa+Recorridos, Notificaciones con Alertas+Telegram+Reporte enviado+limpieza automática, Reportes+Cierre). Construido con `pptxgenjs` (no hay LibreOffice en esta máquina — usar PowerPoint vía COM/PowerShell para exportar a imágenes/PDF para QA visual: `New-Object -ComObject PowerPoint.Application`). Paleta: navy `0E2438`/`15324D`, dorado `D99B0A`, fuente títulos Cambria, cuerpo Calibri. Reutiliza capturas reales de pantalla para las vistas sin cambios; los paneles nuevos (Recorridos, mensaje de Telegram, Reporte enviado) se construyen como formas nativas de PowerPoint, no capturas.
 
 ## Otras cosas que ya se pidieron y quedaron así (no cambiar sin confirmar)
-
 - El reporte del modelo interno **nunca** ordena por categoría de ubicación — eso es exclusivo del reporte de la app.
-- `main` no se toca — los cambios van a `feature/gps-tracker` y a `Luis`, y de ahí (si se pide) también al remoto personal del usuario (`personal`).
-- Las alertas de "fuera de horario" de la flota PESADA se guardan en el historial pero no se notifican por Telegram (para no saturar); las de "fuera de geocerca" sí se notifican para toda la flota.
+- El mapa va antes que el selector de Recorridos en Mapa en Vivo.
+- Recorridos se abre de las dos formas (clic en mapa Y selector aparte), no solo una.
+- En Alertas, el panel de Recorridos se despliega inline bajo la fila, no en un panel compartido al final.
+- Las alertas de "fuera de horario" de la flota PESADA no se notifican por Telegram; las de "fuera de geocerca" sí, para toda la flota.
