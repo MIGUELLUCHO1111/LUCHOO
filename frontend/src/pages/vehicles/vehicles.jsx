@@ -31,7 +31,7 @@ const Vehicles = () => {
     name: "",
     plate: "",
     tank_capacity_liters: "",
-    fleet_type: "liviana",
+    fleet_type: "LIVIANA",
   });
 
   useEffect(() => {
@@ -55,7 +55,7 @@ const Vehicles = () => {
       name: "",
       plate: "",
       tank_capacity_liters: "",
-      fleet_type: "liviana",
+      fleet_type: "LIVIANA",
     });
     setEditingId(null);
     setShowForm(false);
@@ -68,7 +68,7 @@ const Vehicles = () => {
       name: vehicle.name,
       plate: vehicle.plate || "",
       tank_capacity_liters: vehicle.tank_capacity_liters || "",
-      fleet_type: vehicle.fleet_type || "liviana",
+      fleet_type: vehicle.fleet_type || "LIVIANA",
     });
     setEditingId(vehicle.id);
     setShowForm(true);
@@ -208,8 +208,8 @@ const Vehicles = () => {
                       onChange={(e) => setForm({ ...form, fleet_type: e.target.value })}
                       className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
                     >
-                      <option value="liviana">Liviana</option>
-                      <option value="pesada">Pesada</option>
+                      <option value="LIVIANA">Liviana</option>
+                      <option value="PESADA">Pesada</option>
                     </select>
                   </div>
 
@@ -276,8 +276,8 @@ const Vehicles = () => {
                   <TableCell className="text-sm">{v.plate || "-"}</TableCell>
                   <TableCell className="text-sm">{v.tank_capacity_liters ? `${v.tank_capacity_liters}L` : "-"}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "pesada" ? "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold" : "bg-brand-navy/10 text-brand-navy dark:text-white"}`}>
-                      {v.fleet_type === "pesada" ? "Pesada" : "Liviana"}
+                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "PESADA" ? "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold" : "bg-brand-navy/10 text-brand-navy dark:text-white"}`}>
+                      {v.fleet_type === "PESADA" ? "Pesada" : "Liviana"}
                     </span>
                   </TableCell>
                   <TableCell>

@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { SearchableSelect } from "@/components/ui/searchableSelect";
 import {
   Table,
   TableHeader,
@@ -62,8 +63,6 @@ const FuelLightFleet = () => {
     unitIds: [], // selected ids (multi)
     responsible: "",
   });
-  const [showUnitFilter, setShowUnitFilter] = useState(false);
-
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -110,7 +109,7 @@ const FuelLightFleet = () => {
   };
 
   const lightVehicles = useMemo(
-    () => vehicles.filter((v) => v.fleet_type !== "pesada"),
+    () => vehicles.filter((v) => v.fleet_type !== "PESADA"),
     [vehicles],
   );
 
@@ -137,12 +136,12 @@ const FuelLightFleet = () => {
         return false;
       if (
         filters.responsible &&
-        String(r.responsible_id) !== String(filters.responsible)
+        !personName(r.responsible_id).toLowerCase().includes(filters.responsible.toLowerCase())
       )
         return false;
       return true;
     });
-  }, [refuels, filters]);
+  }, [refuels, filters, persons]);
 
   const totals = useMemo(() => {
     let liters = 0;
@@ -421,73 +420,28 @@ const FuelLightFleet = () => {
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Unidades</Label>
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowUnitFilter(!showUnitFilter)}
-                  className="w-full justify-between rounded-xl text-sm"
-                >
-                  <span className="truncate">
-                    {filters.unitIds.length === 0
-                      ? "Todas"
-                      : `${filters.unitIds.length} seleccionada(s)`}
-                  </span>
-                  <span
-                    className={`transition-transform ${showUnitFilter ? "rotate-180" : ""}`}
-                  >
-                    ▾
-                  </span>
-                </Button>
-                <AnimatePresence>
-                  {showUnitFilter && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="absolute z-30 mt-2 w-full max-h-52 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] shadow-xl p-2"
-                    >
-                      {lightVehicles.map((v) => (
-                        <label
-                          key={v.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={filters.unitIds.includes(Number(v.id))}
-                            onChange={() => toggleUnitFilter(Number(v.id))}
-                            className="accent-brand-navy"
-                          />
-                          {v.code} - {v.name}
-                        </label>
-                      ))}
-                      {lightVehicles.length === 0 && (
-                        <p className="px-2 py-1 text-xs text-slate-400">
-                          Sin unidades
-                        </p>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <SearchableSelect
+                multiple
+                items={lightVehicles}
+                getValue={(v) => Number(v.id)}
+                getLabel={(v) => `${v.code} - ${v.name}`}
+                value={filters.unitIds}
+                onChange={(id) => toggleUnitFilter(id)}
+                placeholder="Buscar unidad..."
+                allLabel="Todas"
+                emptyMessage="Sin unidades"
+              />
             </div>
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Responsable</Label>
-              <select
+              <Input
+                placeholder="Buscar por nombre..."
                 value={filters.responsible}
                 onChange={(e) =>
                   setFilters({ ...filters, responsible: e.target.value })
                 }
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
-              >
-                <option value="">Todos</option>
-                {persons.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.first_name || p.name} {p.last_name || p.lastname}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -600,20 +554,16 @@ const FuelLightFleet = () => {
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Responsable</Label>
-                    <select
+                    <SearchableSelect
+                      items={persons}
+                      getValue={(p) => p.id}
+                      getLabel={(p) => `${p.first_name || p.name} ${p.last_name || p.lastname || ""}`.trim()}
                       value={form.responsible_id}
-                      onChange={(e) =>
-                        setForm({ ...form, responsible_id: e.target.value })
-                      }
-                      className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
-                    >
-                      <option value="">Seleccionar...</option>
-                      {persons.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.first_name || p.name} {p.last_name || p.lastname}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(id) => setForm({ ...form, responsible_id: id })}
+                      placeholder="Buscar responsable..."
+                      allLabel="Seleccionar..."
+                      emptyMessage="Sin personas"
+                    />
                   </div>
 
                   <div className="flex flex-col gap-1.5">

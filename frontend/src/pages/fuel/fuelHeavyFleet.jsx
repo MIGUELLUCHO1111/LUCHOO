@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchableSelect";
 import {
   Table,
   TableHeader,
@@ -59,7 +60,6 @@ const FuelHeavyFleet = () => {
     unitIds: [],
     requester: "",
   });
-  const [showUnitFilter, setShowUnitFilter] = useState(false);
 
   const [unit, setUnit] = useState("galones"); // galones | litros
 
@@ -85,7 +85,7 @@ const FuelHeavyFleet = () => {
     try {
       const res = await fuelService.getAllVehicles();
       const list = Array.isArray(res) ? res : [];
-      setHeavyVehicles(list.filter((v) => v.fleet_type === "pesada"));
+      setHeavyVehicles(list.filter((v) => v.fleet_type === "PESADA"));
     } catch (err) {
       console.warn("Unidades no disponibles:", err);
     }
@@ -421,51 +421,17 @@ const FuelHeavyFleet = () => {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Unidades</Label>
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowUnitFilter(!showUnitFilter)}
-                  className="w-full justify-between rounded-xl text-sm"
-                >
-                  <span className="truncate">
-                    {filters.unitIds.length === 0
-                      ? "Todas"
-                      : `${filters.unitIds.length} seleccionada(s)`}
-                  </span>
-                  <span className="transition-transform">▾</span>
-                </Button>
-                <AnimatePresence>
-                  {showUnitFilter && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="absolute z-30 mt-2 w-full max-h-52 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] shadow-xl p-2"
-                    >
-                      {heavyVehicles.map((v) => (
-                        <label
-                          key={v.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={filters.unitIds.includes(Number(v.id))}
-                            onChange={() => toggleUnitFilter(Number(v.id))}
-                            className="accent-brand-navy"
-                          />
-                          {v.code} - {v.name}
-                        </label>
-                      ))}
-                      {heavyVehicles.length === 0 && (
-                        <p className="px-2 py-1 text-xs text-slate-400">
-                          Marque vehículos como "pesada" en Unidades.
-                        </p>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <SearchableSelect
+                multiple
+                items={heavyVehicles}
+                getValue={(v) => Number(v.id)}
+                getLabel={(v) => `${v.code} - ${v.name}`}
+                value={filters.unitIds}
+                onChange={(id) => toggleUnitFilter(id)}
+                placeholder="Buscar unidad..."
+                allLabel="Todas"
+                emptyMessage='Marque vehículos como "pesada" en Unidades.'
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Solicitante</Label>
