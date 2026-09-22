@@ -77,20 +77,21 @@ Ver la sección siguiente — **hay DOS formatos de reporte, no confundirlos.**
 - **Nunca se guarda ni se comitea** — se genera con un script de un solo uso, se envía, y se borra.
 - Se pide con frases como "dame el reporte como el modelo interno".
 
+**IMPORTANTE — no recrear el script de memoria.** Las plantillas EXACTAS
+(byte a byte, ya probadas y aprobadas por el usuario) están versionadas en
+el propio repo, en `scripts/modelo_interno/`:
+- `scripts/modelo_interno/fetch_reporte.template.mjs`
+- `scripts/modelo_interno/build_modelo_interno.template.mjs`
+
+Reconstruirlo "a ojo" a partir de una descripción (colores, layout, etc.)
+produce un Excel parecido pero no idéntico — ya pasó una vez y el usuario
+lo notó. Usar siempre estas plantillas tal cual.
+
 **Cómo generarlo** (turno = MATUTINO | VESPERTINO | NOCTURNO, según la hora del pedido; `enVivo: true` siempre para datos frescos):
 
-1. Crear `backend/_fetch_reporte.mjs`:
-   ```js
-   import Reporte from './src/bo/sub_system/classes/reporte.js';
-   import fs from 'fs';
-   const r = new Reporte();
-   const res = await r.generarReporte({ turno: 'MATUTINO', enVivo: true });
-   fs.writeFileSync('./_reporte_data.json', JSON.stringify(res.data));
-   console.log('OK');
-   process.exit(0);
-   ```
-2. Crear `backend/_build_modelo_interno.mjs` — script ExcelJS que lee `_reporte_data.json` y arma el Excel: encabezado azul marino (`FF1F3864`) con el título y fecha/corte, fila de KPIs (total/activas/estacionadas con sus colores), leyenda de colores por categoría de ubicación (BASE/CAMPO/OFICINA/OTRAS) y por estado (ACTIVO/ESTACIONADO), y la tabla de unidades (Unidad, Placa, Conductor, Ubicación, Hora, Estado) coloreada por esas mismas categorías — **iterando `r.unidades` tal cual viene, sin reordenar**. El archivo de salida va al scratchpad de la sesión: `Reporte_Tracker_<TURNO>_<DDMMYYYY>_formato_interno_<hhmmss>.xlsx`.
-3. Ejecutar ambos: `node _fetch_reporte.mjs && node _build_modelo_interno.mjs`.
+1. Copiar `scripts/modelo_interno/fetch_reporte.template.mjs` a `backend/_fetch_reporte.mjs`, reemplazando `__TURNO__` por el turno que corresponda.
+2. Copiar `scripts/modelo_interno/build_modelo_interno.template.mjs` a `backend/_build_modelo_interno.mjs` **sin modificar nada**.
+3. Ejecutar ambos desde `backend/`: `node _fetch_reporte.mjs && node _build_modelo_interno.mjs` — el `.xlsx` sale en el mismo directorio (`Reporte_Tracker_<TURNO>_<DDMMYYYY>_formato_interno_<hhmmss>.xlsx`); si se quiere en el scratchpad de la sesión, mover el archivo después en vez de tocar la plantilla.
 4. Enviar el `.xlsx` resultante al usuario (adjunto en el chat).
 5. Borrar los dos scripts temporales y el `_reporte_data.json` — nunca deben quedar commiteados.
 
