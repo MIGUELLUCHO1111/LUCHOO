@@ -14,6 +14,8 @@ pm2 list   # confirmar fullpetro-backend y fullpetro-frontend "online"
 ```
 Después de cualquier cambio en código del backend: `pm2 restart fullpetro-backend`.
 
+**Laptop Windows de la oficina (desde el 23/09/2026):** PM2 corre backend y frontend sin ventanas con `ecosystem.windows.config.cjs` (1 proceso fork cada uno, autorestart; el nombre DEBE terminar en `.config.cjs` o PM2 lo trata como script). Arranca solo al iniciar sesión en Windows: `scripts/windows/Fullpetro (inicio automatico).vbs` copiado a la carpeta de Inicio (`shell:startup`) hace `pm2 resurrect`. Instalación de una vez: `Instalar inicio automatico.bat`. `Iniciar Fullpetro.bat` solo verifica/abre el navegador si hay PM2. `pm2` está en `%APPDATA%\npm\pm2.cmd`. **Ojo:** los procesos que Claude lanza sueltos (`node main.js`, `Start-Process`) se mueren al terminar la tarea — nunca dejar el backend así; usar `pm2 restart fullpetro-backend`.
+
 **Importante:** la base de datos y el backend corren **localmente en esta computadora** (`DB_HOST=localhost` en `backend/.env`) — no hay un servidor compartido en la nube. Si el proyecto se clona en OTRA computadora, esa copia NO tiene acceso a los datos reales de la flota ni al bot de Telegram a menos que se monte ahí también su propio backend+base de datos+credenciales (trabajo largo), o se use Control Remoto de Claude Code para conectarse a la sesión que corre aquí (mucho más rápido). No asumir que "clonar el repo" es suficiente para que todo funcione en otra máquina.
 
 Zona horaria del negocio: `America/Caracas` (UTC-4 fijo, sin horario de verano).
