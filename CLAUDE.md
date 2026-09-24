@@ -22,8 +22,8 @@ Zona horaria del negocio: `America/Caracas` (UTC-4 fijo, sin horario de verano).
 Turnos: MATUTINO 9am, VESPERTINO 2pm, NOCTURNO 9pm.
 
 ## Reglas de Git — no cambiar sin confirmar
-- **`main` no se toca nunca**, bajo ninguna circunstancia, salvo pedido explícito.
-- El trabajo va a `feature/gps-tracker` y se refleja (fast-forward) en `Luis`.
+- **Regla de Lguerra desde el 24/09/2026: "por cada cambio, que se actualice en todas".** Todo cambio que se guarde se sube a **`feature/gps-tracker`, `Luis` y `main`** en `origin` (fast-forward desde `feature/gps-tracker`), y a `feature/gps-tracker` y `Luis` en `personal`. Antes de empujar a `main`, confirmar que es fast-forward (`git merge-base --is-ancestor origin/main HEAD`); si alguien más subió algo a `main`, traerlo primero y resolver, nunca forzar.
+- El trabajo se hace en `feature/gps-tracker`. La rama `Julio` es de otra persona: no se toca (se trae a la nuestra cuando lo pidan).
 - Existe además un remoto `personal` (`origin`→`https://github.com/juliomoran10/API-Fullpetro.git`, `personal`→ el GitHub personal del usuario) — cuando se pide subir, se sube a los tres: `feature/gps-tracker`, `Luis` y `personal` (ramas `Luis` y `feature/gps-tracker` en `personal` también).
 - El permiso de Bash para `git push personal:*` ya está autorizado en `.claude/settings.local.json` (no versionado) — si aparece bloqueado por el clasificador de auto mode en una sesión nueva, hay que volver a autorizarlo ahí.
 

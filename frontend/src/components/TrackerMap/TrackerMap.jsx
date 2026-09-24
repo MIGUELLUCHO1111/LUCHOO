@@ -71,9 +71,14 @@ export default function TrackerMap({ snapshots = [], onSelectUnit, routePoints }
     // tarjeta que lo envuelve anima su entrada); sin re-ajustar cuando el
     // tamaño real se estabiliza, Leaflet calcula los límites contra un
     // contenedor chico y el mapa queda con zoom mundial en vez de la flota.
+    // Si hay una ruta dibujada (Recorridos -> "Ver ruta"), el reajuste se
+    // hace sobre la ruta y no sobre toda la flota: abrir el panel de
+    // recorridos debajo cambia el tamaño de la página y antes eso devolvía
+    // el mapa a la vista general, perdiendo el acercamiento a la ruta.
     const resizeObserver = new ResizeObserver(() => {
       map.invalidateSize();
-      if (boundsRef.current) map.fitBounds(boundsRef.current.pad(0.2));
+      if (routeLayerRef.current) map.fitBounds(routeLayerRef.current.getBounds().pad(0.2));
+      else if (boundsRef.current) map.fitBounds(boundsRef.current.pad(0.2));
     });
     resizeObserver.observe(containerRef.current);
 
