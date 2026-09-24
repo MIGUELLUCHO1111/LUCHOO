@@ -7,6 +7,7 @@ import Archivo from './classes/archivo.js';
 import Comportamiento from './classes/comportamiento.js';
 import Notificador from './classes/notificador.js';
 import Recorrido from './classes/recorrido.js';
+import Suscriptor from './classes/suscriptor.js';
 
 export class Tracker {
   constructor() {
@@ -19,6 +20,7 @@ export class Tracker {
     this.Comportamiento = Comportamiento;
     this.Notificador = Notificador;
     this.Recorrido = Recorrido;
+    this.Suscriptor = Suscriptor;
   }
 }
 

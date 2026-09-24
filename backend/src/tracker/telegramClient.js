@@ -39,6 +39,18 @@ export default class TelegramClient {
     return chatIds.length > 0;
   }
 
+  // Mensaje a UNA sola persona (no a todos los suscriptores) -- para avisarle
+  // a quien pidio acceso que su solicitud quedo pendiente o fue aprobada.
+  async sendTo(chatId, text) {
+    if (!this.token || !chatId) return { sent: false, reason: 'not_configured' };
+    try {
+      await axios.post(`https://api.telegram.org/bot${this.token}/sendMessage`, { chat_id: String(chatId), text }, { timeout: 10000 });
+      return { sent: true };
+    } catch (error) {
+      return { sent: false, reason: error?.response?.data?.description || error.message };
+    }
+  }
+
   async sendMessage(text) {
     if (!this.token) {
       console.warn('[Tracker] TELEGRAM_BOT_TOKEN no configurado; alerta no enviada:', text);

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
 import RecorridosPanel from "@/components/TrackerMap/RecorridosPanel";
+import SuscriptoresTelegram from "./suscriptoresTelegram";
 import { formatHora, formatFechaISO, TURNOS, fleetTypeLabel, fleetTypeBadgeClass } from "@/lib/trackerFormat";
 
 const veDateOf = (iso) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
@@ -50,6 +51,7 @@ const TIPO_BADGE = {
 const SEGMENTS = [
   { key: "alarmas", label: "Alarmas" },
   { key: "reportes", label: "Reporte enviado a Telegram" },
+  { key: "suscriptores", label: "Suscriptores de Telegram" },
 ];
 
 const TrackerAlerts = () => {
@@ -109,6 +111,7 @@ const TrackerAlerts = () => {
   const activas = alerts.filter((a) => !a.resolved_at).length;
   const enviadosATelegram = reportFiles.filter((f) => f.telegram_sent).length;
   const isAlarmas = segment === "alarmas";
+  const isSuscriptores = segment === "suscriptores";
 
   // Alerta más reciente por unidad + día + tipo -- así cada botón "Fuera de
   // la geocerca" / "Fuera de horario" de una fila sabe a cuál alerta anclar
@@ -143,17 +146,21 @@ const TrackerAlerts = () => {
             </button>
           ))}
         </div>
-        <Button
-          onClick={isAlarmas ? loadAlerts : loadReportFiles}
-          variant="outline"
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 text-sm self-start md:self-auto"
-        >
-          <RefreshCw size={16} />
-          Actualizar
-        </Button>
+        {!isSuscriptores && (
+          <Button
+            onClick={isAlarmas ? loadAlerts : loadReportFiles}
+            variant="outline"
+            className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 text-sm self-start md:self-auto"
+          >
+            <RefreshCw size={16} />
+            Actualizar
+          </Button>
+        )}
       </div>
 
-      {isAlarmas ? (
+      {isSuscriptores ? (
+        <SuscriptoresTelegram />
+      ) : isAlarmas ? (
         <>
           <div className="flex gap-4 mb-6">
             <Card className="px-5 py-3">

@@ -18,6 +18,9 @@ const TX = {
   GET_ANALISIS_GUARDADO: 132,
   GET_RECORRIDOS: 133,
   GET_RUTA: 134,
+  LISTAR_SUSCRIPTORES: 135,
+  APROBAR_SUSCRIPTOR: 136,
+  QUITAR_ACCESO_SUSCRIPTOR: 137,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -49,6 +52,15 @@ const trackerService = {
 
   /** Historial de alertas (fuera de horario / fuera de zona). */
   getRecentAlerts: async () => unwrap(await executeTransaction(TX.GET_RECENT_ALERTS, {})),
+
+  /** Suscriptores del bot de Telegram (pendientes, activos y bloqueados). */
+  listarSuscriptores: async () => unwrap(await executeTransaction(TX.LISTAR_SUSCRIPTORES, {})),
+
+  /** Aprueba a un suscriptor pendiente: empieza a recibir alertas y reportes. */
+  aprobarSuscriptor: async (id) => unwrap(await executeTransaction(TX.APROBAR_SUSCRIPTOR, { id })),
+
+  /** Le quita el acceso: deja de recibir mensajes y no se reactiva solo. */
+  quitarAccesoSuscriptor: async (id) => unwrap(await executeTransaction(TX.QUITAR_ACCESO_SUSCRIPTOR, { id })),
 
   /**
    * Reporte de turno (mismo formato del Excel manual): toma la última
