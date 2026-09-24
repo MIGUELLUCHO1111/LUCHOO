@@ -75,7 +75,7 @@ export const AuthLayout = () => {
         <form onSubmit={handleSubmit(onSubmit)}>
           <FieldSet>
             <motion.div className="text-center mb-6" variants={itemVariants}>
-              <h1 className="text-2xl font-extrabold tracking-tight">
+              <h1 className="font-display text-2xl tracking-tight">
                 Inicio de Sesión
               </h1>
             </motion.div>
@@ -118,7 +118,7 @@ export const AuthLayout = () => {
                       variant="link"
                       type="button"
                       onClick={() => navigate("/forgot-password")}
-                      className="px-0 h-auto text-[10px] font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400 cursor-pointer"
+                      className="px-0 h-auto text-[10px] font-medium text-brand-navy hover:text-brand-navy-dark dark:text-brand-gold cursor-pointer"
                     >
                       ¿Olvidaste tu contraseña?
                     </Button>

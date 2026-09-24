@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ShieldCheck,
   BarChart3,
@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Fuel,
   Radio,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "@/context";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -47,21 +48,21 @@ const SidebarItem = ({
         className={`relative flex items-center h-12 mx-3 cursor-pointer transition-colors duration-200 group z-10
           ${
             active
-              ? "text-blue-600 dark:text-white"
+              ? "text-brand-navy dark:text-white"
               : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
       >
         {active && (
           <motion.div
             layoutId="leftIndicator"
-            className="absolute -left-[2px] top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-md z-20"
+            className="absolute -left-[2px] top-1/2 -translate-y-1/2 w-1 h-6 bg-brand-navy rounded-md z-20"
           />
         )}
 
         {active && (
           <motion.div
             layoutId="activeSidebarTab"
-            className="absolute inset-0 bg-blue-50 dark:bg-white/10 rounded-md z-0"
+            className="absolute inset-0 bg-brand-navy/10 dark:bg-white/10 rounded-md z-0"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           />
         )}
@@ -106,7 +107,7 @@ const SidebarItem = ({
               <div
                 key={idx}
                 onClick={() => onClick?.(child.url)}
-                className="flex items-center h-10 pl-12 rounded-md text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer transition-all"
+                className="flex items-center h-10 pl-12 rounded-md text-slate-500 dark:text-slate-400 hover:text-brand-navy dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer transition-all"
               >
                 <span className="text-sm font-medium">{child.title}</span>
               </div>
@@ -120,9 +121,22 @@ const SidebarItem = ({
 
 export const Sidebar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { logout, allowedSections } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // En mobile el riel de iconos no queda permanentemente ocupando pantalla:
+  // se pliega fuera de la vista y se abre como overlay (con fondo oscuro)
+  // sobre un botón propio siempre visible -- en desktop el comportamiento
+  // no cambia (riel de 76px, expandible a 260px, sin overlay).
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   // allowedSections === null mientras se resuelve el perfil: no restringe
   // todavía (evita un parpadeo de "menú vacío" al cargar).
@@ -159,6 +173,16 @@ export const Sidebar = () => {
       ],
     },
     { icon: BarChart3, label: "Reportes", url: "/reports" },
+    {
+      icon: Clock,
+      label: "Control de Horas",
+      children: [
+        { title: "Registro Diario", url: "/hours" },
+        { title: "Empresas", url: "/hours/companies" },
+        { title: "Proyectos", url: "/hours/projects" },
+        { title: "Equipos", url: "/hours/equipment" },
+      ],
+    },
   ];
 
   const menuConfig = rawMenuConfig
@@ -185,12 +209,40 @@ export const Sidebar = () => {
   };
 
   return (
-    <motion.aside
-      initial={false}
-      animate={{ width: isExpanded ? 260 : 76 }}
-      transition={{ type: "spring", stiffness: 220, damping: 28 }}
-      className="fixed left-4 top-4 h-[calc(100vh-32px)] rounded-3xl bg-white dark:bg-[#111216] border border-slate-200 dark:border-white/5 z-50 flex flex-col justify-between py-6 shadow-2xl overflow-hidden"
-    >
+    <>
+      {/* Botón hamburguesa propio de mobile -- siempre visible, incluso con
+          el riel plegado fuera de pantalla (el toggle de adentro del riel
+          no serviría de nada si el riel mismo está oculto). */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        aria-label={isExpanded ? "Cerrar menú" : "Abrir menú"}
+        className="md:hidden fixed left-4 top-4 z-[60] h-12 w-12 rounded-2xl bg-white dark:bg-[#111216] border border-slate-200 dark:border-white/5 shadow-xl flex items-center justify-center text-slate-500 dark:text-slate-400"
+      >
+        {isExpanded ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Fondo oscuro en mobile mientras el menú está abierto -- tocarlo lo cierra */}
+      <AnimatePresence>
+        {isMobile && isExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsExpanded(false)}
+            className="md:hidden fixed inset-0 bg-black/40 z-40"
+          />
+        )}
+      </AnimatePresence>
+
+      <motion.aside
+        initial={false}
+        animate={{ width: isExpanded ? 260 : 76 }}
+        transition={{ type: "spring", stiffness: 220, damping: 28 }}
+        className={`fixed left-4 top-4 h-[calc(100vh-32px)] rounded-3xl bg-white dark:bg-[#111216] border border-slate-200 dark:border-white/5 z-50 flex flex-col justify-between py-6 shadow-2xl overflow-hidden transition-transform duration-300 ${
+          isExpanded ? "translate-x-0" : "-translate-x-[calc(100%+2rem)] md:translate-x-0"
+        }`}
+      >
       <div className="flex flex-col gap-6 w-full">
         <div className="px-3">
           <div
@@ -204,7 +256,7 @@ export const Sidebar = () => {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -5 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute left-4 text-sm font-bold text-slate-800 dark:text-white uppercase tracking-widest"
+                  className="absolute left-4 text-sm font-display text-slate-800 dark:text-white uppercase tracking-widest"
                 >
                   Tablero
                 </motion.span>
@@ -230,7 +282,7 @@ export const Sidebar = () => {
                 ) : (
                   <Menu
                     size={22}
-                    className="text-slate-500 dark:text-slate-400 group-hover:text-blue-600"
+                    className="text-slate-500 dark:text-slate-400 group-hover:text-brand-navy"
                   />
                 )}
               </motion.div>
@@ -246,6 +298,7 @@ export const Sidebar = () => {
               onClick={(url) => {
                 const targetPath = url || `/${item.label.toLowerCase()}`;
                 navigate(targetPath);
+                if (isMobile) setIsExpanded(false);
               }}
               active={checkActive(item)}
               isExpanded={isExpanded}
@@ -265,6 +318,7 @@ export const Sidebar = () => {
           onClick={() => logout(navigate)}
         />
       </div>
-    </motion.aside>
+      </motion.aside>
+    </>
   );
 };

@@ -40,8 +40,8 @@ const grupoDe = (alertType) => (alertType === "fuera_de_horario" ? "horario" : "
 const TIPO_BADGE = {
   entrada_geocerca: { label: "Entrada a geocerca", className: "bg-emerald-500/10 text-emerald-600" },
   salida_geocerca: { label: "Salida de geocerca", className: "bg-red-500/10 text-red-600" },
-  fuera_de_horario: { label: "Fuera de horario", className: "bg-orange-500/10 text-orange-600" },
-  fuera_de_geocerca: { label: "Fuera de zona", className: "bg-orange-500/10 text-orange-600" },
+  fuera_de_horario: { label: "Fuera de horario", className: "bg-brand-navy/10 text-brand-navy dark:text-brand-gold" },
+  fuera_de_geocerca: { label: "Fuera de zona", className: "bg-brand-navy/10 text-brand-navy dark:text-brand-gold" },
 };
 
 // Dos apartados de la misma pantalla de Notificaciones: lo que se generó
@@ -129,7 +129,7 @@ const TrackerAlerts = () => {
     latestByUnitDayTipo.get(`${a.unit_id ?? a.plate}__${veDateOf(a.triggered_at)}__${tipo}`);
 
   return (
-    <PageLayout icon={BellRing} title="Notificaciones" subtitle="TRACKER GPS DE FLOTA" accentColor="orange">
+    <PageLayout icon={BellRing} title="Notificaciones" subtitle="TRACKER GPS DE FLOTA">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
           {SEGMENTS.map((s) => (
@@ -138,7 +138,7 @@ const TrackerAlerts = () => {
               onClick={() => setSegment(s.key)}
               className={`px-4 py-2 text-sm font-bold transition-colors ${
                 segment === s.key
-                  ? "bg-orange-500 text-white"
+                  ? "bg-brand-navy text-white"
                   : "bg-white dark:bg-[#0f1115] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
               }`}
             >
@@ -224,7 +224,7 @@ const TrackerAlerts = () => {
                             href={`https://www.google.com/maps?q=${a.latitude},${a.longitude}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 font-bold text-orange-600 hover:underline"
+                            className="inline-flex items-center gap-1 font-bold text-brand-navy hover:text-brand-navy-light hover:underline"
                           >
                             <MapPin size={13} />
                             Ver ubicación
@@ -256,7 +256,7 @@ const TrackerAlerts = () => {
                                   size="icon"
                                   disabled={!objetivo}
                                   title={objetivo ? `Recorrido — ${label}` : `Sin alertas de "${label}" ese día`}
-                                  className={`h-8 w-8 rounded-lg ${activo ? "bg-blue-500 text-white hover:bg-blue-600" : ""}`}
+                                  className={`h-8 w-8 rounded-lg ${activo ? "bg-brand-navy text-white hover:bg-brand-navy-light" : ""}`}
                                   onClick={() => toggleRecorridos(a.id, tipo)}
                                 >
                                   <Icon size={14} />

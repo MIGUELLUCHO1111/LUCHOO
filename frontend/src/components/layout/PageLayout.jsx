@@ -8,14 +8,26 @@ import { Sidebar } from "@/components/Sidebar/Sidebar";
 import logoDark from "@/assets/img/fullpetro-dark.png";
 import logoWhite from "@/assets/img/fullpetro-white.png";
 
+// Clases completas y literales a propósito (nunca `bg-${accentColor}-500/10`
+// interpolado): el scanner de Tailwind solo genera una utilidad si ve el
+// nombre completo tal cual escrito en el código fuente -- una clase armada
+// por interpolación de string nunca matchea, así que el blob decorativo
+// llevaba tiempo sin poder mostrarse en ninguna página (bug real, no solo
+// de marca). accentColor ahora es una llave a esta tabla, no un color de
+// Tailwind libre.
+const ACCENT_BLOB = {
+  navy: "bg-brand-navy/10",
+  gold: "bg-brand-gold/20",
+};
+
 export const PageLayout = ({
   icon: Icon,
   title,
   subtitle,
-  iconGradient = "from-orange-500 to-amber-600",
-  iconShadow = "shadow-orange-500/30",
+  iconGradient = "from-brand-navy to-brand-navy-light",
+  iconShadow = "shadow-brand-navy/30",
   maxWidth = "max-w-7xl",
-  accentColor = "orange",
+  accentColor = "navy",
   children,
 }) => {
   const { user, logout } = useAuth();
@@ -34,18 +46,10 @@ export const PageLayout = ({
         }}
       />
 
-      <div className="absolute top-8 right-10 z-50 pointer-events-none">
-        <img
-          src={theme === "dark" ? logoDark : logoWhite}
-          alt="Fullpetro Logo"
-          className="h-36 w-auto object-contain transition-all duration-500"
-        />
-      </div>
-
       <Sidebar />
 
-      <div className="flex-1 p-8 relative flex flex-col items-center overflow-auto ml-[76px]">
-        <div className={`absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-${accentColor}-500/10 rounded-full blur-[120px] pointer-events-none`} />
+      <div className="flex-1 px-8 pb-8 pt-20 md:pt-8 relative flex flex-col items-center overflow-auto ml-0 md:ml-[76px]">
+        <div className={`absolute -top-[10%] -left-[10%] w-[40%] h-[40%] ${ACCENT_BLOB[accentColor] || ACCENT_BLOB.navy} rounded-full blur-[120px] pointer-events-none`} />
 
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -58,7 +62,7 @@ export const PageLayout = ({
                 <Icon size={32} className="text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                <h1 className="font-display text-3xl tracking-tight text-slate-900 dark:text-white">
                   {title}
                 </h1>
                 <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px]">
@@ -68,6 +72,18 @@ export const PageLayout = ({
             </div>
 
             <div className="flex items-center gap-3 mt-8">
+              {/* Antes vivía en un div aparte con position:fixed en la
+                  esquina, independiente de este grupo de botones -- eso es
+                  justo lo que hacía que se viera "moverse distinto" al
+                  hacer scroll (además de taparlos al estar en z-50). Ahora
+                  es un elemento más de este mismo grupo: se mueve y se
+                  desvanece exactamente igual que Salir/tema, sin lógica de
+                  posicionamiento propia. */}
+              <img
+                src={theme === "dark" ? logoDark : logoWhite}
+                alt="Fullpetro Logo"
+                className="h-16 w-auto object-contain transition-all duration-500"
+              />
               <Button
                 variant="outline"
                 size="icon"

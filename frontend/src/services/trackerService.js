@@ -1,26 +1,32 @@
 import api, { executeTransaction, getCurrentProfile } from "./api";
 
+// Ids reales verificados contra la BD compartida tras mezclar con Fuel.Reporte
+// (tx 118, ya existente) -- todo se corrió +1 respecto a la rama original
+// (ver INTEGRACION_GPS_FORESIGHT.md / notas de merge del 08/09/2026). Los 4
+// últimos (reportes generados/análisis guardado/recorridos) quedaron después
+// de Horas (132-159) en vez de justo detrás de Tracker -- ver notas de merge
+// del 19/09/2026 en permission.csv.
 const TX = {
-  CREATE_UNIDAD: 118,
-  GET_ALL_UNIDADES: 119,
-  GET_UNIDAD_BY_ID: 120,
-  UPDATE_UNIDAD: 121,
-  DELETE_UNIDAD: 122,
-  GET_LATEST_SNAPSHOTS: 123,
-  SYNC_NOW: 124,
-  GET_RECENT_ALERTS: 125,
-  GENERAR_REPORTE: 126,
-  ARCHIVAR_AHORA: 127,
-  GET_ANALISIS_DEL_DIA: 128,
-  NOTIFICAR_CIERRE_DE_TURNO: 129,
-  VERIFICAR_ANEXO_SEGURIDAD: 130,
-  LISTAR_REPORTES_GENERADOS: 131,
-  GET_ANALISIS_GUARDADO: 132,
-  GET_RECORRIDOS: 133,
-  GET_RUTA: 134,
-  LISTAR_SUSCRIPTORES: 135,
-  APROBAR_SUSCRIPTOR: 136,
-  QUITAR_ACCESO_SUSCRIPTOR: 137,
+  CREATE_UNIDAD: 119,
+  GET_ALL_UNIDADES: 120,
+  GET_UNIDAD_BY_ID: 121,
+  UPDATE_UNIDAD: 122,
+  DELETE_UNIDAD: 123,
+  GET_LATEST_SNAPSHOTS: 124,
+  SYNC_NOW: 125,
+  GET_RECENT_ALERTS: 126,
+  GENERAR_REPORTE: 127,
+  ARCHIVAR_AHORA: 128,
+  GET_ANALISIS_DEL_DIA: 129,
+  NOTIFICAR_CIERRE_DE_TURNO: 130,
+  VERIFICAR_ANEXO_SEGURIDAD: 131,
+  LISTAR_REPORTES_GENERADOS: 160,
+  GET_ANALISIS_GUARDADO: 161,
+  GET_RECORRIDOS: 162,
+  GET_RUTA: 163,
+  LISTAR_SUSCRIPTORES: 164,
+  APROBAR_SUSCRIPTOR: 165,
+  QUITAR_ACCESO_SUSCRIPTOR: 166,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";

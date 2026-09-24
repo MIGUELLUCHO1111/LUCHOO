@@ -204,7 +204,7 @@ const Tracker = () => {
             placeholder="Buscar por unidad o placa..."
             value={f.search}
             onChange={(e) => updateFilter(key, "search", e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+            className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] focus:outline-none focus:ring-2 focus:ring-brand-navy/30"
           />
         </div>
         <select
@@ -231,7 +231,7 @@ const Tracker = () => {
           <button
             type="button"
             onClick={() => clearFilter(key)}
-            className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline shrink-0"
+            className="text-xs font-bold text-brand-navy hover:text-brand-navy-light hover:underline shrink-0"
           >
             Limpiar filtros
           </button>
@@ -285,7 +285,6 @@ const Tracker = () => {
       icon={Radio}
       title="Estado de Flota"
       subtitle={`TRACKER GPS • ÚLTIMA LECTURA GUARDADA • ${new Date().toLocaleDateString()}`}
-      accentColor="orange"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex gap-4">
@@ -311,7 +310,7 @@ const Tracker = () => {
           <Button
             onClick={handleSync}
             disabled={syncing}
-            className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-orange-500 hover:bg-orange-600 text-white text-sm"
+            className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white text-sm"
           >
             <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
             {syncing ? "Sincronizando..." : "Sincronizar ahora"}
@@ -449,18 +448,18 @@ const Tracker = () => {
         </div>
       </Card>
 
-      <Card className="w-full overflow-hidden mb-8 border-orange-200 dark:border-orange-500/20">
+      <Card className="w-full overflow-hidden mb-8 border-brand-navy/20 dark:border-brand-navy-light/20">
         <button
           type="button"
           onClick={() => toggleBlock("unidades")}
           className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors"
         >
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-orange-500 text-white">
+            <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-brand-navy text-white">
               <ClipboardList size={16} />
             </span>
             <span className="font-bold text-slate-900 dark:text-white">Gestión de Unidades</span>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-500/10 text-orange-600">{unidades.length}</span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-navy/10 text-brand-navy">{unidades.length}</span>
             <span className="hidden md:inline text-xs text-slate-400 font-normal">
               — registra, edita o da de baja unidades (código, placa, conductor, tipo de flota)
             </span>
@@ -478,7 +477,7 @@ const Tracker = () => {
                     placeholder="Buscar por código, placa o conductor..."
                     value={filters.unidades.search}
                     onChange={(e) => updateFilter("unidades", "search", e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+                    className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] focus:outline-none focus:ring-2 focus:ring-brand-navy/30"
                   />
                 </div>
                 <select
@@ -494,7 +493,7 @@ const Tracker = () => {
                   <button
                     type="button"
                     onClick={() => clearFilter("unidades")}
-                    className="text-xs font-bold text-orange-600 hover:text-orange-700 hover:underline shrink-0"
+                    className="text-xs font-bold text-brand-navy hover:text-brand-navy-light hover:underline shrink-0"
                   >
                     Limpiar filtros
                   </button>
@@ -502,7 +501,7 @@ const Tracker = () => {
               </div>
               <Button
                 onClick={() => { resetForm(); setShowForm(!showForm); }}
-                className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-orange-500 hover:bg-orange-600 text-white text-sm shrink-0"
+                className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-brand-navy hover:bg-brand-navy-light text-white text-sm shrink-0"
               >
                 {showForm ? <X size={14} /> : <Plus size={14} />}
                 {showForm ? "Cancelar" : "Nueva Unidad"}
@@ -510,7 +509,7 @@ const Tracker = () => {
             </div>
 
             {showForm && (
-            <Card className="mb-6 border-orange-200 dark:border-orange-500/20">
+            <Card className="mb-6 border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
                 {error && (
                   <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm">
@@ -559,7 +558,7 @@ const Tracker = () => {
                   </div>
                   <div className="md:col-span-4 flex justify-end gap-3">
                     <Button type="button" variant="outline" onClick={resetForm} className="rounded-xl">Cancelar</Button>
-                    <Button type="submit" disabled={submitting} className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white">
+                    <Button type="submit" disabled={submitting} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">
                       {submitting ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
                     </Button>
                   </div>

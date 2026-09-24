@@ -91,7 +91,7 @@ export const ConfirmProvider = ({ children }) => {
                   className={
                     request.danger
                       ? "rounded-xl bg-red-500 hover:bg-red-600 text-white"
-                      : "rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                      : "rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                   }
                 >
                   {request.confirmText}

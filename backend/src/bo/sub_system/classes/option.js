@@ -109,8 +109,51 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'notificarCierreDeTurno' },
     { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'verificarAnexoSeguridad' },
   ],
-  // Reportes es 100% datos mock en el frontend hoy — sin BO que autorizar.
-  '/reports': [],
+  '/reports': [
+    { sub_system: 'Fuel', class_name: 'Reporte', method_name: 'getFuelSummary' },
+    { sub_system: 'Horas', class_name: 'Reporte', method_name: 'getResumenHoras' },
+    { sub_system: 'Horas', class_name: 'Reporte', method_name: 'getResumenPorDia' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getAllProyectos' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getEquiposAsignados' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'getRegistrosDelDia' },
+  ],
+  '/hours': [
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectosByEmpresa' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getEquiposAsignados' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getAllEmpresas' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'guardarRegistro' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'getRegistrosDelDia' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'eliminarRegistro' },
+    { sub_system: 'Horas', class_name: 'Registro', method_name: 'getAcumuladoMes' },
+  ],
+  '/hours/companies': [
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'createEmpresa' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getEmpresaById' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getAllEmpresas' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'updateEmpresa' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'deleteEmpresa' },
+  ],
+  // Solo lectura a propósito: create/update/delete/asignarPerfil/
+  // quitarPerfil/getPerfilesAsignados y la gestión de Equipo quedaron
+  // fuera de esta lista porque Julio pidió que un perfil nuevo (no-admin)
+  // con acceso a Proyectos solo pueda VER sus proyectos, nunca editarlos,
+  // eliminarlos ni tocar quién tiene acceso a ellos -- eso sigue siendo
+  // solo de admin (que no depende de esta lista, ya tiene su propio
+  // acceso directo vía permission.csv). Si algún día hace falta un perfil
+  // "gestor de proyectos" con más permisos, se vuelve a evaluar entonces.
+  '/hours/projects': [
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectoById' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getAllProyectos' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectosByEmpresa' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getAllEmpresas' },
+  ],
+  '/hours/equipment': [
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'createEquipo' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'getEquipoById' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'getAllEquipos' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'updateEquipo' },
+    { sub_system: 'Horas', class_name: 'Equipo', method_name: 'deleteEquipo' },
+  ],
 };
 
 export class Option {

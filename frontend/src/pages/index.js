@@ -15,3 +15,7 @@ export { default as Tracker } from "./tracker/tracker.jsx";
 export { default as TrackerAlerts } from "./tracker/trackerAlerts.jsx";
 export { default as TrackerMapPage } from "./tracker/trackerMap.jsx";
 export { default as TrackerReport } from "./tracker/trackerReport.jsx";
+export { default as HoursDailyEntry } from "./hours/dailyEntry.jsx";
+export { default as HoursCompanies } from "./hours/companies.jsx";
+export { default as HoursProjects } from "./hours/projects.jsx";
+export { default as HoursEquipment } from "./hours/equipment.jsx";

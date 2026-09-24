@@ -664,33 +664,43 @@
   # ========== FUEL ==========
 
   'createVehiculo': {
-    query: 'INSERT INTO public.vehicle (code, name, plate, tank_capacity_liters, fleet_type) VALUES ($1, $2, $3, $4, $5) RETURNING id, code, name, plate, tank_capacity_liters, fleet_type;',
+    query: 'INSERT INTO public.fleet_unit (code, name, plate, tank_capacity_liters, fleet_type) VALUES ($1, $2, $3, $4, $5) RETURNING id, code, name, plate, tank_capacity_liters, fleet_type;',
     structure_params: { code: 'string', name: 'string', plate: 'string|null', tank_capacity_liters: 'int|null', fleet_type: 'string|null' },
     orderArray: ['code', 'name', 'plate', 'tank_capacity_liters', 'fleet_type']
   },
 
   'getVehiculoById': {
-    query: 'SELECT id, code, name, plate, tank_capacity_liters, fleet_type, is_active FROM public.vehicle WHERE id = $1 AND deleted_at IS NULL;',
+    query: 'SELECT id, code, name, plate, tank_capacity_liters, fleet_type, is_active FROM public.fleet_unit WHERE id = $1 AND deleted_at IS NULL;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
 
   'getAllVehiculos': {
-    query: 'SELECT id, code, name, plate, tank_capacity_liters, fleet_type, is_active FROM public.vehicle WHERE deleted_at IS NULL ORDER BY code;',
+    query: 'SELECT id, code, name, plate, tank_capacity_liters, fleet_type, is_active FROM public.fleet_unit WHERE deleted_at IS NULL ORDER BY code;',
     structure_params: {},
     orderArray: []
   },
 
   'updateVehiculo': {
-    query: 'UPDATE public.vehicle SET name = $2, plate = $3, tank_capacity_liters = $4, fleet_type = $5, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, name, plate, tank_capacity_liters, fleet_type;',
+    query: 'UPDATE public.fleet_unit SET name = $2, plate = $3, tank_capacity_liters = $4, fleet_type = $5, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, name, plate, tank_capacity_liters, fleet_type;',
     structure_params: { id: 'int', name: 'string', plate: 'string|null', tank_capacity_liters: 'int|null', fleet_type: 'string|null' },
     orderArray: ['id', 'name', 'plate', 'tank_capacity_liters', 'fleet_type']
   },
 
   'deleteVehiculo': {
-    query: 'UPDATE public.vehicle SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    query: 'UPDATE public.fleet_unit SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
     structure_params: { id: 'int' },
     orderArray: ['id']
+  },
+
+  # Consecutivo diario por flota para el Transaction ID auto-generado
+  # (FP-AAMMDD### -- ver Carga/Pesada.createXxx). ON CONFLICT DO UPDATE es
+  # atomico: dos llenados del mismo dia casi al mismo tiempo nunca sacan el
+  # mismo numero, aunque los atienda un proceso distinto del cluster.
+  'incrementFuelTransactionCounter': {
+    query: 'INSERT INTO public.fuel_transaction_counter (fecha, fleet_code, last_seq) VALUES ($1, $2, 1) ON CONFLICT (fecha, fleet_code) DO UPDATE SET last_seq = fuel_transaction_counter.last_seq + 1 RETURNING last_seq;',
+    structure_params: { fecha: 'string', fleet_code: 'string' },
+    orderArray: ['fecha', 'fleet_code']
   },
 
   'createCarga': {
@@ -700,27 +710,30 @@
   },
 
   'getCargaById': {
-    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.id = $1 AND c.deleted_at IS NULL;',
+    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.fleet_unit v ON c.vehicle_id = v.id WHERE c.id = $1 AND c.deleted_at IS NULL;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
 
   'getCargasByVehiculo': {
-    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.vehicle_id = $1 AND c.deleted_at IS NULL ORDER BY c.filled_at DESC;',
+    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.fleet_unit v ON c.vehicle_id = v.id WHERE c.vehicle_id = $1 AND c.deleted_at IS NULL ORDER BY c.filled_at DESC;',
     structure_params: { vehicle_id: 'int' },
     orderArray: ['vehicle_id']
   },
 
   'getAllCargas': {
-    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.vehicle v ON c.vehicle_id = v.id WHERE c.deleted_at IS NULL ORDER BY c.filled_at DESC;',
+    query: 'SELECT c.id, c.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, c.transaction_no, c.filled_at, c.liters, c.tank_full, c.station, c.odometer, c.amount, c.notes, c.responsible_id, c.fuel_type, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.refuel_id = c.id) AS photos FROM public.fuel_carga c JOIN public.fleet_unit v ON c.vehicle_id = v.id WHERE c.deleted_at IS NULL ORDER BY c.filled_at DESC;',
     structure_params: {},
     orderArray: []
   },
 
+  # Sin transaction_no a proposito: se genera solo al crear (ver
+  # Carga.createCarga) y queda fijo -- editar una carga (corregir litros,
+  # monto, etc.) no debe recalcular ni permitir cambiar su Transaction ID.
   'updateCarga': {
-    query: 'UPDATE public.fuel_carga SET transaction_no = $2, liters = $3, tank_full = $4, station = $5, odometer = $6, amount = $7, notes = $8, responsible_id = $9, fuel_type = $10 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type;',
-    structure_params: { id: 'int', transaction_no: 'string|null', liters: 'int', tank_full: 'boolean', station: 'string|null', odometer: 'int|null', amount: 'int|null', notes: 'string|null', responsible_id: 'int|null', fuel_type: 'string|null' },
-    orderArray: ['id', 'transaction_no', 'liters', 'tank_full', 'station', 'odometer', 'amount', 'notes', 'responsible_id', 'fuel_type']
+    query: 'UPDATE public.fuel_carga SET liters = $2, tank_full = $3, station = $4, odometer = $5, amount = $6, notes = $7, responsible_id = $8, fuel_type = $9 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type;',
+    structure_params: { id: 'int', liters: 'int', tank_full: 'boolean', station: 'string|null', odometer: 'int|null', amount: 'int|null', notes: 'string|null', responsible_id: 'int|null', fuel_type: 'string|null' },
+    orderArray: ['id', 'liters', 'tank_full', 'station', 'odometer', 'amount', 'notes', 'responsible_id', 'fuel_type']
   },
 
   'deleteCarga': {
@@ -738,21 +751,23 @@
   },
 
   'getPesadaById': {
-    query: 'SELECT p.id, p.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, p.transaction_no, p.filled_at, p.requester, p.fuel_type, p.measurement_value, p.measurement_type, p.gallons, p.notes, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.pesada_id = p.id) AS photos FROM public.fuel_pesada p JOIN public.vehicle v ON p.vehicle_id = v.id WHERE p.id = $1 AND p.deleted_at IS NULL;',
+    query: 'SELECT p.id, p.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, p.transaction_no, p.filled_at, p.requester, p.fuel_type, p.measurement_value, p.measurement_type, p.gallons, p.notes, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.pesada_id = p.id) AS photos FROM public.fuel_pesada p JOIN public.fleet_unit v ON p.vehicle_id = v.id WHERE p.id = $1 AND p.deleted_at IS NULL;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
 
   'getAllPesada': {
-    query: 'SELECT p.id, p.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, p.transaction_no, p.filled_at, p.requester, p.fuel_type, p.measurement_value, p.measurement_type, p.gallons, p.notes, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.pesada_id = p.id) AS photos FROM public.fuel_pesada p JOIN public.vehicle v ON p.vehicle_id = v.id WHERE p.deleted_at IS NULL ORDER BY p.filled_at DESC;',
+    query: 'SELECT p.id, p.vehicle_id, v.code AS vehicle_code, v.name AS vehicle_name, p.transaction_no, p.filled_at, p.requester, p.fuel_type, p.measurement_value, p.measurement_type, p.gallons, p.notes, (SELECT COALESCE(json_agg(json_build_object(''id'', f.id, ''url'', f.url, ''thumbnail_url'', f.thumbnail_url, ''mime_type'', f.mime_type)), ''[]''::json) FROM public.fuel_foto f WHERE f.pesada_id = p.id) AS photos FROM public.fuel_pesada p JOIN public.fleet_unit v ON p.vehicle_id = v.id WHERE p.deleted_at IS NULL ORDER BY p.filled_at DESC;',
     structure_params: {},
     orderArray: []
   },
 
+  # Sin transaction_no a proposito -- mismo criterio que updateCarga: se
+  # genera solo al crear y queda fijo.
   'updatePesada': {
-    query: 'UPDATE public.fuel_pesada SET transaction_no = $2, filled_at = $3, requester = $4, fuel_type = $5, measurement_value = $6, measurement_type = $7, gallons = $8, notes = $9 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes;',
-    structure_params: { id: 'int', transaction_no: 'string|null', filled_at: 'string|null', requester: 'string|null', fuel_type: 'string|null', measurement_value: 'number|null', measurement_type: 'string|null', gallons: 'number', notes: 'string|null' },
-    orderArray: ['id', 'transaction_no', 'filled_at', 'requester', 'fuel_type', 'measurement_value', 'measurement_type', 'gallons', 'notes']
+    query: 'UPDATE public.fuel_pesada SET filled_at = $2, requester = $3, fuel_type = $4, measurement_value = $5, measurement_type = $6, gallons = $7, notes = $8 WHERE id = $1 AND deleted_at IS NULL RETURNING id, vehicle_id, transaction_no, filled_at, requester, fuel_type, measurement_value, measurement_type, gallons, notes;',
+    structure_params: { id: 'int', filled_at: 'string|null', requester: 'string|null', fuel_type: 'string|null', measurement_value: 'number|null', measurement_type: 'string|null', gallons: 'number', notes: 'string|null' },
+    orderArray: ['id', 'filled_at', 'requester', 'fuel_type', 'measurement_value', 'measurement_type', 'gallons', 'notes']
   },
 
   'deletePesada': {
@@ -843,34 +858,60 @@
     orderArray: ['id']
   },
 
+  # ---------- Reportes (resumen de combustible) ----------
+
+  'getFuelSummaryLiviana': {
+    query: 'SELECT c.vehicle_id, v.code, v.name, SUM(c.liters) AS liters, SUM(c.amount) AS amount, COUNT(*) AS count FROM public.fuel_carga c JOIN public.fleet_unit v ON c.vehicle_id = v.id WHERE c.filled_at BETWEEN $1 AND $2 AND c.deleted_at IS NULL GROUP BY c.vehicle_id, v.code, v.name ORDER BY v.code;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
+  },
+
+  'getFuelSummaryPesada': {
+    query: 'SELECT p.vehicle_id, v.code, v.name, SUM(p.gallons) AS gallons, COUNT(*) AS count FROM public.fuel_pesada p JOIN public.fleet_unit v ON p.vehicle_id = v.id WHERE p.filled_at BETWEEN $1 AND $2 AND p.deleted_at IS NULL GROUP BY p.vehicle_id, v.code, v.name ORDER BY v.code;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
+  },
+
   # ---------- Tracker GPS (Fase 1: motor de datos) ----------
 
   'createTrackerUnit': {
-    query: 'INSERT INTO public.tracker_unit (code, plate, driver_name, fleet_type) VALUES ($1, $2, $3, $4) RETURNING id, code, plate, driver_name, is_active, fleet_type;',
+    query: 'INSERT INTO public.fleet_unit (code, plate, driver_name, fleet_type) VALUES ($1, $2, $3, $4) RETURNING id, code, plate, driver_name, is_active, fleet_type;',
     structure_params: { code: 'string', plate: 'string|null', driver_name: 'string|null', fleet_type: 'string|null' },
     orderArray: ['code', 'plate', 'driver_name', 'fleet_type']
   },
 
   'getTrackerUnitById': {
-    query: 'SELECT id, code, plate, driver_name, is_active, fleet_type FROM public.tracker_unit WHERE id = $1 AND deleted_at IS NULL;',
+    query: 'SELECT id, code, plate, driver_name, is_active, fleet_type FROM public.fleet_unit WHERE id = $1 AND deleted_at IS NULL;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
 
   'getAllTrackerUnits': {
-    query: 'SELECT id, code, plate, driver_name, is_active, fleet_type FROM public.tracker_unit WHERE deleted_at IS NULL ORDER BY code;',
+    query: 'SELECT id, code, plate, driver_name, is_active, fleet_type FROM public.fleet_unit WHERE deleted_at IS NULL ORDER BY code;',
     structure_params: {},
     orderArray: []
   },
 
   'updateTrackerUnit': {
-    query: 'UPDATE public.tracker_unit SET plate = $2, driver_name = $3, is_active = $4, fleet_type = $5 WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, plate, driver_name, is_active, fleet_type;',
+    query: 'UPDATE public.fleet_unit SET plate = $2, driver_name = $3, is_active = $4, fleet_type = $5 WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, plate, driver_name, is_active, fleet_type;',
     structure_params: { id: 'int', plate: 'string|null', driver_name: 'string|null', is_active: 'boolean', fleet_type: 'string|null' },
     orderArray: ['id', 'plate', 'driver_name', 'is_active', 'fleet_type']
   },
 
+  # Usada solo por el auto-registro de Snapshot.syncNow: una unidad ya
+  # existente por código pero sin placa (creada a mano antes de que la API
+  # confirmara una) -- rellena solo la placa, sin tocar driver_name/
+  # is_active/fleet_type como sí hace updateTrackerUnit (que requiere
+  # mandarlos todos y pisaría lo que ya tenía la unidad con valores por
+  # defecto). El WHERE plate IS NULL la hace segura de reintentar.
+  'setTrackerUnitPlateIfMissing': {
+    query: 'UPDATE public.fleet_unit SET plate = $2 WHERE code = $1 AND plate IS NULL AND deleted_at IS NULL RETURNING id, code, plate, driver_name, is_active, fleet_type;',
+    structure_params: { code: 'string', plate: 'string' },
+    orderArray: ['code', 'plate']
+  },
+
   'deleteTrackerUnit': {
-    query: 'UPDATE public.tracker_unit SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    query: 'UPDATE public.fleet_unit SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
@@ -919,7 +960,7 @@
   # cercana dentro de ~5km (0.002 en grados al cuadrado, aprox (5/111)^2) y
   # arma "CERCA DE <esa direccion>" en vez de dejarla en blanco.
   'getLatestSnapshots': {
-    query: "WITH latest AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot ORDER BY gps_unit_id, fetched_at DESC), resolved AS (SELECT l.id, l.gps_unit_id, l.plate, l.gps_name, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(l.location_text))) AS location_text, l.location_text AS location_raw FROM latest l LEFT JOIN public.tracker_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE l.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR l.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR l.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, location_raw, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
+    query: "WITH latest AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot ORDER BY gps_unit_id, fetched_at DESC), resolved AS (SELECT l.id, l.gps_unit_id, l.plate, l.gps_name, l.latitude, l.longitude, l.speed, l.ignition, l.status, l.is_stale, l.last_report_at, l.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(l.location_text))) AS location_text, l.location_text AS location_raw FROM latest l LEFT JOIN public.fleet_unit u ON u.plate = l.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE l.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR l.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR l.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, location_raw, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
     structure_params: {},
     orderArray: []
   },
@@ -1005,13 +1046,13 @@
   },
 
   'getSnapshotSummary': {
-    query: "WITH resolved AS (SELECT s.id, s.gps_unit_id, s.plate, s.gps_name, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(s.location_text))) AS location_text FROM public.tracker_snapshot_summary s LEFT JOIN public.tracker_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE s.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR s.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR s.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE WHERE s.fecha = $1 AND s.turno = $2), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
+    query: "WITH resolved AS (SELECT s.id, s.gps_unit_id, s.plate, s.gps_name, s.latitude, s.longitude, s.speed, s.ignition, s.status, s.is_stale, s.last_report_at, s.archived_at AS fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(s.location_text))) AS location_text FROM public.tracker_snapshot_summary s LEFT JOIN public.fleet_unit u ON u.plate = s.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE s.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR s.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR s.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE WHERE s.fecha = $1 AND s.turno = $2), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
     structure_params: { fecha: 'string', turno: 'string' },
     orderArray: ['fecha', 'turno']
   },
 
   'getSnapshotsInWindow': {
-    query: "WITH win AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 ORDER BY gps_unit_id, fetched_at DESC), resolved AS (SELECT w.id, w.gps_unit_id, w.plate, w.gps_name, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(w.location_text))) AS location_text FROM win w LEFT JOIN public.tracker_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE w.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR w.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR w.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
+    query: "WITH win AS (SELECT DISTINCT ON (gps_unit_id) * FROM public.tracker_snapshot WHERE fetched_at BETWEEN $1 AND $2 ORDER BY gps_unit_id, fetched_at DESC), resolved AS (SELECT w.id, w.gps_unit_id, w.plate, w.gps_name, w.latitude, w.longitude, w.speed, w.ignition, w.status, w.is_stale, w.last_report_at, w.fetched_at, u.id AS unit_id, u.code AS unit_code, u.driver_name, u.fleet_type, UPPER(COALESCE(tla.alias, public.tracker_simplify_location(w.location_text))) AS location_text FROM win w LEFT JOIN public.fleet_unit u ON u.plate = w.plate AND u.deleted_at IS NULL LEFT JOIN LATERAL (SELECT alias FROM public.tracker_location_alias WHERE w.location_text ILIKE '%' || match_text || '%' AND (lat_min IS NULL OR w.latitude BETWEEN lat_min AND lat_max) AND (lng_min IS NULL OR w.longitude BETWEEN lng_min AND lng_max) ORDER BY LENGTH(match_text) DESC LIMIT 1) tla ON TRUE), geolocated AS (SELECT r.*, COALESCE(r.location_text, (SELECT 'CERCA DE ' || o.location_text FROM resolved o WHERE o.id <> r.id AND o.location_text IS NOT NULL AND o.latitude IS NOT NULL AND o.longitude IS NOT NULL AND r.latitude IS NOT NULL AND r.longitude IS NOT NULL AND (POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2)) < 0.002 ORDER BY POWER(o.latitude - r.latitude, 2) + POWER(o.longitude - r.longitude, 2) ASC LIMIT 1)) AS final_location_text FROM resolved r) SELECT id, gps_unit_id, plate, gps_name, final_location_text AS location_text, latitude, longitude, speed, ignition, status, is_stale, last_report_at, fetched_at, unit_id, unit_code, driver_name, fleet_type, public.tracker_categorize_location(final_location_text) AS location_category FROM geolocated ORDER BY unit_code NULLS LAST, plate;",
     structure_params: { window_start: 'string', window_end: 'string' },
     orderArray: ['window_start', 'window_end']
   },
@@ -1053,7 +1094,7 @@
   },
 
   'getRecentTrackerAlerts': {
-    query: 'SELECT a.id, a.unit_id, u.code AS unit_code, u.fleet_type, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at, s.latitude, s.longitude, s.gps_unit_id FROM public.tracker_alert a LEFT JOIN public.tracker_unit u ON u.id = a.unit_id LEFT JOIN public.tracker_snapshot s ON s.id = a.snapshot_id ORDER BY a.triggered_at DESC LIMIT 100;',
+    query: 'SELECT a.id, a.unit_id, u.code AS unit_code, u.fleet_type, a.plate, a.alert_type, a.message, a.triggered_at, a.notified, a.resolved_at, s.latitude, s.longitude, s.gps_unit_id FROM public.tracker_alert a LEFT JOIN public.fleet_unit u ON u.id = a.unit_id LEFT JOIN public.tracker_snapshot s ON s.id = a.snapshot_id ORDER BY a.triggered_at DESC LIMIT 100;',
     structure_params: {},
     orderArray: []
   },
@@ -1094,7 +1135,7 @@
 
   'upsertTelegramSubscriber': {
     # Nunca toca status/is_active: quien escribe por primera vez entra como
-    # PENDIENTE (defaults de la tabla, migracion 033) y un BLOQUEADO que
+    # PENDIENTE (defaults de la tabla, migracion 042) y un BLOQUEADO que
     # vuelve a escribir sigue bloqueado. `nuevo` = recien registrado.
     query: 'INSERT INTO public.tracker_telegram_subscriber (chat_id, username, first_name) VALUES ($1, $2, $3) ON CONFLICT (chat_id) DO UPDATE SET username = EXCLUDED.username, first_name = EXCLUDED.first_name RETURNING id, status, (xmax = 0) AS nuevo;',
     structure_params: { chat_id: 'string', username: 'string|null', first_name: 'string|null' },
@@ -1123,5 +1164,241 @@
     query: "UPDATE public.tracker_telegram_subscriber SET status = $2::varchar, is_active = ($2::varchar = 'ACTIVO'), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, username, first_name, status, is_active;",
     structure_params: { id: 'int', status: 'string' },
     orderArray: ['id', 'status']
+  },
+
+  # ========== CONTROL DE HORAS ==========
+
+  # ---------- Empresa ----------
+
+  'createEmpresa': {
+    query: 'INSERT INTO public.company (name) VALUES ($1) RETURNING id, name, is_active;',
+    structure_params: { name: 'string' },
+    orderArray: ['name']
+  },
+
+  'getEmpresaById': {
+    query: 'SELECT id, name, is_active FROM public.company WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllEmpresas': {
+    query: 'SELECT id, name, is_active FROM public.company WHERE deleted_at IS NULL ORDER BY name;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'updateEmpresa': {
+    query: 'UPDATE public.company SET name = $2, is_active = $3 WHERE id = $1 AND deleted_at IS NULL RETURNING id, name, is_active;',
+    structure_params: { id: 'int', name: 'string', is_active: 'boolean' },
+    orderArray: ['id', 'name', 'is_active']
+  },
+
+  'deleteEmpresa': {
+    query: 'UPDATE public.company SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Proyecto ----------
+
+  'createProyecto': {
+    query: 'INSERT INTO public.project (company_id, name, tipo, responsible_person_id) VALUES ($1, $2, $3, $4) RETURNING id, company_id, name, tipo, is_active, responsible_person_id;',
+    structure_params: { company_id: 'int', name: 'string', tipo: 'string', responsible_person_id: 'int|null' },
+    orderArray: ['company_id', 'name', 'tipo', 'responsible_person_id']
+  },
+
+  'getProyectoById': {
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active, p.responsible_person_id, resp.first_name || '' '' || resp.last_name AS responsible_name, resp.degree AS responsible_degree FROM public.project p JOIN public.company c ON c.id = p.company_id LEFT JOIN public.person resp ON resp.id = p.responsible_person_id WHERE p.id = $1 AND p.deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllProyectos': {
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active, p.responsible_person_id, resp.first_name || '' '' || resp.last_name AS responsible_name, resp.degree AS responsible_degree FROM public.project p JOIN public.company c ON c.id = p.company_id LEFT JOIN public.person resp ON resp.id = p.responsible_person_id WHERE p.deleted_at IS NULL ORDER BY c.name, p.name;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'getProyectosByEmpresa': {
+    query: 'SELECT p.id, p.company_id, c.name AS company_name, p.name, p.tipo, p.is_active, p.responsible_person_id, resp.first_name || '' '' || resp.last_name AS responsible_name, resp.degree AS responsible_degree FROM public.project p JOIN public.company c ON c.id = p.company_id LEFT JOIN public.person resp ON resp.id = p.responsible_person_id WHERE p.company_id = $1 AND p.deleted_at IS NULL ORDER BY p.name;',
+    structure_params: { company_id: 'int' },
+    orderArray: ['company_id']
+  },
+
+  'updateProyecto': {
+    query: 'UPDATE public.project SET name = $2, tipo = $3, is_active = $4, responsible_person_id = $5 WHERE id = $1 AND deleted_at IS NULL RETURNING id, company_id, name, tipo, is_active, responsible_person_id;',
+    structure_params: { id: 'int', name: 'string', tipo: 'string', is_active: 'boolean', responsible_person_id: 'int|null' },
+    orderArray: ['id', 'name', 'tipo', 'is_active', 'responsible_person_id']
+  },
+
+  'deleteProyecto': {
+    query: 'UPDATE public.project SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Equipo ----------
+
+  'createEquipoHoras': {
+    query: 'INSERT INTO public.fleet_unit (code, name) VALUES ($1, $2) RETURNING id, code, name, is_active;',
+    structure_params: { code: 'string', name: 'string|null' },
+    orderArray: ['code', 'name']
+  },
+
+  'getEquipoHorasById': {
+    query: 'SELECT e.id, e.code, e.name, e.is_active, (SELECT json_build_object(''project_id'', a.project_id, ''project_name'', p.name, ''assigned_from'', a.assigned_from) FROM public.project_equipment_assignment a JOIN public.project p ON p.id = a.project_id WHERE a.equipment_id = e.id AND a.assigned_to IS NULL LIMIT 1) AS current_assignment FROM public.fleet_unit e WHERE e.id = $1 AND e.deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllEquiposHoras': {
+    query: 'SELECT e.id, e.code, e.name, e.is_active, (SELECT json_build_object(''project_id'', a.project_id, ''project_name'', p.name, ''assigned_from'', a.assigned_from) FROM public.project_equipment_assignment a JOIN public.project p ON p.id = a.project_id WHERE a.equipment_id = e.id AND a.assigned_to IS NULL LIMIT 1) AS current_assignment FROM public.fleet_unit e WHERE e.deleted_at IS NULL ORDER BY e.code;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'updateEquipoHoras': {
+    query: 'UPDATE public.fleet_unit SET name = $2, is_active = $3 WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, name, is_active;',
+    structure_params: { id: 'int', name: 'string|null', is_active: 'boolean' },
+    orderArray: ['id', 'name', 'is_active']
+  },
+
+  'deleteEquipoHoras': {
+    query: 'UPDATE public.fleet_unit SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Asignación Equipo -> Proyecto ----------
+
+  # Intervalo semi-abierto [assigned_from, assigned_to) -- una asignación
+  # cerrada el mismo día que empezó (dos reasignaciones el mismo día) no
+  # cubre ningún día completo, así que no debe hacer match ni duplicar al
+  # equipo junto con la asignación que la reemplazó ese mismo día.
+  'getEquiposAsignadosAProyecto': {
+    query: 'SELECT DISTINCT e.id, e.code, e.name FROM public.fleet_unit e JOIN public.project_equipment_assignment a ON a.equipment_id = e.id WHERE a.project_id = $1 AND a.assigned_from <= $2 AND (a.assigned_to IS NULL OR a.assigned_to > $2) AND e.deleted_at IS NULL ORDER BY e.code;',
+    structure_params: { project_id: 'int', fecha: 'string' },
+    orderArray: ['project_id', 'fecha']
+  },
+
+  # `assigned_to` es EXCLUSIVO: el intervalo cubierto por una fila es
+  # [assigned_from, assigned_to) -- "el día en que deja de estar vigente",
+  # no el último día que sí lo estuvo. Por eso al cerrar se guarda
+  # `new_from` (la fecha en que empieza la fila que la reemplaza) tal
+  # cual, sin restarle un día: dos filas consecutivas nunca se solapan
+  # (la vieja no cubre `new_from`, la nueva sí) ni dejan un hueco. GREATEST
+  # solo protege el caso límite en que la fila a cerrar tenga su propio
+  # assigned_from posterior a `new_from` (no debería pasar en el flujo
+  # normal, pero así nunca viola el CHECK assigned_to >= assigned_from).
+  'cerrarAsignacionAbierta': {
+    query: 'UPDATE public.project_equipment_assignment SET assigned_to = GREATEST(assigned_from, $2::date) WHERE equipment_id = $1 AND assigned_to IS NULL;',
+    structure_params: { equipment_id: 'int', new_from: 'string' },
+    orderArray: ['equipment_id', 'new_from']
+  },
+
+  # Cierra la asignación vigente del equipo SOLO si es de OTRO proyecto --
+  # deja intacta la fila si ya está abierta para el proyecto destino, para
+  # que un doble clic/reintento no la cierre por accidente.
+  'cerrarAsignacionAbiertaExceptoProyecto': {
+    query: 'UPDATE public.project_equipment_assignment SET assigned_to = GREATEST(assigned_from, $2::date) WHERE equipment_id = $1 AND assigned_to IS NULL AND project_id <> $3;',
+    structure_params: { equipment_id: 'int', new_from: 'string', project_id: 'int' },
+    orderArray: ['equipment_id', 'new_from', 'project_id']
+  },
+
+  # Solo inserta si el equipo NO tiene ya una asignación vigente para ESE
+  # mismo proyecto -- junto con el índice único parcial
+  # (idx_assignment_equipment_open, migración 020) hace que la operación
+  # completa sea segura incluso si dos peticiones llegan casi al mismo
+  # tiempo (la segunda no inserta nada, o si alcanza a correr en paralelo,
+  # el índice único la rechaza con 23505 en vez de dejar dos filas
+  # abiertas para el mismo equipo).
+  'crearAsignacionSiNoExiste': {
+    query: 'INSERT INTO public.project_equipment_assignment (project_id, equipment_id, assigned_from) SELECT $1, $2, $3 WHERE NOT EXISTS (SELECT 1 FROM public.project_equipment_assignment WHERE equipment_id = $2 AND assigned_to IS NULL AND project_id = $1) RETURNING id, project_id, equipment_id, assigned_from, assigned_to;',
+    structure_params: { project_id: 'int', equipment_id: 'int', assigned_from: 'string' },
+    orderArray: ['project_id', 'equipment_id', 'assigned_from']
+  },
+
+  # ---------- Registro diario ----------
+
+  'upsertRegistroDiario': {
+    query: 'INSERT INTO public.hours_daily_entry (project_id, equipment_id, fecha, executed_hours, pto_hours, standby_hours, contracted_hours, notes, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (project_id, equipment_id, fecha) DO UPDATE SET executed_hours = EXCLUDED.executed_hours, pto_hours = EXCLUDED.pto_hours, standby_hours = EXCLUDED.standby_hours, contracted_hours = EXCLUDED.contracted_hours, notes = EXCLUDED.notes, updated_at = NOW() RETURNING id, project_id, equipment_id, fecha, executed_hours, pto_hours, standby_hours, contracted_hours, notes;',
+    structure_params: { project_id: 'int', equipment_id: 'int', fecha: 'string', executed_hours: 'number', pto_hours: 'number', standby_hours: 'number', contracted_hours: 'number', notes: 'string|null', created_by: 'int|null' },
+    orderArray: ['project_id', 'equipment_id', 'fecha', 'executed_hours', 'pto_hours', 'standby_hours', 'contracted_hours', 'notes', 'created_by']
+  },
+
+  'getRegistrosPorProyectoYFecha': {
+    query: 'SELECT r.id, r.project_id, r.equipment_id, e.code AS equipment_code, e.name AS equipment_name, r.fecha, r.executed_hours, r.pto_hours, r.standby_hours, r.contracted_hours, (r.executed_hours + r.pto_hours) AS total_hours, ROUND((r.standby_hours * 100.0 / NULLIF(r.contracted_hours, 0)), 2) AS pct_standby, ROUND(((r.executed_hours + r.pto_hours) * 100.0 / NULLIF(r.contracted_hours, 0)), 2) AS pct_ejec_pto, r.notes FROM public.hours_daily_entry r JOIN public.fleet_unit e ON e.id = r.equipment_id WHERE r.project_id = $1 AND r.fecha = $2 ORDER BY e.code;',
+    structure_params: { project_id: 'int', fecha: 'string' },
+    orderArray: ['project_id', 'fecha']
+  },
+
+  'getAcumuladoMesPorProyecto': {
+    query: 'SELECT h.equipment_id, COALESCE(SUM(h.executed_hours + h.pto_hours), 0) AS acumulado_cobro_completo, COALESCE(SUM(h.standby_hours), 0) AS acumulado_standby FROM public.hours_daily_entry h WHERE h.project_id = $1 AND h.fecha >= date_trunc(''month'', $2::date)::date AND h.fecha < $2::date GROUP BY h.equipment_id;',
+    structure_params: { project_id: 'int', fecha: 'string' },
+    orderArray: ['project_id', 'fecha']
+  },
+
+  # Resumen para Reportes (fase 1 -- solo horas, sin tarifas $/hora
+  # todavía). Trae por equipo; el BO agrega por proyecto y el total en JS,
+  # igual que Fuel.Reporte.getFuelSummary.
+  'getResumenHorasPorEquipo': {
+    query: 'SELECT r.project_id, p.name AS project_name, c.name AS company_name, r.equipment_id, e.code AS equipment_code, e.name AS equipment_name, SUM(r.executed_hours + r.pto_hours) AS cobro_completo, SUM(r.standby_hours) AS standby, SUM(r.contracted_hours) AS hrs_totales, COUNT(*) AS dias_registrados FROM public.hours_daily_entry r JOIN public.fleet_unit e ON e.id = r.equipment_id JOIN public.project p ON p.id = r.project_id JOIN public.company c ON c.id = p.company_id WHERE r.fecha BETWEEN $1 AND $2 GROUP BY r.project_id, p.name, c.name, r.equipment_id, e.code, e.name ORDER BY c.name, p.name, e.code;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
+  },
+
+  # Un renglón por día del rango (incluye días sin datos, con 0) y por
+  # proyecto -- el BO agrega por día en JS respetando el acceso por
+  # proyecto de cada perfil, igual que getResumenHorasPorEquipo. Equivale
+  # a la hoja "Gráfico Agosto" del Excel de referencia.
+  'getResumenHorasPorDia': {
+    query: 'SELECT gs.fecha, r.project_id, COALESCE(SUM(r.executed_hours + r.pto_hours), 0) AS cobro_completo, COALESCE(SUM(r.standby_hours), 0) AS standby, COALESCE(SUM(r.contracted_hours), 0) AS hrs_totales FROM generate_series($1::date, $2::date, interval ''1 day'') AS gs(fecha) LEFT JOIN public.hours_daily_entry r ON r.fecha = gs.fecha GROUP BY gs.fecha, r.project_id ORDER BY gs.fecha;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
+  },
+
+  'deleteRegistroDiario': {
+    query: 'DELETE FROM public.hours_daily_entry WHERE id = $1 RETURNING id;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getRegistroProjectId': {
+    query: 'SELECT project_id FROM public.hours_daily_entry WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ---------- Acceso por proyecto (qué perfiles pueden rellenar cada proyecto) ----------
+
+  'hasProjectProfileAccess': {
+    query: 'SELECT EXISTS (SELECT 1 FROM public.project_profile_assignment ppa JOIN public.profile p ON p.id = ppa.profile_id WHERE ppa.project_id = $1 AND p.name = $2) AS allowed;',
+    structure_params: { project_id: 'int', profile: 'string' },
+    orderArray: ['project_id', 'profile']
+  },
+
+  'getAccessibleProjectIdsForProfile': {
+    query: 'SELECT ppa.project_id FROM public.project_profile_assignment ppa JOIN public.profile p ON p.id = ppa.profile_id WHERE p.name = $1;',
+    structure_params: { profile: 'string' },
+    orderArray: ['profile']
+  },
+
+  'assignProfileToProjectByName': {
+    query: 'INSERT INTO public.project_profile_assignment (project_id, profile_id) SELECT $1, id FROM public.profile WHERE name = $2 ON CONFLICT (project_id, profile_id) DO NOTHING RETURNING id;',
+    structure_params: { project_id: 'int', profile_name: 'string' },
+    orderArray: ['project_id', 'profile_name']
+  },
+
+  'removeProfileFromProjectByName': {
+    query: 'DELETE FROM public.project_profile_assignment WHERE project_id = $1 AND profile_id = (SELECT id FROM public.profile WHERE name = $2);',
+    structure_params: { project_id: 'int', profile_name: 'string' },
+    orderArray: ['project_id', 'profile_name']
+  },
+
+  'getProjectProfiles': {
+    query: 'SELECT p.id, p.name FROM public.project_profile_assignment ppa JOIN public.profile p ON p.id = ppa.profile_id WHERE ppa.project_id = $1 ORDER BY p.name;',
+    structure_params: { project_id: 'int' },
+    orderArray: ['project_id']
   }
 }

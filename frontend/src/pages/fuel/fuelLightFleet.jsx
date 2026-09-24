@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { TankBar } from "@/components/ui/tankBar";
+import { SearchableSelect } from "@/components/ui/searchableSelect";
 import {
   Table,
   TableHeader,
@@ -33,12 +33,6 @@ import { exportToExcel, fmtDate, fmtTime, fmtTimeInput } from "@/lib/excel";
 import { readJSON } from "@/lib/storage";
 
 const PEOPLE_STORAGE_KEY = "fullpetro_persons_local";
-
-const unwrapList = (res) => {
-  const d = res?.data;
-  const payload = d?.data !== undefined ? d.data : d;
-  return Array.isArray(payload) ? payload : payload?.rows || [];
-};
 
 const emptyForm = {
   vehicle_id: "",
@@ -69,8 +63,6 @@ const FuelLightFleet = () => {
     unitIds: [], // selected ids (multi)
     responsible: "",
   });
-  const [showUnitFilter, setShowUnitFilter] = useState(false);
-
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -107,7 +99,8 @@ const FuelLightFleet = () => {
   const loadPersons = async () => {
     try {
       const res = await personService.getAll();
-      setPersons(unwrapList(res));
+      const list = Array.isArray(res) ? res : [];
+      setPersons(list.map((p) => ({ ...p, id: p.id ?? p.person_id })));
     } catch (err) {
       console.warn("Personas no disponibles (backend pendiente):", err);
       // Fallback: registros locales creados desde Seguridad → Personas.
@@ -116,7 +109,7 @@ const FuelLightFleet = () => {
   };
 
   const lightVehicles = useMemo(
-    () => vehicles.filter((v) => v.fleet_type !== "pesada"),
+    () => vehicles.filter((v) => v.fleet_type !== "PESADA"),
     [vehicles],
   );
 
@@ -143,12 +136,12 @@ const FuelLightFleet = () => {
         return false;
       if (
         filters.responsible &&
-        String(r.responsible_id) !== String(filters.responsible)
+        !personName(r.responsible_id).toLowerCase().includes(filters.responsible.toLowerCase())
       )
         return false;
       return true;
     });
-  }, [refuels, filters]);
+  }, [refuels, filters, persons]);
 
   const totals = useMemo(() => {
     let liters = 0;
@@ -253,7 +246,6 @@ const FuelLightFleet = () => {
 
       const payload = {
         vehicle_id: parseInt(form.vehicle_id),
-        transaction_no: form.transaction_no || null,
         filled_at: filledAtISO,
         liters: parseFloat(form.liters),
         tank_full: form.tank_full,
@@ -377,29 +369,19 @@ const FuelLightFleet = () => {
     }
   };
 
-  const getTankLevel = (vehicleId) => {
-    const vehicle = vehicles.find((v) => v.id === vehicleId);
-    const capacity = parseFloat(vehicle?.tank_capacity_liters || 0);
-    const lastRefuel = refuels.find(
-      (r) => r.vehicle_id === vehicleId && r.tank_full,
-    );
-    const liters = lastRefuel ? parseFloat(lastRefuel.liters) : 0;
-    return { level: liters, capacity };
-  };
-
   return (
     <PageLayout
       icon={Fuel}
       title="Combustible · Flota Liviana"
       subtitle={`GESTIÓN DE COMBUSTIBLE • ${new Date().toLocaleDateString()}`}
-      accentColor="orange"
+      accentColor="navy"
     >
       {/* ---------- Barra de filtros ---------- */}
       <Card className="mb-6">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white flex items-center gap-2">
-              <Filter size={16} className="text-orange-500" /> Filtrar
+              <Filter size={16} className="text-brand-navy" /> Filtrar
             </h3>
             <div className="flex gap-2">
               <Button
@@ -438,73 +420,28 @@ const FuelLightFleet = () => {
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Unidades</Label>
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowUnitFilter(!showUnitFilter)}
-                  className="w-full justify-between rounded-xl text-sm"
-                >
-                  <span className="truncate">
-                    {filters.unitIds.length === 0
-                      ? "Todas"
-                      : `${filters.unitIds.length} seleccionada(s)`}
-                  </span>
-                  <span
-                    className={`transition-transform ${showUnitFilter ? "rotate-180" : ""}`}
-                  >
-                    ▾
-                  </span>
-                </Button>
-                <AnimatePresence>
-                  {showUnitFilter && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="absolute z-30 mt-2 w-full max-h-52 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] shadow-xl p-2"
-                    >
-                      {lightVehicles.map((v) => (
-                        <label
-                          key={v.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={filters.unitIds.includes(Number(v.id))}
-                            onChange={() => toggleUnitFilter(Number(v.id))}
-                            className="accent-orange-500"
-                          />
-                          {v.code} - {v.name}
-                        </label>
-                      ))}
-                      {lightVehicles.length === 0 && (
-                        <p className="px-2 py-1 text-xs text-slate-400">
-                          Sin unidades
-                        </p>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <SearchableSelect
+                multiple
+                items={lightVehicles}
+                getValue={(v) => Number(v.id)}
+                getLabel={(v) => `${v.code} - ${v.name}`}
+                value={filters.unitIds}
+                onChange={(id) => toggleUnitFilter(id)}
+                placeholder="Buscar unidad..."
+                allLabel="Todas"
+                emptyMessage="Sin unidades"
+              />
             </div>
 
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Responsable</Label>
-              <select
+              <Input
+                placeholder="Buscar por nombre..."
                 value={filters.responsible}
                 onChange={(e) =>
                   setFilters({ ...filters, responsible: e.target.value })
                 }
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
-              >
-                <option value="">Todos</option>
-                {persons.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.first_name || p.name} {p.last_name || p.lastname}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -533,7 +470,7 @@ const FuelLightFleet = () => {
             resetForm();
             setShowForm(!showForm);
           }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-orange-500 hover:bg-orange-600 text-white transition-transform hover:scale-105 text-sm"
+          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? "Cancelar" : "Nuevo Llenado"}
@@ -548,9 +485,9 @@ const FuelLightFleet = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            <Card className="border-orange-200 dark:border-orange-500/20">
+            <Card className="border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white mb-4">
                   {editingId ? "Editar Llenado" : "Registrar Llenado de Combustible"}
                 </h3>
 
@@ -588,14 +525,12 @@ const FuelLightFleet = () => {
                     </select>
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-sm font-bold">Transaction ID</Label>
-                    <Input
-                      placeholder="Nomenclatura por definir"
-                      value={form.transaction_no}
-                      onChange={(e) => setForm({ ...form, transaction_no: e.target.value })}
-                    />
-                  </div>
+                  {editingId && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-sm font-bold">Transaction ID</Label>
+                      <Input value={form.transaction_no} disabled className="font-mono opacity-70" />
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Fecha de llenado *</Label>
@@ -619,20 +554,16 @@ const FuelLightFleet = () => {
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Responsable</Label>
-                    <select
+                    <SearchableSelect
+                      items={persons}
+                      getValue={(p) => p.id}
+                      getLabel={(p) => `${p.first_name || p.name} ${p.last_name || p.lastname || ""}`.trim()}
                       value={form.responsible_id}
-                      onChange={(e) =>
-                        setForm({ ...form, responsible_id: e.target.value })
-                      }
-                      className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] text-sm"
-                    >
-                      <option value="">Seleccionar...</option>
-                      {persons.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.first_name || p.name} {p.last_name || p.lastname}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(id) => setForm({ ...form, responsible_id: id })}
+                      placeholder="Buscar responsable..."
+                      allLabel="Seleccionar..."
+                      emptyMessage="Sin personas"
+                    />
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -727,7 +658,7 @@ const FuelLightFleet = () => {
                       )}
                     </Label>
                     <label
-                      className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-orange-400 transition-colors overflow-hidden"
+                      className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-brand-navy-light transition-colors overflow-hidden"
                     >
                       {photoPreview ? (
                         <>
@@ -774,7 +705,7 @@ const FuelLightFleet = () => {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white"
+                      className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                     >
                       {submitting
                         ? "Guardando..."
@@ -789,31 +720,6 @@ const FuelLightFleet = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ---------- Nivel de tanques ---------- */}
-      <div className="mb-6">
-        <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white mb-3">
-          Nivel de Tanques
-        </h3>
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {lightVehicles.map((v) => {
-            const { level, capacity } = getTankLevel(v.id);
-            return (
-              <Card key={v.id} className="min-w-[100px] shrink-0">
-                <CardContent className="p-4 flex flex-col items-center gap-2">
-                  <TankBar level={level} capacity={capacity} />
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300 text-center">
-                    {v.code}
-                  </span>
-                </CardContent>
-              </Card>
-            );
-          })}
-          {lightVehicles.length === 0 && (
-            <p className="text-sm text-slate-400">No hay vehículos registrados</p>
-          )}
-        </div>
-      </div>
 
       {/* ---------- Tabla ---------- */}
       <Card className="w-full overflow-hidden">
@@ -855,7 +761,7 @@ const FuelLightFleet = () => {
                       : "bg-slate-50/60 dark:bg-white/[0.02]"
                   }
                 >
-                  <TableCell className="text-sm font-mono text-orange-600 dark:text-orange-400">
+                  <TableCell className="text-sm font-mono text-brand-navy dark:text-brand-gold">
                     {r.transaction_no || "—"}
                   </TableCell>
                   <TableCell className="text-sm">{fmtDate(r.filled_at)}</TableCell>
@@ -943,7 +849,7 @@ const FuelLightFleet = () => {
               className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
                   Detalle de llenado
                 </h3>
                 <Button
@@ -1037,7 +943,7 @@ const Info = ({ label, value, mono }) => (
     </p>
     <p
       className={`font-semibold text-slate-900 dark:text-white capitalize ${
-        mono ? "font-mono text-orange-600 dark:text-orange-400" : ""
+        mono ? "font-mono text-brand-navy dark:text-brand-gold" : ""
       }`}
     >
       {value}

@@ -188,12 +188,12 @@ const FuelTank = () => {
       icon={Fuel}
       title="Tanque de Gasoil"
       subtitle={`GESTIÓN DE TANQUES • ${new Date().toLocaleDateString()}`}
-      accentColor="amber"
+      accentColor="navy"
     >
       <div className="flex justify-end mb-4">
         <Button
           onClick={() => { resetForm(); setShowForm(!showForm); }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-amber-500 hover:bg-amber-600 text-white transition-transform hover:scale-105 text-sm"
+          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? "Cancelar" : "Nuevo Tanque"}
@@ -208,9 +208,9 @@ const FuelTank = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            <Card className="border-amber-200 dark:border-amber-500/20">
+            <Card className="border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white mb-4">
                   {editingId ? "Editar Tanque" : "Nuevo Tanque"}
                 </h3>
 
@@ -299,7 +299,7 @@ const FuelTank = () => {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white"
+                      className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                     >
                       {submitting ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
                     </Button>
@@ -326,7 +326,7 @@ const FuelTank = () => {
                 <CardContent className="p-5 flex flex-col gap-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-mono text-xs text-amber-600 dark:text-amber-400 font-bold">
+                      <p className="font-mono text-xs text-brand-navy dark:text-brand-gold font-bold">
                         {t.code}
                       </p>
                       <p className="font-bold text-slate-900 dark:text-white">{t.name}</p>
@@ -416,7 +416,7 @@ const FuelTank = () => {
               className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
                   Movimiento · {movementTank.code}
                 </h3>
                 <Button variant="ghost" size="icon" onClick={closeMovementModal} className="rounded-xl">
@@ -476,7 +476,7 @@ const FuelTank = () => {
                   <Button
                     type="submit"
                     disabled={movementSubmitting}
-                    className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white"
+                    className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                   >
                     {movementSubmitting ? "Guardando..." : "Registrar"}
                   </Button>
@@ -505,7 +505,7 @@ const FuelTank = () => {
               className="w-full max-w-2xl rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
                   Movimientos · {historyTank.code}
                 </h3>
                 <Button variant="ghost" size="icon" onClick={() => setHistoryTank(null)} className="rounded-xl">
@@ -548,7 +548,7 @@ const FuelTank = () => {
                               className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
                                 m.movement_type === "in"
                                   ? "bg-emerald-500/10 text-emerald-600"
-                                  : "bg-amber-500/10 text-amber-600"
+                                  : "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold"
                               }`}
                             >
                               {m.movement_type === "in" ? "Entrada" : "Salida"}

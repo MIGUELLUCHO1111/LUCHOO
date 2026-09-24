@@ -1,5 +1,6 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
+import { generateFuelTransactionNo } from './fuelTransactionNo.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -10,7 +11,10 @@ class Carga {
     this.dbmsReady = this.dbms.init();
   }
 
-  createCarga = async ({ vehicle_id, transaction_no, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type, created_by }) => {
+  // transaction_no ya no lo manda el cliente (Julio, 21/09/2026) -- se
+  // genera solo, FP-AAGLMMDD### (GL = flota liviana/gasolina). Cualquier
+  // valor recibido del cliente se ignora a propósito.
+  createCarga = async ({ vehicle_id, filled_at, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type, created_by }) => {
     await this.dbmsReady;
 
     if (!vehicle_id || !liters) {
@@ -27,13 +31,20 @@ class Carga {
       }));
     }
 
+    const resolvedFilledAt = filled_at || new Date().toISOString();
+    const transaction_no = await generateFuelTransactionNo({
+      dbms: this.dbms,
+      filled_at: resolvedFilledAt,
+      fleetCode: 'GL',
+    });
+
     try {
       const result = await this.dbms.executeNamedQuery({
         nameQuery: 'createCarga',
         params: {
           vehicle_id,
-          transaction_no: transaction_no || null,
-          filled_at: filled_at || new Date().toISOString(),
+          transaction_no,
+          filled_at: resolvedFilledAt,
           liters,
           tank_full: tank_full || false,
           station: station || null,
@@ -108,7 +119,7 @@ class Carga {
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
   };
 
-  updateCarga = async ({ id, transaction_no, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type }) => {
+  updateCarga = async ({ id, liters, tank_full, station, odometer, amount, notes, responsible_id, fuel_type }) => {
     await this.dbmsReady;
 
     if (!id) {
@@ -120,7 +131,7 @@ class Carga {
 
     const result = await this.dbms.executeNamedQuery({
       nameQuery: 'updateCarga',
-      params: { id, transaction_no: transaction_no || null, liters, tank_full: tank_full || false, station: station || null, odometer: odometer || null, amount: amount || null, notes: notes || null, responsible_id: responsible_id || null, fuel_type: fuel_type || 'gasolina' },
+      params: { id, liters, tank_full: tank_full || false, station: station || null, odometer: odometer || null, amount: amount || null, notes: notes || null, responsible_id: responsible_id || null, fuel_type: fuel_type || 'gasolina' },
     });
 
     const carga = result?.rows?.[0];

@@ -78,6 +78,65 @@ export default class Security {
     return this.permissions;
   }
 
+  // El frontend llama a cada función por NÚMERO (transaction_id fijo en los
+  // *Service.js), y ese número es el id de la tabla "transaction". Antes
+  // cada base lo asignaba por orden de llegada, así que dos computadoras
+  // con historias distintas terminaban con numeraciones distintas (pasó el
+  // 24/09/2026 al traer la rama Julio a la laptop de la oficina: "listar
+  // alertas" era 125 en una y 126 en la otra). Esto deja cada transacción
+  // con el id que dice permission.csv, que pasa a ser la única fuente de
+  // verdad. Ninguna tabla tiene FK hacia transaction.id, así que es seguro.
+  // Corre solo al arrancar (server.init), no en el refresco de cada minuto.
+  async alignTransactionIds() {
+    await this.dbmsReady;
+    const csvPath = process.env.PERMISSIONS_FILE_PATH
+      ? path.resolve(process.env.PERMISSIONS_FILE_PATH)
+      : path.resolve(__dirname, '../../config/permission.csv');
+    const csvRows = [...(await this.utils.readCSV(csvPath)).values()];
+
+    const nameKey = (s, c, m) => [s, c, m].map((v) => String(v ?? '').trim().toLowerCase()).join('::');
+    const deseado = new Map();
+    for (const row of csvRows) {
+      const id = Number(row.id);
+      const key = nameKey(row.sub_system, row.class ?? row.class_name, row.method ?? row.method_name);
+      if (Number.isInteger(id) && id > 0 && !deseado.has(key)) deseado.set(key, id);
+    }
+
+    const client = await this.dbms.pool.connect();
+    try {
+      const { rows } = await client.query(
+        'SELECT t.id, s.name AS s, c.name AS c, m.name AS m FROM public."transaction" t JOIN public.subsystem s ON s.id = t.subsystem_id JOIN public."class" c ON c.id = t.class_id JOIN public."method" m ON m.id = t.method_id',
+      );
+      const cambios = rows
+        .map((r) => ({ actual: Number(r.id), nuevo: deseado.get(nameKey(r.s, r.c, r.m)) }))
+        .filter((x) => x.nuevo && x.nuevo !== x.actual);
+      if (cambios.length === 0) return { movidas: 0 };
+
+      // Transacciones que no están en el CSV pero ocupan un número que el CSV
+      // necesita: se corren al final para no chocar.
+      const objetivo = new Set([...deseado.values()]);
+      const enCsv = new Set(rows.filter((r) => deseado.has(nameKey(r.s, r.c, r.m))).map((r) => Number(r.id)));
+      const estorbos = rows.map((r) => Number(r.id)).filter((id) => !enCsv.has(id) && objetivo.has(id));
+      let libre = Math.max(0, ...rows.map((r) => Number(r.id)), ...objetivo) + 1;
+
+      await client.query('BEGIN');
+      // Dos pasos (primero a negativo) para no violar la clave primaria a mitad del cambio.
+      for (const id of estorbos) await client.query('UPDATE public."transaction" SET id = $1 WHERE id = $2', [-(libre++), id]);
+      for (const x of cambios) await client.query('UPDATE public."transaction" SET id = $1 WHERE id = $2', [-x.nuevo, x.actual]);
+      await client.query('UPDATE public."transaction" SET id = -id WHERE id < 0');
+      await client.query(`SELECT setval(pg_get_serial_sequence('public."transaction"', 'id'), (SELECT MAX(id) FROM public."transaction"))`);
+      await client.query('COMMIT');
+      console.log(`[Security] Numeración de transacciones alineada con permission.csv: ${cambios.length} movida(s)`);
+      return { movidas: cambios.length };
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      console.error('[Security] No se pudo alinear la numeración de transacciones (se deja como estaba):', error?.message || error);
+      return { movidas: 0, error: error?.message };
+    } finally {
+      client.release();
+    }
+  }
+
   async getPermissionsFile() {
     // Si existe la variable de entorno, úsala. Si no, usa el path predeterminado.
     const defaultPath = path.resolve(__dirname, '../../config/permission.csv');

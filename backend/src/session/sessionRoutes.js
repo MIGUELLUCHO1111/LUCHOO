@@ -1,5 +1,6 @@
 import express from 'express';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import PgRateLimitStore from '../security/pgRateLimitStore.js';
 const router = express.Router();
 import Session from './session.js';
 const session = new Session();
@@ -17,17 +18,30 @@ import Mailer from '../mailer/mailer.js';
 const tokenizer = new Tokenizer();
 const mailer = new Mailer();
 
-// Limita intentos en rutas sensibles (login/registro/recuperación de contraseña)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Demasiados intentos, intente de nuevo más tarde' },
-});
+// Limita intentos en rutas sensibles (login/registro/recuperación de contraseña).
+// Store en Postgres (no MemoryStore): el conteo es el mismo sin importar qué
+// proceso de PM2 cluster atienda la petición. Un limiter por ruta (con
+// keyGenerator con prefijo) para que agotar el cupo de una no bloquee las
+// otras tres -- antes compartían un solo contador por IP.
+function createAuthLimiter(routeName) {
+  return rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: new PgRateLimitStore(),
+    keyGenerator: (req) => `${routeName}:${ipKeyGenerator(req.ip)}`,
+    message: { error: 'Demasiados intentos, intente de nuevo más tarde' },
+  });
+}
+
+const registerLimiter = createAuthLimiter('register');
+const loginLimiter = createAuthLimiter('login');
+const forgotPasswordLimiter = createAuthLimiter('forgot-password');
+const resetPasswordLimiter = createAuthLimiter('reset-password');
 
 // Registro de usuario
-router.post('/register', authLimiter, async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     // Schema de validación para registro
     const registerSchema = {
@@ -73,7 +87,7 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 // Login
-router.post('/login', authLimiter, async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     // El login solo verifica que vengan usuario y contraseña no vacíos.
     // No se reutiliza el validador de "password" (longitud/mayúsculas/
@@ -151,7 +165,7 @@ router.get('/me', async (req, res) => {
 });
 
 // Recuperacion de contrasena
-router.post('/forgot-password', authLimiter, async (req, res) => {
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { email } = req.body || {};
 
   await sessionWrapper.destroySession(req);
@@ -200,7 +214,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
   }
 });
 
-router.post('/reset-password', authLimiter, async (req, res) => {
+router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
   const { token, password, confirmPassword } = req.body || {};
 
   // Terminar la sesion si existe

@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchableSelect";
 import {
   Table,
   TableHeader,
@@ -59,7 +60,6 @@ const FuelHeavyFleet = () => {
     unitIds: [],
     requester: "",
   });
-  const [showUnitFilter, setShowUnitFilter] = useState(false);
 
   const [unit, setUnit] = useState("galones"); // galones | litros
 
@@ -85,7 +85,7 @@ const FuelHeavyFleet = () => {
     try {
       const res = await fuelService.getAllVehicles();
       const list = Array.isArray(res) ? res : [];
-      setHeavyVehicles(list.filter((v) => v.fleet_type === "pesada"));
+      setHeavyVehicles(list.filter((v) => v.fleet_type === "PESADA"));
     } catch (err) {
       console.warn("Unidades no disponibles:", err);
     }
@@ -177,7 +177,6 @@ const FuelHeavyFleet = () => {
         : new Date(form.fecha).toISOString();
 
       const payload = {
-        transaction_no: form.transaction_no || null,
         filled_at: filledAtISO,
         requester: form.requester || null,
         vehicle_id: parseInt(form.unidad),
@@ -343,7 +342,7 @@ const FuelHeavyFleet = () => {
       icon={Truck}
       title="Combustible · Flota Pesada"
       subtitle={`GASOIL • ${new Date().toLocaleDateString()}`}
-      accentColor="amber"
+      accentColor="navy"
     >
       {/* ---------- Aviso de error ---------- */}
       {error && (
@@ -369,7 +368,7 @@ const FuelHeavyFleet = () => {
                   onClick={() => setUnit("galones")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
                     unit === "galones"
-                      ? "bg-amber-500 text-white"
+                      ? "bg-brand-navy text-white"
                       : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
@@ -380,7 +379,7 @@ const FuelHeavyFleet = () => {
                   onClick={() => setUnit("litros")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${
                     unit === "litros"
-                      ? "bg-amber-500 text-white"
+                      ? "bg-brand-navy text-white"
                       : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
                   }`}
                 >
@@ -422,51 +421,17 @@ const FuelHeavyFleet = () => {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Unidades</Label>
-              <div className="relative">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowUnitFilter(!showUnitFilter)}
-                  className="w-full justify-between rounded-xl text-sm"
-                >
-                  <span className="truncate">
-                    {filters.unitIds.length === 0
-                      ? "Todas"
-                      : `${filters.unitIds.length} seleccionada(s)`}
-                  </span>
-                  <span className="transition-transform">▾</span>
-                </Button>
-                <AnimatePresence>
-                  {showUnitFilter && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      className="absolute z-30 mt-2 w-full max-h-52 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0f1115] shadow-xl p-2"
-                    >
-                      {heavyVehicles.map((v) => (
-                        <label
-                          key={v.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer text-sm"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={filters.unitIds.includes(Number(v.id))}
-                            onChange={() => toggleUnitFilter(Number(v.id))}
-                            className="accent-amber-500"
-                          />
-                          {v.code} - {v.name}
-                        </label>
-                      ))}
-                      {heavyVehicles.length === 0 && (
-                        <p className="px-2 py-1 text-xs text-slate-400">
-                          Marque vehículos como "pesada" en Unidades.
-                        </p>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <SearchableSelect
+                multiple
+                items={heavyVehicles}
+                getValue={(v) => Number(v.id)}
+                getLabel={(v) => `${v.code} - ${v.name}`}
+                value={filters.unitIds}
+                onChange={(id) => toggleUnitFilter(id)}
+                placeholder="Buscar unidad..."
+                allLabel="Todas"
+                emptyMessage='Marque vehículos como "pesada" en Unidades.'
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Solicitante</Label>
@@ -480,7 +445,7 @@ const FuelHeavyFleet = () => {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label className="text-sm font-bold">Total consumido</Label>
-              <div className="flex items-center gap-2 h-10 px-3 rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-500/10 text-sm font-black text-amber-700 dark:text-amber-400">
+              <div className="flex items-center gap-2 h-10 px-3 rounded-xl border border-brand-gold/30 dark:border-brand-gold/20 bg-brand-gold/10 text-sm font-black text-brand-gold-dark dark:text-brand-gold">
                 {unit === "galones"
                   ? `${totals.gallons} gal`
                   : `${totals.liters} L`}
@@ -494,7 +459,7 @@ const FuelHeavyFleet = () => {
       <Card className="mb-6">
         <CardContent className="p-5 flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-3">
-            <Fuel size={26} className="text-amber-500 shrink-0" />
+            <Fuel size={26} className="text-brand-navy shrink-0" />
             <div>
               <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
                 {gasoilTank ? gasoilTank.name : "Tanque de gasoil"}
@@ -540,7 +505,7 @@ const FuelHeavyFleet = () => {
             resetForm();
             setShowForm(!showForm);
           }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-amber-500 hover:bg-amber-600 text-white transition-transform hover:scale-105 text-sm"
+          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
           {showForm ? <X size={16} /> : <Plus size={16} />}
           {showForm ? "Cancelar" : "Nueva Carga"}
@@ -555,9 +520,9 @@ const FuelHeavyFleet = () => {
             exit={{ opacity: 0, height: 0 }}
             className="mb-6 overflow-hidden"
           >
-            <Card className="border-amber-200 dark:border-amber-500/20">
+            <Card className="border-brand-navy/20 dark:border-brand-navy-light/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white mb-4">
                   {editingId ? "Editar Carga Pesada" : "Registrar Carga Pesada"}
                 </h3>
 
@@ -565,16 +530,12 @@ const FuelHeavyFleet = () => {
                   onSubmit={handleSubmit}
                   className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                 >
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-sm font-bold">Transaction ID</Label>
-                    <Input
-                      placeholder="Nomenclatura por definir"
-                      value={form.transaction_no}
-                      onChange={(e) =>
-                        setForm({ ...form, transaction_no: e.target.value })
-                      }
-                    />
-                  </div>
+                  {editingId && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-sm font-bold">Transaction ID</Label>
+                      <Input value={form.transaction_no} disabled className="font-mono opacity-70" />
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Fecha *</Label>
@@ -691,7 +652,7 @@ const FuelHeavyFleet = () => {
 
                   <div className="flex flex-col gap-1.5">
                     <Label className="text-sm font-bold">Foto (opcional)</Label>
-                    <label className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-amber-400 transition-colors overflow-hidden">
+                    <label className="relative flex flex-col items-center justify-center gap-2 h-24 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-white/[0.02] cursor-pointer hover:border-brand-navy-light transition-colors overflow-hidden">
                       {photoPreview ? (
                         <>
                           <img
@@ -737,7 +698,7 @@ const FuelHeavyFleet = () => {
                     <Button
                       type="submit"
                       disabled={submitting}
-                      className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white"
+                      className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"
                     >
                       {submitting
                         ? "Guardando..."
@@ -793,7 +754,7 @@ const FuelHeavyFleet = () => {
                       : "bg-slate-50/60 dark:bg-white/[0.02]"
                   }
                 >
-                  <TableCell className="text-sm font-mono text-amber-600 dark:text-amber-400">
+                  <TableCell className="text-sm font-mono text-brand-navy dark:text-brand-gold">
                     {r.transaction_no || "—"}
                   </TableCell>
                   <TableCell className="text-sm">{fmtDate(r.filled_at)}</TableCell>
@@ -879,7 +840,7 @@ const FuelHeavyFleet = () => {
               className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
                   Detalle de carga pesada
                 </h3>
                 <Button
@@ -938,7 +899,7 @@ const Info = ({ label, value, mono }) => (
     </p>
     <p
       className={`font-semibold text-slate-900 dark:text-white ${
-        mono ? "font-mono text-amber-600 dark:text-amber-400" : ""
+        mono ? "font-mono text-brand-navy dark:text-brand-gold" : ""
       }`}
     >
       {value}

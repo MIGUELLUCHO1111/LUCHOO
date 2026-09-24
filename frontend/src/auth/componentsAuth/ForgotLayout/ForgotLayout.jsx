@@ -78,7 +78,7 @@ export const ForgotLayout = () => {
         <form onSubmit={handleSubmit(onSubmit)}>
           <FieldSet>
             <motion.div className="text-center mb-6" variants={itemVariants}>
-              <h1 className="text-2xl font-extrabold tracking-tight">
+              <h1 className="font-display text-2xl tracking-tight">
                 Recuperar Acceso
               </h1>
               <p className="text-muted-foreground text-[11px] mt-1 font-medium opacity-70">
@@ -137,7 +137,7 @@ export const ForgotLayout = () => {
             <button
               type="button"
               onClick={() => navigate("/login")}
-              className="text-[10px] h-8 font-semibold text-muted-foreground hover:text-blue-500 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-transparent border-none"
+              className="text-[10px] h-8 font-semibold text-muted-foreground hover:text-brand-navy transition-all flex items-center justify-center gap-2 group cursor-pointer bg-transparent border-none"
             >
               <ArrowLeft
                 size={14}

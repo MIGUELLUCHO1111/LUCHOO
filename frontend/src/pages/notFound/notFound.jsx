@@ -37,7 +37,7 @@ export const NotFound = () => {
         >
           <img
             src={theme === "light" ? LogoLight : LogoDark}
-            alt="Logo URU"
+            alt="Logo Fullpetro"
             className="h-10 w-auto object-contain filter drop-shadow-sm"
           />
         </motion.div>
@@ -60,13 +60,13 @@ export const NotFound = () => {
       </div>
 
       <motion.div
-        className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-gradient-to-br from-blue-400/20 dark:from-blue-600/10 to-transparent rounded-full blur-[120px]"
+        className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-gradient-to-br from-brand-navy/20 dark:from-brand-navy-light/10 to-transparent rounded-full blur-[120px]"
         animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
 
       <motion.div
-        className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-gradient-to-tl from-indigo-400/20 dark:from-indigo-600/10 to-transparent rounded-full blur-[120px]"
+        className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-gradient-to-tl from-brand-gold/20 dark:from-brand-gold-dark/10 to-transparent rounded-full blur-[120px]"
         animate={{ x: [0, -30, 0], y: [0, -20, 0] }}
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -87,8 +87,8 @@ export const NotFound = () => {
       >
         <AlertMessage
           title="Error 404"
-          message="La pÃ¡gina que estÃ¡s buscando no existe o ha sido movida. Verifica la direcciÃ³n e intenta de nuevo."
-          buttonText="Ir al inicio de sesiÃ³n"
+          message="La página que estás buscando no existe o ha sido movida. Verifica la dirección e intenta de nuevo."
+          buttonText="Ir al inicio de sesión"
           onConfirm={() => navigate("/login")}
           type="error"
         />

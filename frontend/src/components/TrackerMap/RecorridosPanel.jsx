@@ -73,10 +73,10 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
   const label = unit.unit_code || unit.plate || "Unidad sin identificar";
 
   return (
-    <Card className="w-full overflow-hidden mb-4 border-blue-200 dark:border-blue-500/20">
+    <Card className="w-full overflow-hidden mb-4 border-brand-navy/20 dark:border-brand-navy-light/20">
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-white/5">
         <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-blue-500 text-white">
+          <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-brand-navy text-white">
             <Route size={16} />
           </span>
           <span className="font-bold text-slate-900 dark:text-white">{titulo || "Recorridos"} — {label}</span>
@@ -103,7 +103,7 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
         {!loading && !error && data && (
           <>
             {data.desde_aplicado && (
-              <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mb-3">
+              <p className="text-xs font-bold text-brand-navy dark:text-brand-gold mb-3">
                 Mostrando recorridos a partir de la alerta ({formatHora(data.desde_aplicado)}) — cambia la fecha para ver el día completo.
               </p>
             )}
@@ -151,7 +151,7 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
                   </thead>
                   <tbody>
                     {data.viajes.map((v, i) => (
-                      <tr key={i} className={`${i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"} ${selectedTripIndex === i ? "outline outline-2 outline-blue-400" : ""}`}>
+                      <tr key={i} className={`${i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"} ${selectedTripIndex === i ? "outline outline-2 outline-brand-navy" : ""}`}>
                         <td className="px-4 py-2 whitespace-nowrap">{formatHora(v.beginTime)}</td>
                         <td className="px-4 py-2 whitespace-nowrap">{formatHora(v.endTime)}</td>
                         <td className="px-4 py-2 whitespace-nowrap">{v.duration || "-"}</td>

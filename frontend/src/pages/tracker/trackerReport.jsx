@@ -215,7 +215,7 @@ const TrackerReport = () => {
   const colSpan = isNocturno ? 6 : 5;
 
   return (
-    <PageLayout icon={FileSpreadsheet} title="Reportes de Turno Generados" subtitle="TRACKER GPS DE FLOTA" accentColor="orange">
+    <PageLayout icon={FileSpreadsheet} title="Reportes de Turno Generados" subtitle="TRACKER GPS DE FLOTA">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -232,7 +232,7 @@ const TrackerReport = () => {
                 onClick={() => handleTurnoChange(key)}
                 className={`px-4 py-2 text-sm font-bold transition-colors ${
                   turno === key
-                    ? "bg-orange-500 text-white"
+                    ? "bg-brand-navy text-white"
                     : "bg-white dark:bg-[#0f1115] text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
                 }`}
               >
@@ -258,7 +258,7 @@ const TrackerReport = () => {
 
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-2">
         <div>
-          <h2 className="text-xl font-black text-slate-900 dark:text-white">
+          <h2 className="text-xl font-display text-slate-900 dark:text-white">
             🚚 REPORTES GENERADOS — {TURNOS[turno]?.label?.toUpperCase() || turno}
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -342,8 +342,8 @@ const TrackerReport = () => {
                         <TableCell colSpan={colSpan} className="bg-slate-50/60 dark:bg-white/[0.02] p-0">
                           <div className="p-6">
                             <div className="flex items-center justify-between mb-2">
-                              <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
-                                <BarChart3 size={16} className="text-orange-500" />
+                              <h3 className="text-sm font-display text-slate-500 dark:text-slate-400 uppercase flex items-center gap-2">
+                                <BarChart3 size={16} className="text-brand-navy" />
                                 Análisis Operativo y Comportamiento de Conductores — {formatFechaISO(f.fecha)}
                               </h3>
                               <Button
@@ -370,7 +370,7 @@ const TrackerReport = () => {
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                                 <Card className="p-5">
                                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-4">Top 10 — Mayor Distancia Recorrida</h4>
-                                  <BarList items={analisis.top_distancia} valueKey="km" labelKey="unidad" unit=" km" color="#3b82f6" emptyLabel="Sin viajes registrados" />
+                                  <BarList items={analisis.top_distancia} valueKey="km" labelKey="unidad" unit=" km" color="#144763" emptyLabel="Sin viajes registrados" />
                                 </Card>
 
                                 <Card className="p-5">
@@ -391,7 +391,7 @@ const TrackerReport = () => {
 
                                 <Card className="p-5">
                                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-4">Top 10 — Mayor Tiempo en Ralentí</h4>
-                                  <BarList items={analisis.top_ralenti} valueKey="ralenti" labelKey="unidad" unit=" h" color="#d65a47" emptyLabel="Sin datos de ralentí" />
+                                  <BarList items={analisis.top_ralenti} valueKey="ralenti" labelKey="unidad" unit=" h" color="#e0b400" emptyLabel="Sin datos de ralentí" />
                                 </Card>
 
                                 <Card className="p-5 flex flex-col items-center justify-center">
@@ -400,9 +400,9 @@ const TrackerReport = () => {
                                   </h4>
                                   <Donut
                                     segments={[
-                                      { label: "Diurnos", value: analisis.viajes_diurnos, color: "#f39c12" },
-                                      { label: "Nocturnos", value: analisis.viajes_nocturnos, color: "#34495e" },
-                                      { label: "Mixtos", value: analisis.viajes_mixtos, color: "#2ecc71" },
+                                      { label: "Diurnos", value: analisis.viajes_diurnos, color: "#ffcc00" },
+                                      { label: "Nocturnos", value: analisis.viajes_nocturnos, color: "#144763" },
+                                      { label: "Mixtos", value: analisis.viajes_mixtos, color: "#1d5c7f" },
                                     ].filter((s) => s.value > 0)}
                                     centerLabel="Viajes"
                                     centerValue={analisis.total_viajes}
@@ -412,8 +412,8 @@ const TrackerReport = () => {
                             )}
 
                             <div className="pt-6 border-t border-slate-200 dark:border-white/10">
-                              <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
-                                <Paperclip size={16} className="text-orange-500" />
+                              <h3 className="text-sm font-display text-slate-500 dark:text-slate-400 uppercase mb-2 flex items-center gap-2">
+                                <Paperclip size={16} className="text-brand-navy" />
                                 Anexos del día
                               </h3>
                               <p className="text-xs text-slate-400 dark:text-slate-500 mb-4 max-w-2xl">
@@ -428,7 +428,7 @@ const TrackerReport = () => {
                                 <Button
                                   onClick={handleUploadClick}
                                   disabled={uploading}
-                                  className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-orange-500 hover:bg-orange-600 text-white text-sm"
+                                  className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white text-sm"
                                 >
                                   <Upload size={16} />
                                   {uploading ? "Subiendo..." : "Subir Dashboard de Seguridad (PDF)"}
@@ -489,7 +489,7 @@ const TrackerReport = () => {
       </Card>
 
       <div className="mt-10 pt-6 border-t border-slate-200 dark:border-white/10">
-        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Mantenimiento</h3>
+        <h3 className="text-sm font-display text-slate-500 dark:text-slate-400 uppercase mb-2">Mantenimiento</h3>
         <p className="text-xs text-slate-400 dark:text-slate-500 mb-3 max-w-2xl">
           El detalle de cada 10 minutos se conserva <span className="font-bold">unos meses</span> y luego se
           resume automáticamente (una fila por unidad, por turno y por día) para que estos reportes sigan

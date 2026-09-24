@@ -56,6 +56,23 @@ sudo systemctl enable --now postgresql
 sudo apt install -y nginx certbot python3-certbot-nginx
 ```
 
+### Chrome (para los reportes de turno en PDF/imagen)
+
+Los reportes de turno de Tracker generan PDF e imagen con `puppeteer-core`,
+que **no trae su propio navegador** — usa el Chrome/Chromium que ya esté
+instalado en la máquina (ver `backend/src/tracker/reportRenderer.js`). Sin
+esto, "Generar ahora" en Reportes (o los reportes automáticos de turno) fallan
+con "No se encontró un navegador Chrome/Edge instalado".
+
+```bash
+sudo apt install -y chromium-browser
+```
+
+Si el paquete se llama distinto en tu distro (`chromium` en vez de
+`chromium-browser`), o prefieres instalar Google Chrome real, fija la ruta
+exacta en `PDF_CHROME_PATH` en el paso 4 — `reportRenderer.js` la usa antes
+de intentar detectar automáticamente.
+
 ---
 
 ## 2. Clonar el proyecto
@@ -88,9 +105,12 @@ for f in migrations/*.sql; do
 done
 ```
 
-> El usuario de prueba `admin01` / `Admin1234` (creado por `seed.sql`) queda
-> disponible — **cambia esa contraseña** desde la app antes de dar acceso
-> real, o bórralo y crea un usuario real desde Seguridad → Usuarios.
+> El usuario `admin01` (creado por `seed.sql`) queda disponible con la
+> contraseña que se generó al rotar la anterior (que estaba expuesta en texto
+> plano en este archivo y en `seed.sql` — ver el comentario ahí). Esa
+> contraseña se entregó fuera del repo; **cámbiala** desde la app en tu
+> primer login antes de dar acceso real, o bórralo y crea un usuario real
+> desde Seguridad → Usuarios.
 
 ---
 
@@ -117,25 +137,30 @@ ahora depende de esto):
 | `PORT` | `3000` |
 | `COOKIE_SECURE` | `true` (ya hay HTTPS por NGINX/certbot) |
 | `FRONTEND_URL` | `https://app.tudominio.com` (ver sección de NGINX) |
-| `FORESIGHT_API_URL`, `FORESIGHT_BASIC_USER`, `FORESIGHT_BASIC_PASSWORD`, `FORESIGHT_CONNCODE`, `FORESIGHT_WSUSER`, `FORESIGHT_WSPASSWORD` | los mismos valores que ya tienes en tu `.env` local (spec de ForesightFlexAPIv3) |
-| `TRACKER_AUTO_SYNC` | `true` |
-| `TRACKER_SYNC_CRON` | `*/10 * * * *` (cada 10 min; ajustar si el proveedor lo requiere) |
+| `FORESIGHT_BASIC_USER`, `FORESIGHT_BASIC_PASSWORD`, `FORESIGHT_CONNCODE` | los mismos valores que ya tienes en tu `.env` local (auth HTTP básica del API de Foresight) |
+| `FORESIGHT_PLATFORM_API_URL` | `https://flexapi.foresightgps.com/ForesightFlexAPI.ashx` (no es secreto, ya viene en `.env.example`) |
+| `FORESIGHT_USERID`, `FORESIGHT_COMPANYID`, `FORESIGHT_REPORT_ID_COMPORTAMIENTO` | pídeselos a Julio o Luis (identifican la cuenta y el reporte guardado dentro del panel GEvolution, no son secretos pero tampoco van en este repo) — confirmados y probados en vivo el 21/09/2026 (sync trae las 74 unidades reales) |
+| `TRACKER_AUTO_SYNC` | `true` — autorizado por Julio 21/09/2026 (alertas de fuera de horario/geocerca son de seguridad, no dependen de un clic manual) |
+| `TRACKER_SYNC_CRON` | `0 9 * * *;0 14 * * *;5 20 * * *;35 20 * * *;0 21 * * *` (5 disparos/día, no cada 10 min — cae justo antes de los reportes automáticos de cada turno, ver `TRACKER_AUTO_REPORTES_TURNO` abajo) |
 | `TRACKER_STALE_HOURS` | `24` |
 | `TRACKER_CURFEW_HOUR` | `20` (8:00 p.m., ajustable) |
 | `TRACKER_RETENTION_MONTHS` | `6` |
 | `TRACKER_ARCHIVE_CRON` | `0 3 * * *` |
-| `TRACKER_API_CALL_DELAY_MS` | `1200` (ver nota de límite de peticiones más abajo) |
-| `TELEGRAM_BOT_TOKEN` | el mismo que ya tienes configurado |
-| `TELEGRAM_CHAT_ID` | opcional (puede quedar vacío) -- quien le escriba `/start` al bot queda suscrito solo, no hace falta llenarlo a mano |
+| `TRACKER_AUTO_REPORTES_TURNO` | `true` — pedido de gerencia (11/09/2026): reportes de turno (Excel/PDF/imagen) se generan solos al cierre de cada turno y se mandan por Telegram |
+| `TRACKER_AUTO_REPORTS` | `false` — análisis diario de comportamiento y archivado de retención quedan manuales (botones en Reportes) mientras se resuelven dudas de acceso al API |
+| `PDF_CHROME_PATH` | solo si `chromium-browser` no quedó en una ruta estándar (ver sección de Chrome más arriba) -- si no, se detecta solo |
+| `TELEGRAM_BOT_TOKEN` | pídeselo a Julio o Luis (token real del bot, confirmado funcionando el 21/09/2026) |
+| `TELEGRAM_CHAT_ID` | opcional además de los suscriptores automáticos (quien le escriba `/start` al bot queda suscrito solo) — Julio/Luis tienen la lista de chat_id fijos actual si quieres replicarla |
 | `TRACKER_NOTIFY_MATUTINO_CRON` / `_VESPERTINO_CRON` / `_NOCTURNO_CRON` | opcional, por defecto `5 10 * * *` / `5 15 * * *` / `5 22 * * *` |
 | `TRACKER_NOTIFY_ANEXO_CRON` | opcional, por defecto `15 22 * * *` |
 
-> **Nota sobre el límite de peticiones de la API de Foresight**: se comprobó
-> en la práctica que el proveedor corta el acceso si se le pega muy rápido
-> (ver conversación del 07/09/2026). `TRACKER_API_CALL_DELAY_MS` ya está
-> puesto en un valor conservador; si "Generar análisis del día" sigue
-> devolviendo errores de límite, subir este valor (ej. `2000`) antes que
-> nada más.
+> **Sobre el endpoint interno de GEvolution**: desde el 21/09/2026 todo el
+> live-data de Tracker (posición, geocercas, Recorridos, Comportamiento) pasa
+> por un único endpoint no documentado oficialmente por Foresight (se
+> descubrió inspeccionando el tráfico del propio panel web GEvolution, no es
+> parte del API contratado) -- Julio autorizó usarlo mientras se llega a un
+> acuerdo formal con el proveedor. Ver `reference_gevolution_internal_endpoint`
+> en las notas del proyecto para el detalle completo.
 
 ```bash
 pnpm install --prod
@@ -235,11 +260,21 @@ se acceden por `localhost`, que ya funciona sin tocar el firewall.
 
 1. Entra a `https://app.tudominio.com` — debe cargar el login.
 2. Inicia sesión y entra a Tracker GPS → Estado y Alertas → "Sincronizar
-   ahora" — confirma que trae datos reales.
-3. Espera a la siguiente marca de 10 minutos y revisa `pm2 logs
-   fullpetro-backend` — debe aparecer la sincronización automática sola.
+   ahora" — confirma que trae datos reales (necesita las credenciales de la
+   plataforma GEvolution del paso 4, `FORESIGHT_USERID`/`COMPANYID`/etc.).
+   Esta sincronización es también la forma en que se puebla `fleet_unit`
+   (el registro compartido de unidades entre Combustible/Tracker/Horas,
+   ver migraciones 039/040) — una base nueva empieza sin ninguna unidad y
+   las recibe todas solas en este paso, no hace falta cargarlas a mano.
+   **Excepción:** `FP-BA-04` (grúa de Izamiento) no tiene GPS, así que
+   nunca la trae el sync — agrégala una sola vez a mano desde Combustible
+   → Unidades o Control de Horas → Equipos después de este paso.
+3. Con `TRACKER_AUTO_SYNC=true`, revisa `pm2 logs fullpetro-backend` a la
+   siguiente hora programada en `TRACKER_SYNC_CRON` (9am, 2pm, 8:05pm,
+   8:35pm o 9pm) — debe aparecer la sincronización sola, **una sola vez**
+   (no 8, ver nota de `NODE_APP_INSTANCE` más arriba).
 4. Revisa que llegó el mensaje de prueba a Telegram si generaste un reporte
-   o notificación a mano.
+   o notificación a mano (requiere `TELEGRAM_BOT_TOKEN` configurado).
 
 ---
 
@@ -254,6 +289,26 @@ cd backend && pnpm install --prod
 cd ../frontend && pnpm install && pnpm build
 pm2 reload fullpetro-backend
 ```
+
+> **Migraciones nuevas — ojo, esto no es automático.** `git pull` solo trae
+> los archivos `.sql`; nada los ejecuta contra la base de datos. Si el
+> `git pull` trajo archivos nuevos en `db/migrations/`, aplícalos a mano
+> **antes** de reiniciar el backend (`pm2 reload`), y **solo los que no
+> corriste todavía** — nunca vuelvas a correr todo el ciclo `for f in
+> migrations/*.sql` como en la instalación inicial (algunas migraciones no
+> son idempotentes: repetirlas puede fallar, por ejemplo, por una restricción
+> que ya existe — lee el comentario dentro de cada archivo antes de
+> reintentar uno):
+>
+> ```bash
+> cd /var/www/fullpetro/db
+> PGPASSWORD='...' psql -U postgres -h localhost -d fullpetro -f migrations/032_nombre_del_archivo_nuevo.sql
+> ```
+>
+> Esto ya pasó una vez en desarrollo: se mezcló una rama con 15 migraciones
+> nuevas de Tracker y nadie las corrió, así que el registro de unidades
+> quedó fallando en silencio durante días sin que nadie lo notara hasta que
+> alguien reportó "no me sale ninguna unidad".
 
 **Ver logs en vivo:**
 

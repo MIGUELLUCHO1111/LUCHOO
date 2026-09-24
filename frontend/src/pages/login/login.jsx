@@ -33,7 +33,7 @@ export const Login = () => {
         >
           <img
             src={theme === "light" ? LogoLight : LogoDark}
-            alt="Logo URU"
+            alt="Logo Fullpetro"
             className="h-36 w-auto object-contain filter drop-shadow-sm"
           />
         </motion.div>
@@ -56,13 +56,13 @@ export const Login = () => {
       </div>
 
       <motion.div
-        className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-gradient-to-br from-blue-400/20 dark:from-blue-600/10 to-transparent rounded-full blur-[120px]"
+        className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-gradient-to-br from-brand-navy/20 dark:from-brand-navy-light/10 to-transparent rounded-full blur-[120px]"
         animate={{ x: [0, 30, 0], y: [0, 20, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
 
       <motion.div
-        className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-gradient-to-tl from-indigo-400/20 dark:from-indigo-600/10 to-transparent rounded-full blur-[120px]"
+        className="absolute -bottom-[10%] -right-[10%] w-[50%] h-[50%] bg-gradient-to-tl from-brand-gold/20 dark:from-brand-gold-dark/10 to-transparent rounded-full blur-[120px]"
         animate={{ x: [0, -30, 0], y: [0, -20, 0] }}
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
       />
