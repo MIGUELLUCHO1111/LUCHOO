@@ -81,6 +81,7 @@ Ver la sección siguiente — **hay DOS formatos de reporte, no confundirlos.**
 ### 2. Reporte "modelo interno"
 - Formato Excel aparte que replica el diseño manual que usaban antes de la app (mismo layout, mismas leyendas de color).
 - **Mantiene el orden natural de las unidades — nunca se ordena por categoría de ubicación** (eso es exclusivo del reporte de la app). Se corrigió una vez porque se había ordenado mal por asumir que compartían esa lógica.
+- **Solo tiene Activas y Estacionadas, sin casilla "sin señal"** (25/09/2026): las unidades sin señal cuentan según su último estado conocido, así Activas + Estacionadas = Total. El reporte de la app sí las separa en "Sin señal".
 - **Nunca se guarda ni se comitea** — se genera con un script de un solo uso, se envía, y se borra.
 - Se pide con frases como "dame el reporte como el modelo interno".
 

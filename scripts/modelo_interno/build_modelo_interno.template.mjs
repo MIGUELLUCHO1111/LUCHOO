@@ -57,10 +57,16 @@ fillCell(ws.getCell('A2'), { fill: NAVY_BAND, fontColor: NAVY_TEXT, size: 10, al
 ws.mergeCells('A4:B4'); ws.mergeCells('C4:D4'); ws.mergeCells('E4:F4');
 ws.mergeCells('A5:B5'); ws.mergeCells('C5:D5'); ws.mergeCells('E5:F5');
 ws.getRow(5).height = 24;
+// Este formato no tiene casilla "sin señal" (pedido de Lguerra, 25/09/2026):
+// cada unidad cuenta como activa o estacionada segun su ultimo estado
+// conocido -- el mismo que muestra su fila --, para que sumen el total.
+// r.activas/r.estacionadas de la app excluyen las sin senal; aqui no se usan.
+const activas = r.unidades.filter((u) => u.status === 'ACTIVO').length;
+const estacionadas = r.unidades.length - activas;
 const kpis = [
   { addr: 'A4', val: 'A5', label: 'TOTAL DE UNIDADES', value: r.total, fill: NAVY },
-  { addr: 'C4', val: 'C5', label: 'UNIDADES ACTIVAS', value: r.activas, fill: GREEN },
-  { addr: 'E4', val: 'E5', label: 'UNIDADES ESTACIONADAS', value: r.estacionadas, fill: RED },
+  { addr: 'C4', val: 'C5', label: 'UNIDADES ACTIVAS', value: activas, fill: GREEN },
+  { addr: 'E4', val: 'E5', label: 'UNIDADES ESTACIONADAS', value: estacionadas, fill: RED },
 ];
 for (const k of kpis) {
   fillCell(ws.getCell(k.addr), { fill: k.fill, fontColor: WHITE, bold: true, size: 9, align: { vertical: 'middle' } });
