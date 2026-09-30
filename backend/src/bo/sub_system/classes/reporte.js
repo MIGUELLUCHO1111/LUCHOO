@@ -106,14 +106,16 @@ class Reporte {
       }
     }
 
-    // Activas/Estacionadas/Sin señal son mutuamente excluyentes (suman el
-    // total): una unidad sin reporte reciente (is_stale) cuenta como "sin
-    // señal" en vez de activa o estacionada, aunque su tabla siga mostrando
-    // su último estado conocido.
+    // Desde el 30/09/2026 (pedido de Lguerra, igual que Estado de Flota):
+    // cada unidad sin señal reciente suma en su ÚLTIMO estado conocido, así
+    // Activas + Estacionadas = Total; "sin señal" es un desglose aparte
+    // (cuántas de ellas estaban activas y cuántas estacionadas).
     const total = unidades.length;
-    const activas = unidades.filter((r) => r.status === 'ACTIVO' && !r.is_stale).length;
-    const estacionadas = unidades.filter((r) => r.status === 'ESTACIONADO' && !r.is_stale).length;
-    const sinSenal = unidades.filter((r) => r.is_stale).length;
+    const activas = unidades.filter((r) => r.status === 'ACTIVO').length;
+    const estacionadas = total - activas;
+    const stale = unidades.filter((r) => r.is_stale);
+    const sinSenal = stale.length;
+    const sinSenalActivas = stale.filter((r) => r.status === 'ACTIVO').length;
 
     return {
       statusCode: STATUS_CODES.OK,
@@ -127,6 +129,8 @@ class Reporte {
         activas,
         estacionadas,
         sin_senal: sinSenal,
+        sin_senal_activas: sinSenalActivas,
+        sin_senal_estacionadas: sinSenal - sinSenalActivas,
         unidades,
       },
     };

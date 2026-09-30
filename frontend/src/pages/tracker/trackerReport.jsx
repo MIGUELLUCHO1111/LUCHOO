@@ -305,6 +305,13 @@ const TrackerReport = () => {
                       <TableCell className="text-sm font-mono">{formatFechaISO(f.fecha)}</TableCell>
                       <TableCell className="text-sm text-slate-500 dark:text-slate-400">
                         {f.total} / {f.activas} / {f.estacionadas} / {f.sin_senal}
+                        {f.sin_senal > 0 && (
+                          <div className="text-[10px] text-slate-400">
+                            {f.activas + f.estacionadas === f.total
+                              ? "sin señal ya sumadas en Activas y Estac."
+                              : "sin señal contadas aparte (formato anterior)"}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">{formatHora(f.generated_at)}</TableCell>
                       <TableCell>

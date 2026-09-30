@@ -1,3 +1,5 @@
+import { motivoSinSenal, ultimoEstado } from './sinSenal.js';
+
 // Plantilla HTML compartida para el PDF y la imagen del reporte de turno
 // (reportRenderer.js renderiza esto dos veces, una como PDF y otra como
 // PNG) -- mismos colores y tipografía que ya usa la app (naranja de acento,
@@ -123,8 +125,10 @@ const buildStatusSection = (title, colorClass, units) => {
 };
 
 export function buildReportHtml(r) {
-  const activeUnits = r.unidades.filter((u) => u.status === 'ACTIVO' && !u.is_stale);
-  const parkedUnits = r.unidades.filter((u) => u.status === 'ESTACIONADO' && !u.is_stale);
+  // Las sin señal suman en su último estado (30/09/2026, igual que Estado
+  // de Flota) y además se detallan abajo con el motivo probable.
+  const activeUnits = r.unidades.filter((u) => u.status === 'ACTIVO');
+  const parkedUnits = r.unidades.filter((u) => u.status !== 'ACTIVO');
   const activasSection = buildStatusSection('Unidades activas', 'activo', activeUnits);
   const estacionadasSection = buildStatusSection('Unidades estacionadas', 'estacionado', parkedUnits);
 
@@ -139,12 +143,21 @@ export function buildReportHtml(r) {
       const unitCell = u.unit_code
         ? `<span class="mono strong">${escapeHtml(u.unit_code)}</span>`
         : `<span class="unregistered">sin registrar</span>`;
+      const cat = CATEGORY_COLORS[u.location_category] || CATEGORY_COLORS.OTRAS;
+      const m = motivoSinSenal(u);
       return `
         <tr class="${i % 2 === 0 ? '' : 'alt'}">
           <td>${unitCell}</td>
           <td class="mono">${escapeHtml(u.plate || '-')}</td>
+          <td>${escapeHtml(u.driver_name || '-')}</td>
+          <td><div class="loc-cell">
+            <span class="cat-badge" style="background:${cat.bg};color:${cat.text}">${escapeHtml(u.location_category || 'OTRAS')}</span>
+            <span class="loc-text">${escapeHtml(u.location_text || '-')}</span>
+          </div></td>
+          <td><span class="estado ${u.status === 'ACTIVO' ? 'activo' : 'estacionado'}">${ultimoEstado(u)}</span></td>
           <td class="mono">${formatFechaHora(u.last_report_at)}</td>
           <td><span class="badge stale">${formatHoras(horasSinConexion(u.last_report_at))}</span></td>
+          <td><div class="motivo ${m.tono}">${escapeHtml(m.texto)}</div><div class="motivo-det">${escapeHtml(m.detalle)}</div></td>
         </tr>`;
     })
     .join('');
@@ -156,9 +169,12 @@ export function buildReportHtml(r) {
         <span class="status-icon stale">${ICONS.stale}</span>
         <span class="status-header-title stale">Unidades sin señal reciente &mdash; revisar en sitio</span>
         <span class="status-count stale">${staleUnits.length}</span>
+        <span class="status-count estacionado">${r.sin_senal_estacionadas ?? 0} estacionada(s)</span>
+        <span class="status-count activo">${r.sin_senal_activas ?? 0} activa(s)</span>
+        <span class="stale-note">ya sumadas en los totales</span>
       </div>
-      <table>
-        <thead><tr><th>Unidad</th><th>Placa</th><th>Última conexión</th><th>Horas sin conexión</th></tr></thead>
+      <table class="stale-table">
+        <thead><tr><th>Unidad</th><th>Placa</th><th>Conductor</th><th>Ubicación</th><th>Último estado</th><th>Última conexión</th><th>Sin conexión</th><th>Motivo probable</th></tr></thead>
         <tbody>${staleRows}</tbody>
       </table>
     </div>`
@@ -237,6 +253,19 @@ export function buildReportHtml(r) {
   .stale-card th { border-bottom-color: #fde68a; }
   .stale-card td { border-bottom-color: #fef3c7; }
   .stale-card tr.alt td { background: #fef9ec; }
+  .stale-table td { font-size: 10.5px; padding-left: 8px !important; padding-right: 8px !important; vertical-align: top; }
+  .stale-table th { padding-left: 8px !important; padding-right: 8px !important; font-size: 9px; }
+  .stale-note { font-size: 10.5px; color: #94a3b8; font-weight: 600; }
+  .estado { font-weight: 700; white-space: nowrap; }
+  .estado.activo { color: #059669; }
+  .estado.estacionado { color: #dc2626; }
+  .motivo { font-weight: 700; }
+  .motivo.red { color: #dc2626; }
+  .motivo.amber { color: #b45309; }
+  .motivo.slate { color: #475569; font-weight: 600; }
+  .motivo-det { font-size: 9.5px; color: #94a3b8; }
+  .kpi .note { font-size: 9.5px; font-weight: 700; color: #b45309; margin-top: 2px; line-height: 1.3; }
+  .kpi .note span { color: #94a3b8; font-weight: 500; display: block; }
 
   .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
 </style></head>
@@ -260,7 +289,7 @@ export function buildReportHtml(r) {
       <div class="kpi total"><div class="label">Total Unidades</div><div class="value">${r.total}</div></div>
       <div class="kpi activas"><div class="label">Activas</div><div class="value">${r.activas}</div></div>
       <div class="kpi estacionadas"><div class="label">Estacionadas</div><div class="value">${r.estacionadas}</div></div>
-      <div class="kpi sinsenal"><div class="label">Sin Señal Reciente</div><div class="value">${r.sin_senal ?? 0}</div></div>
+      <div class="kpi sinsenal"><div class="label">Sin Señal Reciente</div><div class="value">${r.sin_senal ?? 0}</div>${r.sin_senal ? `<div class="note">${r.sin_senal_estacionadas ?? 0} estacionada(s) · ${r.sin_senal_activas ?? 0} activa(s)<span>ya sumadas en Activas y Estacionadas</span></div>` : ''}</div>
     </div>
 
     <div class="legend">

@@ -7,6 +7,7 @@ import Config from '../../../../config/config.js';
 import Reporte from './reporte.js';
 import { buildReportHtml } from '../../../tracker/reportHtml.js';
 import { renderReportOutputs } from '../../../tracker/reportRenderer.js';
+import { motivoSinSenal, ultimoEstado } from '../../../tracker/sinSenal.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -153,7 +154,7 @@ class ReporteArchivo {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet(r.turno.slice(0, 31));
 
-    ws.columns = [{ width: 16 }, { width: 14 }, { width: 20 }, { width: 34 }, { width: 16 }];
+    ws.columns = [{ width: 16 }, { width: 14 }, { width: 20 }, { width: 34 }, { width: 16 }, { width: 16 }, { width: 14 }, { width: 40 }];
 
     ws.mergeCells('A1:E1');
     ws.getCell('A1').value = `Reporte de Turno — ${r.turno}`;
@@ -181,9 +182,16 @@ class ReporteArchivo {
       valueCell.font = { bold: true, size: 18, color: { argb: TEXT[k.key] } };
       valueCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: FILL[k.key] } };
     }
+    if (r.sin_senal > 0) {
+      const noteCell = ws.getCell('D6');
+      noteCell.value = `${r.sin_senal_estacionadas ?? 0} estacionada(s) · ${r.sin_senal_activas ?? 0} activa(s) — ya sumadas en Activas y Estacionadas`;
+      noteCell.font = { italic: true, size: 9, color: { argb: 'FFB45309' } };
+    }
 
-    const activeUnits = r.unidades.filter((u) => u.status === 'ACTIVO' && !u.is_stale);
-    const parkedUnits = r.unidades.filter((u) => u.status === 'ESTACIONADO' && !u.is_stale);
+    // Las sin señal también aparecen en su bloque (su último estado), igual
+    // que en Estado de Flota; abajo se detallan otra vez con el motivo.
+    const activeUnits = r.unidades.filter((u) => u.status === 'ACTIVO');
+    const parkedUnits = r.unidades.filter((u) => u.status !== 'ACTIVO');
     const staleUnits = r.unidades
       .filter((u) => u.is_stale)
       .sort((a, b) => new Date(a.last_report_at || 0) - new Date(b.last_report_at || 0));
@@ -197,15 +205,15 @@ class ReporteArchivo {
     });
 
     if (staleUnits.length > 0) {
-      ws.mergeCells(`A${rowIdx}:E${rowIdx}`);
+      ws.mergeCells(`A${rowIdx}:H${rowIdx}`);
       const staleTitleCell = ws.getCell(`A${rowIdx}`);
-      staleTitleCell.value = `⚠ UNIDADES SIN SEÑAL RECIENTE — revisar en sitio  (${staleUnits.length})`;
+      staleTitleCell.value = `⚠ UNIDADES SIN SEÑAL RECIENTE — revisar en sitio  (${staleUnits.length}: ${r.sin_senal_estacionadas ?? 0} estacionada(s) · ${r.sin_senal_activas ?? 0} activa(s), ya sumadas en los totales)`;
       staleTitleCell.font = { bold: true, size: 11, color: { argb: 'FFB45309' } };
       staleTitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } };
       rowIdx += 1;
 
       const staleHeaderRow = ws.getRow(rowIdx);
-      staleHeaderRow.values = ['Unidad', 'Placa', 'Última conexión', 'Horas sin conexión'];
+      staleHeaderRow.values = ['Unidad', 'Placa', 'Conductor', 'Ubicación', 'Último estado', 'Última conexión', 'Sin conexión', 'Motivo probable'];
       staleHeaderRow.font = { bold: true, size: 10, color: { argb: 'FFB45309' } };
       staleHeaderRow.eachCell((cell) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
@@ -214,18 +222,27 @@ class ReporteArchivo {
 
       staleUnits.forEach((u, i) => {
         const row = ws.getRow(rowIdx);
+        const m = motivoSinSenal(u);
         row.values = [
           u.unit_code || 'sin registrar',
           u.plate || '-',
+          u.driver_name || '-',
+          u.location_text || '-',
+          ultimoEstado(u),
           formatFechaHora(u.last_report_at),
           formatHoras(horasSinConexion(u.last_report_at)),
+          `${m.texto} — ${m.detalle}`,
         ];
         if (i % 2 === 1) {
           row.eachCell((cell) => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9EC' } };
           });
         }
-        row.getCell(4).font = { bold: true, color: { argb: 'FFB45309' } };
+        row.getCell(4).font = { bold: true, color: { argb: CATEGORY_FONT[u.location_category] || CATEGORY_FONT.OTRAS } };
+        row.getCell(5).font = { bold: true, color: { argb: u.status === 'ACTIVO' ? TEXT.activas : TEXT.estacionadas } };
+        row.getCell(7).font = { bold: true, color: { argb: 'FFB45309' } };
+        row.getCell(8).font = { bold: m.tono !== 'slate', color: { argb: m.tono === 'red' ? 'FFDC2626' : m.tono === 'amber' ? 'FFB45309' : 'FF64748B' } };
+        row.getCell(8).alignment = { wrapText: true, vertical: 'top' };
         rowIdx += 1;
       });
     }
