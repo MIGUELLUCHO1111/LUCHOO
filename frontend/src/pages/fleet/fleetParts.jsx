@@ -1,33 +1,38 @@
 // Piezas compartidas de Flota -> Fichas de Vehiculos (lista y ficha).
 
+// Condicion operativa de la politica FP-MTTO-PO-01 §4.1 (respuestas de Julio,
+// 30/09/2026). La cambiara Mantenimiento al abrir/cerrar una OT; mientras
+// tanto solo un admin la cambia a mano (el backend lo valida).
 export const STATUS = {
-  OPERATIVO: {
-    label: "Operativo",
-    dot: "bg-emerald-500",
-    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/30",
-    bar: "bg-emerald-500",
-    glow: "from-emerald-500/15",
-    ring: "ring-emerald-500/25",
+  OPERATIVO_CONTRATO: {
+    label: "Operativo en contrato", short: "En contrato",
+    dot: "bg-emerald-500", badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/30",
+    bar: "bg-emerald-500", glow: "from-emerald-500/15", ring: "ring-emerald-500/25", kpi: "text-emerald-600",
   },
-  EN_TALLER: {
-    label: "En taller",
-    dot: "bg-amber-500",
-    badge: "bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-500/30",
-    bar: "bg-amber-500",
-    glow: "from-amber-500/15",
-    ring: "ring-amber-500/25",
+  STANDBY: {
+    label: "Standby / back-up", short: "Standby",
+    dot: "bg-sky-500", badge: "bg-sky-500/10 text-sky-600 dark:text-sky-400 ring-sky-500/30",
+    bar: "bg-sky-500", glow: "from-sky-500/15", ring: "ring-sky-500/25", kpi: "text-sky-600",
+  },
+  DISPONIBLE: {
+    label: "Disponible", short: "Disponible",
+    dot: "bg-amber-500", badge: "bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-500/30",
+    bar: "bg-amber-500", glow: "from-amber-500/15", ring: "ring-amber-500/25", kpi: "text-amber-600",
   },
   FUERA_DE_SERVICIO: {
-    label: "Fuera de servicio",
-    dot: "bg-red-500",
-    badge: "bg-red-500/10 text-red-600 dark:text-red-400 ring-red-500/30",
-    bar: "bg-red-500",
-    glow: "from-red-500/15",
-    ring: "ring-red-500/25",
+    label: "Fuera de servicio", short: "Fuera de servicio",
+    dot: "bg-red-500", badge: "bg-red-500/10 text-red-600 dark:text-red-400 ring-red-500/30",
+    bar: "bg-red-500", glow: "from-red-500/15", ring: "ring-red-500/25", kpi: "text-red-600",
   },
 };
-export const statusOf = (u) => STATUS[u?.profile?.operational_status] || STATUS.OPERATIVO;
-export const statusKeyOf = (u) => (STATUS[u?.profile?.operational_status] ? u.profile.operational_status : "OPERATIVO");
+export const statusOf = (u) => STATUS[u?.profile?.operational_status] || STATUS.DISPONIBLE;
+export const statusKeyOf = (u) => (STATUS[u?.profile?.operational_status] ? u.profile.operational_status : "DISPONIBLE");
+
+// Ficha COMPLETA solo para los equipos del contrato PDVSA-Chevron; el resto
+// (incluida la flota Liviana) lleva ficha basica: documentos, km y encargado.
+export const CONTRACT_FAMILIES = ["GT", "BA", "MT", "CF", "CC"];
+export const unitFamily = (u) => u?.model_category || (String(u?.code || "").toUpperCase().match(/^FP-?([A-Z]+)/) || [])[1] || "OTRO";
+export const isFullSheet = (u) => CONTRACT_FAMILIES.includes(unitFamily(u));
 
 export const FLEET_LABEL = { PESADA: "Flota Pesada", LIVIANA: "Flota Liviana" };
 

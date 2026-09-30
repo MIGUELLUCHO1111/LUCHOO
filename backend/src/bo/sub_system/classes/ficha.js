@@ -14,7 +14,7 @@ const STATUS_CODES = config.STATUS_CODES;
 // Columnas editables de fleet_unit_profile y su tipo (para limpiar lo que
 // llega del formulario antes de armar el patch JSON de fleetUpdateProfile).
 const PROFILE_FIELDS = {
-  operational_status: 'status',
+  operational_status: 'status', status_cause: 'text', short_code: 'text',
   brand: 'text', model: 'text', model_year: 'int', vin: 'text', engine_serial: 'text', color: 'text', fuel_type: 'text',
   assigned_zone: 'text', driver_phone: 'text', driver_assigned_at: 'date', next_driver: 'text',
   change_plan: 'bool', fleet_manager: 'text', avg_consumption_kml: 'num',
@@ -23,8 +23,11 @@ const PROFILE_FIELDS = {
   hp_tax: 'num', catalog_value: 'num', purchase_value: 'num', residual_value: 'num', tags: 'text',
 };
 const UNIT_FIELDS = ['driver_name', 'fleet_type', 'name', 'tank_capacity_liters'];
-const STATUSES = ['OPERATIVO', 'EN_TALLER', 'FUERA_DE_SERVICIO'];
-const STATUS_LABEL = { OPERATIVO: 'Operativo', EN_TALLER: 'En taller', FUERA_DE_SERVICIO: 'Fuera de servicio' };
+// Condicion operativa de la politica FP-MTTO-PO-01 §4.1 (047_fleet_policy_states.sql).
+// La cambiara Mantenimiento al abrir/cerrar una OT; mientras tanto, solo un admin.
+const STATUSES = ['OPERATIVO_CONTRATO', 'STANDBY', 'DISPONIBLE', 'FUERA_DE_SERVICIO'];
+const STATUS_LABEL = { OPERATIVO_CONTRATO: 'Operativo en contrato', STANDBY: 'Standby / back-up', DISPONIBLE: 'Disponible', FUERA_DE_SERVICIO: 'Fuera de servicio' };
+const STATUS_EDITORS = ['admin'];
 const SETTING_KEYS = ['MAINT_INTERVAL_LIVIANA', 'MAINT_INTERVAL_PESADA', 'DOC_ALERT_DAYS'];
 
 // La API v3 corta tras ~10 consultas seguidas: se guarda en memoria lo que
@@ -164,7 +167,7 @@ class Ficha {
     return { statusCode: STATUS_CODES.OK, data: { ...unidad, documentos, servicios, eventos, snapshot, gps_v3: gps, odometro } };
   };
 
-  guardar = async ({ id, caller_user, ...campos }) => {
+  guardar = async ({ id, caller_user, caller_profile, ...campos }) => {
     if (!id) throw badRequest("Campo requerido: 'id'");
     const [actual] = await this.query('fleetGetUnit', { id });
     if (!actual) throw notFound(`Unidad con id ${id} no encontrada`);
@@ -176,6 +179,12 @@ class Ficha {
       if (v !== undefined) patch[k] = v;
     }
     const cambiosUnidad = UNIT_FIELDS.some((k) => campos[k] !== undefined);
+    const cambiaEstado = (patch.operational_status && patch.operational_status !== (prev.operational_status || 'DISPONIBLE')) || (patch.status_cause !== undefined && patch.status_cause !== (prev.status_cause ?? null));
+    if (cambiaEstado && !STATUS_EDITORS.includes(String(caller_profile || '').toLowerCase())) {
+      throw new Error(JSON.stringify({ message: 'Solo un administrador puede cambiar la condición operativa (luego la cambiará Mantenimiento).', statusCode: STATUS_CODES.FORBIDDEN }));
+    }
+    if (patch.operational_status && patch.operational_status !== 'FUERA_DE_SERVICIO' && patch.status_cause === undefined) patch.status_cause = null;
+    if (patch.operational_status === 'FUERA_DE_SERVICIO' && !(patch.status_cause ?? prev.status_cause)) throw badRequest('Indica la causa de Fuera de servicio (ej. En reparación, Sin componente mayor).');
 
     if (cambiosUnidad) {
       const fleetType = campos.fleet_type !== undefined ? (['LIVIANA', 'PESADA'].includes(campos.fleet_type) ? campos.fleet_type : null) : actual.fleet_type;
@@ -198,8 +207,9 @@ class Ficha {
     if (nuevoConductor !== undefined && nuevoConductor !== actual.driver_name) {
       await this.evento(id, 'CONDUCTOR', `Cambio de conductor: ${nuevoConductor || 'sin asignar'}`, actual.driver_name ? `Antes: ${actual.driver_name}` : null, quien);
     }
-    if (patch.operational_status && patch.operational_status !== (prev.operational_status || 'OPERATIVO')) {
-      await this.evento(id, 'ESTADO', `Estado: ${STATUS_LABEL[patch.operational_status]}`, `Antes: ${STATUS_LABEL[prev.operational_status || 'OPERATIVO']}`, quien);
+    if (patch.operational_status && patch.operational_status !== (prev.operational_status || 'DISPONIBLE')) {
+      const causa = patch.operational_status === 'FUERA_DE_SERVICIO' ? ` (${patch.status_cause || prev.status_cause})` : '';
+      await this.evento(id, 'ESTADO', `Condición: ${STATUS_LABEL[patch.operational_status]}${causa}`, `Antes: ${STATUS_LABEL[prev.operational_status] || 'Disponible'}`, quien);
     }
     if (patch.assigned_zone !== undefined && patch.assigned_zone !== (prev.assigned_zone ?? null)) {
       await this.evento(id, 'UBICACION', `Zona asignada: ${patch.assigned_zone || 'sin zona'}`, null, quien);
@@ -207,7 +217,7 @@ class Ficha {
     if (patch.odometer_km != null && Number(patch.odometer_km) !== Number(prev.odometer_km)) {
       await this.evento(id, 'ODOMETRO', `Odómetro actualizado: ${Number(patch.odometer_km).toLocaleString('es-VE')} km`, null, quien);
     }
-    const otros = Object.keys(patch).filter((k) => !['operational_status', 'assigned_zone', 'odometer_km', 'odometer_at'].includes(k) && String(patch[k] ?? '') !== String(prev[k] ?? ''));
+    const otros = Object.keys(patch).filter((k) => !['operational_status', 'status_cause', 'assigned_zone', 'odometer_km', 'odometer_at'].includes(k) && String(patch[k] ?? '') !== String(prev[k] ?? ''));
     if (otros.length || (cambiosUnidad && ['fleet_type', 'name', 'tank_capacity_liters'].some((k) => campos[k] !== undefined && String(campos[k] ?? '') !== String(actual[k] ?? '')))) {
       await this.evento(id, 'EDICION', 'Ficha actualizada', null, quien);
     }

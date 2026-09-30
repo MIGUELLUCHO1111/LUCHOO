@@ -123,7 +123,7 @@ const UnitCard = ({ u, onOpen, i }) => {
 
       <div className="mt-4 flex items-center justify-between gap-2">
         <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${st.badge}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />{st.label}
+          <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />{st.short}
         </span>
         <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${gps.cls}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${gps.dot}`} />{gps.label}
@@ -162,7 +162,7 @@ const FleetList = () => {
   }, []);
 
   const counts = useMemo(() => {
-    const c = { total: units.length, OPERATIVO: 0, EN_TALLER: 0, FUERA_DE_SERVICIO: 0, docs: 0 };
+    const c = { total: units.length, docs: 0, ...Object.fromEntries(Object.keys(STATUS).map((k) => [k, 0])) };
     units.forEach((u) => {
       c[statusKeyOf(u)] += 1;
       if (u.docs_expired > 0 || u.docs_expiring > 0) c.docs += 1;
@@ -184,10 +184,10 @@ const FleetList = () => {
 
   return (
     <PageLayout icon={Truck} title="Fichas de Vehículos" subtitle={`FLOTA FULLPETRO • ${units.length} UNIDADES`} accentColor="navy">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
         <Kpi label="Unidades" value={counts.total} active={!status && !docsOnly} onClick={() => { setStatus(""); setDocsOnly(false); }} />
         {Object.entries(STATUS).map(([k, s]) => (
-          <Kpi key={k} label={s.label} value={counts[k]} tone={k === "OPERATIVO" ? "text-emerald-600" : k === "EN_TALLER" ? "text-amber-600" : "text-red-600"} active={status === k} onClick={() => { setStatus(status === k ? "" : k); setDocsOnly(false); }} />
+          <Kpi key={k} label={s.label} value={counts[k]} tone={s.kpi} active={status === k} onClick={() => { setStatus(status === k ? "" : k); setDocsOnly(false); }} />
         ))}
         <Kpi label="Documentos por vencer" value={counts.docs} tone="text-amber-600" active={docsOnly} onClick={() => { setDocsOnly(!docsOnly); setStatus(""); }} />
       </div>

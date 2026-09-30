@@ -4,16 +4,16 @@ import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ArrowLeft, Pencil, Gauge, User, MapPin, Phone, FileText, Wrench, StickyNote, Activity,
-  Radio, Plus, Trash2, X, Fingerprint, Fuel, Cpu, Repeat, History,
+  Radio, Plus, X, Fingerprint, Fuel, Cpu, Repeat, History,
 } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
+import { getCurrentProfile } from "@/services/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
-import { useConfirm } from "@/context";
 import {
   STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, FLEET_LABEL, Field, inputCls,
-  fmtKm, fmtMoney, fmtDate, fmtDateTime, initials, haceCuanto, maintProgress, TONE,
+  fmtKm, fmtMoney, fmtDate, fmtDateTime, initials, haceCuanto, maintProgress, TONE, isFullSheet,
 } from "./fleetParts";
 import { categoryLabel, useFamilies } from "./fleetArt";
 import DocumentsPanel from "./fleetDocuments";
@@ -108,7 +108,7 @@ const EDIT_SECTIONS = [
   {
     title: "Identificación y asignación",
     fields: [
-      ["name", "Nombre / descripción"], ["fleet_type", "Tipo de flota", "fleet"], ["driver_name", "Conductor"],
+      ["name", "Nombre / descripción"], ["short_code", "Código corto de la política (ej. GT-02)"], ["fleet_type", "Tipo de flota", "fleet"], ["driver_name", "Conductor"],
       ["driver_phone", "Teléfono del conductor"], ["driver_assigned_at", "Asignado desde", "date"], ["next_driver", "Próximo conductor"],
       ["assigned_zone", "Zona / centro de costos"], ["fleet_manager", "Gerente de la flotilla"],
     ],
@@ -148,10 +148,12 @@ const valueOf = (unit, key) => {
   return v;
 };
 
-const EditDrawer = ({ unit, onClose, onSaved }) => {
+const EditDrawer = ({ unit, full, onClose, onSaved }) => {
+  // La ficha basica (flota liviana y equipos fuera del contrato) no lleva datos fiscales.
+  const sections = full ? EDIT_SECTIONS : EDIT_SECTIONS.filter((s) => s.title !== "Fiscal y contrato");
   const initial = useMemo(() => {
     const o = {};
-    EDIT_SECTIONS.forEach((s) => s.fields.forEach(([k, , t]) => { if (t !== "catalog") o[k] = t === "bool" ? !!unit.profile?.[k] : valueOf(unit, k); }));
+    sections.forEach((s) => s.fields.forEach(([k, , t]) => { if (t !== "catalog") o[k] = t === "bool" ? !!unit.profile?.[k] : valueOf(unit, k); }));
     return o;
   }, [unit]);
   const [form, setForm] = useState(initial);
@@ -248,7 +250,7 @@ const EditDrawer = ({ unit, onClose, onSaved }) => {
           <button onClick={onClose} className="h-9 w-9 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"><X size={18} /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-7">
-          {EDIT_SECTIONS.map((s) => (
+          {sections.map((s) => (
             <section key={s.title}>
               <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-navy dark:text-sky-300 mb-3">{s.title}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -278,35 +280,18 @@ const EditDrawer = ({ unit, onClose, onSaved }) => {
 };
 
 // ---------- Pestañas: fiscal, servicios, notas ----------
-const TABS = [["fiscal", "Datos fiscales y contrato"], ["servicios", "Historial de servicios"], ["notas", "Notas"]];
+// El historial de servicios lo lleva Mantenimiento (ordenes de trabajo de
+// Julio): aqui no se muestra para no tener dos historiales. Datos fiscales
+// solo en la ficha completa (equipos del contrato PDVSA-Chevron).
+const tabsFor = (full) => (full ? [["fiscal", "Datos fiscales y contrato"], ["notas", "Notas"]] : [["notas", "Notas"]]);
 
-const TabsPanel = ({ unit, onChange }) => {
-  const confirm = useConfirm();
-  const [tab, setTab] = useState(unit.fleet_type === "PESADA" ? "fiscal" : "servicios");
+const TabsPanel = ({ unit, full, onChange }) => {
+  const TABS = tabsFor(full);
+  const [tab, setTab] = useState(TABS[0][0]);
   const p = unit.profile || {};
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Caracas" });
-  const emptySvc = { service_at: today, service_type: "PREVENTIVO", odometer_km: unit.odometro?.km ? Math.round(unit.odometro.km) : "", description: "", workshop: "", cost: "" };
-  const [svc, setSvc] = useState(emptySvc);
   const [nota, setNota] = useState("");
-  const [error, setError] = useState(null);
   const notas = unit.eventos.filter((e) => e.event_type === "NOTA");
 
-  const addSvc = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      await fleetService.registrarServicio(unit.id, svc);
-      setSvc(emptySvc);
-      onChange();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-  const delSvc = async (s) => {
-    if (!(await confirm(`¿Eliminar el servicio "${s.description}"?`, { title: "Eliminar servicio" }))) return;
-    await fleetService.eliminarServicio(s.id);
-    onChange();
-  };
   const addNota = async (e) => {
     e.preventDefault();
     if (!nota.trim()) return;
@@ -341,39 +326,6 @@ const TabsPanel = ({ unit, onChange }) => {
               <Field label="Próximo conductor" value={p.next_driver} />
               <Field label="Etiquetas" value={p.tags} />
             </dl>
-          )}
-
-          {tab === "servicios" && (
-            <div>
-              <form onSubmit={addSvc} className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-5">
-                <input type="date" value={svc.service_at} onChange={(e) => setSvc({ ...svc, service_at: e.target.value })} className={inputCls} />
-                <select value={svc.service_type} onChange={(e) => setSvc({ ...svc, service_type: e.target.value })} className={inputCls}>
-                  <option value="PREVENTIVO">Preventivo</option><option value="CORRECTIVO">Correctivo</option><option value="OTRO">Otro</option>
-                </select>
-                <input type="number" placeholder="Km" value={svc.odometer_km} onChange={(e) => setSvc({ ...svc, odometer_km: e.target.value })} className={inputCls} />
-                <input required placeholder="Qué se hizo" value={svc.description} onChange={(e) => setSvc({ ...svc, description: e.target.value })} className={`${inputCls} col-span-2 md:col-span-2`} />
-                <Button type="submit" className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white"><Plus size={14} /> Registrar</Button>
-                <input placeholder="Taller (opcional)" value={svc.workshop} onChange={(e) => setSvc({ ...svc, workshop: e.target.value })} className={`${inputCls} col-span-2 md:col-span-3`} />
-                <input type="number" step="any" placeholder="Costo $ (opcional)" value={svc.cost} onChange={(e) => setSvc({ ...svc, cost: e.target.value })} className={`${inputCls} col-span-2 md:col-span-3`} />
-              </form>
-              {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
-              {unit.servicios.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">Todavía no hay servicios registrados. Un preventivo reinicia la barra del próximo mantenimiento.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {unit.servicios.map((s) => (
-                    <li key={s.id} className="group flex items-center gap-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] px-4 py-3">
-                      <span className={`text-[10px] font-bold rounded-full px-2 py-1 ${s.service_type === "PREVENTIVO" ? "bg-emerald-500/10 text-emerald-600" : s.service_type === "CORRECTIVO" ? "bg-orange-500/10 text-orange-600" : "bg-slate-500/10 text-slate-500"}`}>{s.service_type}</span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{s.description}</p>
-                        <p className="text-xs text-slate-500">{[fmtDate(s.service_at), s.odometer_km != null && fmtKm(s.odometer_km), s.workshop, s.cost != null && fmtMoney(s.cost)].filter(Boolean).join(" · ")}</p>
-                      </div>
-                      <button onClick={() => delSvc(s)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"><Trash2 size={15} /></button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
           )}
 
           {tab === "notas" && (
@@ -450,6 +402,68 @@ const Timeline = ({ unit }) => {
   );
 };
 
+// ---------- Condicion operativa (politica §4.1) ----------
+// La cambiara Mantenimiento al abrir/cerrar una OT. Mientras ese modulo no
+// exista, solo un admin la cambia a mano (el backend tambien lo valida).
+const StatusControl = ({ unit, onSaved }) => {
+  const isAdmin = getCurrentProfile() === "admin";
+  const current = statusKeyOf(unit);
+  const [picking, setPicking] = useState(null);
+  const [cause, setCause] = useState(unit.profile?.status_cause || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const st = STATUS[current];
+
+  const save = async (value, causa) => {
+    setSaving(true);
+    setError(null);
+    try {
+      onSaved(await fleetService.guardar(unit.id, { operational_status: value, ...(value === "FUERA_DE_SERVICIO" ? { status_cause: causa } : {}) }));
+      setPicking(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const pick = (k) => {
+    if (k === current && k !== "FUERA_DE_SERVICIO") return;
+    if (k === "FUERA_DE_SERVICIO") return setPicking(k);
+    save(k);
+  };
+
+  return (
+    <div className="flex flex-col items-stretch lg:items-end gap-1.5">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Condición operativa</p>
+      {isAdmin ? (
+        <div className="flex flex-wrap rounded-2xl bg-slate-100 dark:bg-white/5 p-1">
+          {Object.entries(STATUS).map(([k, s]) => (
+            <button key={k} disabled={saving} onClick={() => pick(k)} title={s.label} className={`relative px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${k === current ? "text-white" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"}`}>
+              {k === current && <motion.span layoutId="fleet-status" className={`absolute inset-0 rounded-xl ${s.bar}`} />}
+              <span className="relative">{s.short}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <span className={`self-start lg:self-end inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ring-1 ${st.badge}`}><span className={`h-2 w-2 rounded-full ${st.dot}`} />{st.label}</span>
+      )}
+      {current === "FUERA_DE_SERVICIO" && unit.profile?.status_cause && !picking && <p className="text-xs font-bold text-red-600">Causa: {unit.profile.status_cause}</p>}
+      <AnimatePresence>
+        {picking && (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} className="flex gap-2 w-full lg:w-80">
+            <input autoFocus list="fleet-causas" value={cause} onChange={(e) => setCause(e.target.value)} placeholder="Causa (ej. En reparación)" className={inputCls} />
+            <datalist id="fleet-causas"><option value="En reparación" /><option value="Sin componente mayor" /><option value="Esperando repuesto" /><option value="Documentos vencidos" /></datalist>
+            <Button disabled={saving || !cause.trim()} onClick={() => save("FUERA_DE_SERVICIO", cause.trim())} className="rounded-xl bg-red-600 hover:bg-red-700 text-white">Guardar</Button>
+            <button onClick={() => setPicking(null)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {error && <p className="text-xs text-red-600 max-w-xs">{error}</p>}
+      <p className="text-[10px] text-slate-400">{isAdmin ? "Provisional: solo el admin la cambia; luego la cambiará Mantenimiento." : "La cambia Mantenimiento (por ahora, un admin)."}</p>
+    </div>
+  );
+};
+
 // ---------- Pantalla ----------
 const FleetDetail = () => {
   useFamilies();
@@ -459,24 +473,12 @@ const FleetDetail = () => {
   const [alertDays, setAlertDays] = useState(30);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
-  const [savingStatus, setSavingStatus] = useState(false);
 
   const load = () => fleetService.obtener(Number(id)).then(setUnit).catch((e) => setError(e.message));
   useEffect(() => {
     load();
     fleetService.getAjustes().then((a) => a?.DOC_ALERT_DAYS && setAlertDays(a.DOC_ALERT_DAYS)).catch(() => {});
   }, [id]);
-
-  const setStatus = async (value) => {
-    setSavingStatus(true);
-    try {
-      setUnit(await fleetService.guardar(unit.id, { operational_status: value }));
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setSavingStatus(false);
-    }
-  };
 
   if (error && !unit)
     return (
@@ -493,7 +495,7 @@ const FleetDetail = () => {
 
   const p = unit.profile || {};
   const st = statusOf(unit);
-  const stKey = statusKeyOf(unit);
+  const full = isFullSheet(unit);
   const pesada = unit.fleet_type === "PESADA";
   const gps = unit.gps_v3 || {};
   const odo = unit.odometro;
@@ -522,7 +524,7 @@ const FleetDetail = () => {
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <PlateBadge plate={unit.plate} />
               <div>
-                <p className="font-display text-2xl text-slate-900 dark:text-white leading-tight">{unit.code}</p>
+                <p className="font-display text-2xl text-slate-900 dark:text-white leading-tight flex items-center gap-2">{unit.code}{p.short_code && <span title="Código de la política" className="font-mono text-xs font-black rounded-md bg-brand-gold/20 text-amber-800 dark:text-brand-gold px-2 py-0.5">{p.short_code}</span>}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{modelo || unit.name || "Ficha técnica pendiente de completar"}</p>
               </div>
             </div>
@@ -530,20 +532,14 @@ const FleetDetail = () => {
               <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${pesada ? "bg-orange-500/10 text-orange-700 dark:text-orange-400" : "bg-sky-500/10 text-sky-600 dark:text-sky-400"}`}>
                 {FLEET_LABEL[unit.fleet_type] || "Flota sin clasificar"}
               </span>
+              <span title={full ? "Equipo del contrato PDVSA-Chevron" : "Documentos, km y encargado"} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${full ? "bg-brand-navy text-white" : "bg-slate-500/10 text-slate-600 dark:text-slate-300"}`}>{full ? "Ficha completa · contrato" : "Ficha básica"}</span>
               <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${live.cls}`}><span className={`h-2 w-2 rounded-full ${live.dot}`} />GPS: {live.label}</span>
               {unit.docs_expired > 0 && <span className="rounded-full px-3 py-1 text-xs font-bold bg-red-500/10 text-red-600">Papel vencido</span>}
               {unit.docs_expired === 0 && unit.docs_expiring > 0 && <span className="rounded-full px-3 py-1 text-xs font-bold bg-amber-500/10 text-amber-700">Documento por vencer</span>}
             </div>
           </div>
           <div className="flex flex-col items-stretch lg:items-end gap-3">
-            <div className="flex rounded-2xl bg-slate-100 dark:bg-white/5 p-1">
-              {Object.entries(STATUS).map(([k, s]) => (
-                <button key={k} disabled={savingStatus} onClick={() => k !== stKey && setStatus(k)} className={`relative px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${k === stKey ? "text-white" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"}`}>
-                  {k === stKey && <motion.span layoutId="fleet-status" className={`absolute inset-0 rounded-xl ${s.bar}`} />}
-                  <span className="relative">{s.label}</span>
-                </button>
-              ))}
-            </div>
+            <StatusControl unit={unit} onSaved={setUnit} />
             <Button onClick={() => setEditing(true)} className="rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white">
               <Pencil size={14} /> Editar ficha
             </Button>
@@ -557,7 +553,7 @@ const FleetDetail = () => {
             {/* ===== ADN ===== */}
             <Panel>
               <SectionTitle icon={Fingerprint}>ADN del vehículo</SectionTitle>
-              {pesada && (
+              {full && (
                 <div className="grid grid-cols-2 gap-4 rounded-2xl bg-orange-500/5 border border-orange-500/15 p-4 mb-5">
                   <Field label="Serial de carrocería" value={p.vin} strong />
                   <Field label="Impuesto caballos de fuerza" value={fmtMoney(p.hp_tax)} strong />
@@ -569,11 +565,11 @@ const FleetDetail = () => {
                 {unit.model_name && <Field label="Familia" value={unit.model_family_name || categoryLabel(unit.model_category)} />}
                 {unit.model_capacity && <Field label="Capacidad nominal" value={unit.model_capacity} />}
                 <Field label="Año" value={p.model_year} />
-                <Field label="Color" value={p.color} />
-                {!pesada && <Field label="Serial de carrocería" value={p.vin} />}
-                <Field label="Serial de motor" value={p.engine_serial} />
+                {full && <Field label="Color" value={p.color} />}
+                {!full && <Field label="Serial de carrocería" value={p.vin} />}
+                {full && <Field label="Serial de motor" value={p.engine_serial} />}
                 <Field label="Combustible" value={p.fuel_type} />
-                <Field label="Capacidad del tanque" value={unit.tank_capacity_liters ? `${Number(unit.tank_capacity_liters)} L` : null} />
+                {full && <Field label="Capacidad del tanque" value={unit.tank_capacity_liters ? `${Number(unit.tank_capacity_liters)} L` : null} />}
               </dl>
               <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/5">
                 <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3"><Cpu size={12} /> Equipo GPS</p>
@@ -655,14 +651,14 @@ const FleetDetail = () => {
           </div>
 
           <DocumentsPanel unit={unit} alertDays={alertDays} onChange={load} />
-          <TabsPanel unit={unit} onChange={load} />
+          <TabsPanel key={full ? "full" : "basic"} unit={unit} full={full} onChange={load} />
         </div>
 
         <Timeline unit={unit} />
       </div>
 
       <AnimatePresence>
-        {editing && <EditDrawer unit={unit} onClose={() => setEditing(false)} onSaved={(u) => { setUnit(u); setEditing(false); }} />}
+        {editing && <EditDrawer unit={unit} full={full} onClose={() => setEditing(false)} onSaved={(u) => { setUnit(u); setEditing(false); }} />}
       </AnimatePresence>
     </PageLayout>
   );

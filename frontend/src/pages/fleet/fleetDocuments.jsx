@@ -11,10 +11,10 @@ import { useConfirm } from "@/context";
 import { fmtDate, inputCls } from "./fleetParts";
 import { categoryOf, categoryLabel } from "./fleetArt";
 
-// Cada documento con su icono y como se llena. Tipos venezolanos (RCV, INTT,
-// permiso) + los de izaje que pide la politica de mantenimiento (§3.5 del
-// roadmap). Que documentos son obligatorios por familia sigue siendo una
-// pregunta abierta del roadmap: esta lista es la sugerida.
+// Cada documento con su icono y como se llena. Obligatorios segun Julio
+// (30/09/2026, ROADMAP_FLOTA_DETALLE.md §7): vehiculos -> INTT, RCV y permiso;
+// GT y BA -> izamiento + prueba de carga; CC -> izamiento + prueba de carga +
+// dielectrica. Aviso de papel vencido 30 dias antes (politica §8).
 export const DOC_DEFS = {
   RCV: { label: "RCV", long: "Responsabilidad Civil Vehicular", icon: ShieldCheck, number: "N° de póliza", provider: "Aseguradora", expires: true },
   INTT: { label: "Certificado del INTT", long: "Certificado de registro del vehículo", icon: BadgeCheck, number: "N° de certificado", provider: "Emitido por", expires: false },
@@ -29,16 +29,18 @@ export const DOC_DEFS = {
 };
 export const docLabel = (t) => DOC_DEFS[t]?.label || t;
 
-// Documentos base de toda unidad + los adicionales segun la familia del equipo.
-const BASE_DOCS = ["RCV", "INTT", "PERMISO_CIRCULACION", "POLIZA"];
+// Documentos de vehiculo (circulan por via publica) + los adicionales de la familia.
+// Montacargas y cargadores frontales no circulan: no llevan los de vehiculo.
+const VEHICLE_DOCS = ["INTT", "RCV", "PERMISO_CIRCULACION"];
+const NO_VEHICLE_DOCS = ["MT", "CF"];
 export const EXTRA_RULES = [
-  { families: ["GT", "BA", "CBA", "MT"], docs: ["IZAMIENTO", "PRUEBA_CARGA"], why: "Equipos de izaje" },
-  { families: ["CC"], docs: ["PRUEBA_CARGA", "DIELECTRICA"], why: "Trabajo en altura cerca de líneas eléctricas" },
+  { families: ["GT", "BA"], docs: ["IZAMIENTO", "PRUEBA_CARGA"], why: "Equipos de izaje" },
+  { families: ["CC"], docs: ["IZAMIENTO", "PRUEBA_CARGA", "DIELECTRICA"], why: "Camión cesta (izaje y trabajo en altura)" },
 ];
 const familyOfUnit = (unit) => unit.model_category || categoryOf(unit.code);
 const requiredFor = (unit) => {
   const fam = familyOfUnit(unit);
-  const list = [...BASE_DOCS];
+  const list = NO_VEHICLE_DOCS.includes(fam) ? [] : [...VEHICLE_DOCS];
   EXTRA_RULES.filter((r) => r.families.includes(fam)).forEach((r) => r.docs.forEach((d) => !list.includes(d) && list.push(d)));
   return list;
 };
@@ -322,7 +324,7 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange }) => {
             );
           })}
         </div>
-        <p className="text-[11px] text-slate-400 mt-2">RCV, Certificado del INTT, Permiso de circulación y Póliza aplican a todas las unidades. La lista obligatoria por familia se confirmará con Operaciones.</p>
+        <p className="text-[11px] text-slate-400 mt-2">Certificado del INTT, RCV y Permiso de circulación aplican a los vehículos (no a montacargas ni cargadores frontales). La póliza de seguro se agrega como opcional con "Agregar otro documento". Criterio acordado con Julio el 30/09/2026.</p>
       </div>
     </Card>
   );
