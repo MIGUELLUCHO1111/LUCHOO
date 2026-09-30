@@ -112,6 +112,7 @@ Ver la sección siguiente — **hay DOS formatos de reporte, no confundirlos.**
 ### 2. Reporte "modelo interno"
 - Formato Excel aparte que replica el diseño manual que usaban antes de la app (mismo layout, mismas leyendas de color).
 - **Mantiene el orden natural de las unidades — nunca se ordena por categoría de ubicación** (eso es exclusivo del reporte de la app). Se corrigió una vez porque se había ordenado mal por asumir que compartían esa lógica.
+- **Formato (30/09/2026, pedido de Lguerra):** igual al Excel manual `Reporte_Tracker_MATUTINO_21092026.xlsx`: leyenda con colores de relleno (tema Office 2007-2010 al 80%, ya en RGB), bordes medianos en encabezado/indicadores/leyenda, "ESTACIONADO" en D8:D9 y "ACTIVO" en E8:F9, y la tabla como **Tabla de Excel estilo TableStyleLight16** (bordes azules finos y filtros). En "Otras direcciones", las largas (>40) o con "CERCA DE" se resumen en **calle o avenida, municipio, estado** (sin las palabras "Municipio"/"Estado", sacados de `location_raw`); las cortas quedan igual; la columna D usa "Reducir hasta ajustar".
 - **Solo tiene Activas y Estacionadas, sin casilla "sin señal"** (25/09/2026): las unidades sin señal cuentan según su último estado conocido, así Activas + Estacionadas = Total. El reporte de la app sí las separa en "Sin señal".
 - **Nunca se guarda ni se comitea** — se genera con un script de un solo uso, se envía, y se borra.
 - Se pide con frases como "dame el reporte como el modelo interno".
