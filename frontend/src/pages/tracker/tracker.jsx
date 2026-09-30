@@ -308,12 +308,10 @@ const Tracker = () => {
           <Card className="px-5 py-3 border-emerald-200 dark:border-emerald-500/20">
             <div className="text-[11px] font-bold text-emerald-600 uppercase">Activas</div>
             <div className="text-2xl font-black text-emerald-600">{activas}</div>
-            {staleActivas > 0 && <div className="text-[10px] font-bold text-amber-600">incluye {staleActivas} sin señal</div>}
           </Card>
           <Card className="px-5 py-3 border-red-200 dark:border-red-500/20">
             <div className="text-[11px] font-bold text-red-600 uppercase">Estacionadas</div>
             <div className="text-2xl font-black text-red-600">{estacionadas}</div>
-            {staleEstacionadas > 0 && <div className="text-[10px] font-bold text-amber-600">incluye {staleEstacionadas} sin señal</div>}
           </Card>
           <Card className="px-5 py-3 border-amber-200 dark:border-amber-500/20">
             <div className="text-[11px] font-bold text-amber-600 uppercase">Sin señal reciente</div>
