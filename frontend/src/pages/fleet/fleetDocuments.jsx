@@ -38,7 +38,7 @@ export const EXTRA_RULES = [
   { families: ["CC"], docs: ["IZAMIENTO", "PRUEBA_CARGA", "DIELECTRICA"], why: "Camión cesta (izaje y trabajo en altura)" },
 ];
 const familyOfUnit = (unit) => unit.model_category || categoryOf(unit.code);
-const requiredFor = (unit) => {
+export const requiredFor = (unit) => {
   const fam = familyOfUnit(unit);
   const list = NO_VEHICLE_DOCS.includes(fam) ? [] : [...VEHICLE_DOCS];
   EXTRA_RULES.filter((r) => r.families.includes(fam)).forEach((r) => r.docs.forEach((d) => !list.includes(d) && list.push(d)));
@@ -131,7 +131,7 @@ const DocForm = ({ unitId, type, onCancel, onSaved }) => {
 };
 
 // ---------- Una casilla por tipo de documento ----------
-const DocSlot = ({ unit, type, docs, alertDays, onChange, optional }) => {
+const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, canEdit = true }) => {
   const confirm = useConfirm();
   const attachRef = useRef(null);
   const def = DOC_DEFS[type] || DOC_DEFS.OTRO;
@@ -180,6 +180,8 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional }) => {
                   {current.file_mime === "application/pdf" ? <FileText size={12} /> : <ImageIcon size={12} />}
                   <span className="truncate">{current.file_name || "Ver archivo"}</span>
                 </a>
+              ) : !canEdit ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-700 dark:text-amber-400"><Paperclip size={12} /> Falta el archivo</span>
               ) : (
                 <button type="button" disabled={busy} onClick={() => attachRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1 text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-500/20">
                   <Paperclip size={12} /> {busy ? "Subiendo…" : "Falta el archivo · adjuntar"}
@@ -199,11 +201,11 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional }) => {
               <ChevronDown size={12} className={`transition-transform ${showPrev ? "rotate-180" : ""}`} /> {previous.length} anterior{previous.length === 1 ? "" : "es"}
             </button>
           )}
-          {current && (
+          {current && canEdit && (
             <button type="button" onClick={() => remove(current)} className="text-slate-300 hover:text-red-500" title="Eliminar"><Trash2 size={13} /></button>
           )}
         </div>
-        {!open && (
+        {!open && canEdit && (
           <button type="button" onClick={() => setOpen(true)} className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${current ? "text-brand-navy dark:text-sky-300 hover:bg-brand-navy/5" : "bg-brand-navy text-white hover:bg-brand-navy-light"}`}>
             {current ? <><RefreshCw size={13} /> Renovar</> : <><Upload size={13} /> Cargar</>}
           </button>
@@ -218,7 +220,7 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional }) => {
                 <span className="truncate">{[d.number, d.expires_at && `vencía ${fmtDate(d.expires_at)}`].filter(Boolean).join(" · ") || d.name}</span>
                 <span className="flex items-center gap-2 shrink-0">
                   {d.file_url && <a href={resolveFleetFileUrl(d.file_url)} target="_blank" rel="noreferrer" className="font-bold text-brand-navy dark:text-sky-300">Ver</a>}
-                  <button type="button" onClick={() => remove(d)} className="hover:text-red-500"><Trash2 size={12} /></button>
+                  {canEdit && <button type="button" onClick={() => remove(d)} className="hover:text-red-500"><Trash2 size={12} /></button>}
                 </span>
               </li>
             ))}
@@ -234,7 +236,7 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional }) => {
 };
 
 // ---------- Panel ----------
-const DocumentsPanel = ({ unit, alertDays = 30, onChange }) => {
+const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
   const [extra, setExtra] = useState([]);
   const [menu, setMenu] = useState(false);
   const required = useMemo(() => requiredFor(unit), [unit]);
@@ -278,11 +280,11 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-        {required.map((t) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} />)}
-        {optionalTypes.map((t) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} optional />)}
+        {required.map((t) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} canEdit={canEdit} />)}
+        {optionalTypes.map((t) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} optional canEdit={canEdit} />)}
       </div>
 
-      <div className="relative mt-4">
+      <div className={`relative mt-4 ${canEdit ? "" : "hidden"}`}>
         <button type="button" onClick={() => setMenu(!menu)} className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-navy dark:text-sky-300 hover:opacity-80">
           <Plus size={14} /> Agregar otro documento
         </button>

@@ -1607,5 +1607,61 @@
     query: 'DELETE FROM public.fleet_family WHERE code = $1 RETURNING code, name;',
     structure_params: { code: 'string' },
     orderArray: ['code']
+  },
+
+  # ========== FLOTA: ENCARGADOS DE UNIDAD (048_fleet_unit_manager.sql) ==========
+  'fleetIsUnitManager': {
+    query: 'SELECT 1 AS ok FROM public.fleet_unit_manager WHERE unit_id = $1 AND user_id = $2 AND ended_at IS NULL;',
+    structure_params: { unit_id: 'int', user_id: 'int' },
+    orderArray: ['unit_id', 'user_id']
+  },
+
+  'fleetCurrentManagers': {
+    query: "SELECT m.unit_id, m.user_id, m.assigned_at, u.name AS username, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', COALESCE(pe.first_name, u.first_name), COALESCE(pe.last_name, u.last_name))), ''), u.name) AS display_name, pe.phone FROM public.fleet_unit_manager m JOIN public.\"user\" u ON u.id = m.user_id LEFT JOIN public.person pe ON pe.id = u.person_id WHERE m.ended_at IS NULL;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetManagerHistory': {
+    query: "SELECT m.id, m.user_id, m.assigned_at, m.assigned_by, m.ended_at, m.ended_by, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', COALESCE(pe.first_name, u.first_name), COALESCE(pe.last_name, u.last_name))), ''), u.name) AS display_name FROM public.fleet_unit_manager m JOIN public.\"user\" u ON u.id = m.user_id LEFT JOIN public.person pe ON pe.id = u.person_id WHERE m.unit_id = $1 ORDER BY m.assigned_at DESC;",
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'fleetListManagerUsers': {
+    query: "SELECT u.id, u.name AS username, u.email, COALESCE(NULLIF(TRIM(CONCAT_WS(' ', COALESCE(pe.first_name, u.first_name), COALESCE(pe.last_name, u.last_name))), ''), u.name) AS display_name, pe.phone, (SELECT COUNT(*)::int FROM public.fleet_unit_manager m WHERE m.user_id = u.id AND m.ended_at IS NULL) AS unit_count FROM public.\"user\" u JOIN public.user_profile up ON up.user_id = u.id JOIN public.profile p ON p.id = up.profile_id AND p.name = 'encargado_flota' LEFT JOIN public.person pe ON pe.id = u.person_id WHERE u.deleted_at IS NULL AND COALESCE(u.is_active, TRUE) ORDER BY display_name;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetIsManagerUser': {
+    query: "SELECT 1 AS ok FROM public.user_profile up JOIN public.profile p ON p.id = up.profile_id WHERE up.user_id = $1 AND p.name = 'encargado_flota';",
+    structure_params: { user_id: 'int' },
+    orderArray: ['user_id']
+  },
+
+  'fleetEndManager': {
+    query: 'UPDATE public.fleet_unit_manager SET ended_at = NOW(), ended_by = $2 WHERE unit_id = $1 AND ended_at IS NULL RETURNING user_id;',
+    structure_params: { unit_id: 'int', ended_by: 'string|null' },
+    orderArray: ['unit_id', 'ended_by']
+  },
+
+  'fleetInsertManager': {
+    query: 'INSERT INTO public.fleet_unit_manager (unit_id, user_id, assigned_by) VALUES ($1, $2, $3) RETURNING id;',
+    structure_params: { unit_id: 'int', user_id: 'int', assigned_by: 'string|null' },
+    orderArray: ['unit_id', 'user_id', 'assigned_by']
+  },
+
+  # Resumen de documentos por unidad para "Fichas incompletas".
+  'fleetDocsSummary': {
+    query: 'SELECT unit_id, doc_type, (file_url IS NOT NULL) AS has_file, (expires_at - CURRENT_DATE) AS days_left FROM public.fleet_unit_document WHERE deleted_at IS NULL;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetGetService': {
+    query: 'SELECT id, unit_id FROM public.fleet_unit_service WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
   }
 }

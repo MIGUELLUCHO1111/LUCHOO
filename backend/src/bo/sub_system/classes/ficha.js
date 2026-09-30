@@ -1,6 +1,7 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import ForesightClient from '../../../tracker/foresightClient.js';
+import { assertUnitAccess, assertAdmin, canEditUnit, isAdminCaller } from './fleetAccess.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -130,30 +131,52 @@ class Ficha {
     }
   };
 
-  listar = async () => {
-    const [unidades, snaps] = await Promise.all([this.query('fleetListUnits'), this.snapshotsPorPlaca()]);
+  // Nombre unico a proposito: los permisos se guardan por nombre de metodo
+  // (method_profile no tiene la clase) y 'listar' existe tambien en clases
+  // del Tracker -- darselo a otro perfil le abriria esas tambien.
+  listarFichas = async ({ caller_profile, caller_user_id } = {}) => {
+    const [unidades, snaps, encargados, docs] = await Promise.all([
+      this.query('fleetListUnits'), this.snapshotsPorPlaca(), this.query('fleetCurrentManagers'), this.query('fleetDocsSummary'),
+    ]);
+    const porUnidad = new Map(encargados.map((m) => [String(m.unit_id), m]));
+    const docsPorUnidad = docs.reduce((acc, d) => {
+      (acc[d.unit_id] = acc[d.unit_id] || []).push({ doc_type: d.doc_type, has_file: d.has_file, days_left: d.days_left });
+      return acc;
+    }, {});
+    const admin = isAdminCaller(caller_profile);
     const data = unidades.map((u) => {
       const s = snaps.get(normPlate(u.plate));
+      const m = porUnidad.get(String(u.id));
+      const mia = !!(m && caller_user_id && Number(m.user_id) === Number(caller_user_id));
       return {
         ...u,
+        encargado: m ? { user_id: Number(m.user_id), nombre: m.display_name, telefono: m.phone || null, desde: m.assigned_at } : null,
+        docs_resumen: docsPorUnidad[u.id] || [],
+        // Odometro del GPS solo si ya se consulto (cache de la API v3): la lista no pregunta por cada placa.
+        odometro_gps: gpsCache.get(normPlate(u.plate))?.data?.odometro_km ?? null,
+        soy_encargado: mia,
+        puede_editar: admin || mia,
         gps: s ? { status: s.status, is_stale: s.is_stale, location_text: s.location_text, location_category: s.location_category, last_report_at: s.last_report_at, ignition: s.ignition } : null,
       };
     });
     return { statusCode: STATUS_CODES.OK, data };
   };
 
-  obtener = async ({ id }) => {
+  obtener = async ({ id, caller_profile, caller_user_id }) => {
     if (!id) throw badRequest("Campo requerido: 'id'");
     const [unidad] = await this.query('fleetGetUnit', { id });
     if (!unidad) throw notFound(`Unidad con id ${id} no encontrada`);
 
-    const [documentos, servicios, eventos, snaps, gps] = await Promise.all([
+    const [documentos, servicios, eventos, snaps, gps, encargados, puedeEditar] = await Promise.all([
       this.query('fleetListDocuments', { unit_id: id }),
       this.query('fleetListServices', { unit_id: id }),
       this.query('fleetListEvents', { unit_id: id }),
       this.snapshotsPorPlaca(),
       this.datosGps(unidad.plate),
+      this.query('fleetManagerHistory', { unit_id: id }),
+      canEditUnit(this.dbms, { caller_profile, caller_user_id, unit_id: id }),
     ]);
+    const actual = encargados.find((m) => !m.ended_at) || null;
     const snapshot = snaps.get(normPlate(unidad.plate)) || null;
 
     // Odometro: el mas reciente entre el del GPS (v3) y el cargado a mano.
@@ -164,11 +187,23 @@ class Ficha {
       odometro = { km: Number(p.odometer_km), fuente: 'MANUAL', fecha: p.odometer_at || null };
     }
 
-    return { statusCode: STATUS_CODES.OK, data: { ...unidad, documentos, servicios, eventos, snapshot, gps_v3: gps, odometro } };
+    return {
+      statusCode: STATUS_CODES.OK,
+      data: {
+        ...unidad, documentos, servicios, eventos, snapshot, gps_v3: gps, odometro,
+        encargado: actual ? { user_id: Number(actual.user_id), nombre: actual.display_name, desde: actual.assigned_at } : null,
+        encargados_historial: encargados,
+        puede_editar: puedeEditar,
+        es_admin: isAdminCaller(caller_profile),
+      },
+    };
   };
 
-  guardar = async ({ id, caller_user, caller_profile, ...campos }) => {
+  guardar = async ({ id, caller_user, caller_profile, caller_user_id, ...campos }) => {
     if (!id) throw badRequest("Campo requerido: 'id'");
+    await this.dbmsReady;
+    await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id: id });
+    if (campos.fleet_type !== undefined) assertAdmin(caller_profile, 'cambiar el tipo de flota');
     const [actual] = await this.query('fleetGetUnit', { id });
     if (!actual) throw notFound(`Unidad con id ${id} no encontrada`);
     const prev = actual.profile || {};
@@ -222,11 +257,13 @@ class Ficha {
       await this.evento(id, 'EDICION', 'Ficha actualizada', null, quien);
     }
 
-    return this.obtener({ id });
+    return this.obtener({ id, caller_profile, caller_user_id });
   };
 
-  guardarDocumento = async ({ unit_id, doc_type, name, number, provider, issued_at, expires_at, notes, caller_user }) => {
+  guardarDocumento = async ({ unit_id, doc_type, name, number, provider, issued_at, expires_at, notes, caller_user, caller_profile, caller_user_id }) => {
     if (!unit_id || !name || !doc_type) throw badRequest("Campos requeridos: 'unit_id', 'doc_type' y 'name'");
+    await this.dbmsReady;
+    await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id });
     const [doc] = await this.query('fleetInsertDocument', {
       unit_id, doc_type, name: String(name).trim(),
       number: clean(number, 'text'), provider: clean(provider, 'text'),
@@ -237,15 +274,20 @@ class Ficha {
     return { statusCode: STATUS_CODES.CREATED, data: doc, message: 'Documento agregado' };
   };
 
-  eliminarDocumento = async ({ id, caller_user }) => {
+  eliminarDocumento = async ({ id, caller_user, caller_profile, caller_user_id }) => {
     if (!id) throw badRequest("Campo requerido: 'id'");
+    const [previo] = await this.query('fleetGetDocument', { id });
+    if (!previo) throw notFound(`Documento con id ${id} no encontrado`);
+    await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id: previo.unit_id });
     const [doc] = await this.query('fleetDeleteDocument', { id });
     if (!doc) throw notFound(`Documento con id ${id} no encontrado`);
     await this.evento(doc.unit_id, 'DOCUMENTO', `Documento eliminado: ${doc.name}`, null, caller_user);
     return { statusCode: STATUS_CODES.OK, message: 'Documento eliminado' };
   };
 
-  registrarServicio = async ({ unit_id, service_at, service_type = 'PREVENTIVO', odometer_km, description, workshop, cost, caller_user }) => {
+  registrarServicio = async ({ unit_id, service_at, service_type = 'PREVENTIVO', odometer_km, description, workshop, cost, caller_user, caller_profile, caller_user_id }) => {
+    await this.dbmsReady;
+    await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id });
     const fecha = clean(service_at, 'date');
     if (!unit_id || !fecha || !description) throw badRequest("Campos requeridos: 'unit_id', 'service_at' y 'description'");
     const tipo = ['PREVENTIVO', 'CORRECTIVO', 'OTRO'].includes(service_type) ? service_type : 'OTRO';
@@ -264,15 +306,20 @@ class Ficha {
     return { statusCode: STATUS_CODES.CREATED, data: svc, message: 'Servicio registrado' };
   };
 
-  eliminarServicio = async ({ id, caller_user }) => {
+  eliminarServicio = async ({ id, caller_user, caller_profile, caller_user_id }) => {
     if (!id) throw badRequest("Campo requerido: 'id'");
+    const [previo] = await this.query('fleetGetService', { id });
+    if (!previo) throw notFound(`Servicio con id ${id} no encontrado`);
+    await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id: previo.unit_id });
     const [svc] = await this.query('fleetDeleteService', { id });
     if (!svc) throw notFound(`Servicio con id ${id} no encontrado`);
     await this.evento(svc.unit_id, 'MANTENIMIENTO', `Servicio eliminado: ${svc.description}`, null, caller_user);
     return { statusCode: STATUS_CODES.OK, message: 'Servicio eliminado' };
   };
 
-  agregarNota = async ({ unit_id, texto, caller_user }) => {
+  agregarNota = async ({ unit_id, texto, caller_user, caller_profile, caller_user_id }) => {
+    await this.dbmsReady;
+    await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id });
     const t = clean(texto, 'text');
     if (!unit_id || !t) throw badRequest("Campos requeridos: 'unit_id' y 'texto'");
     await this.evento(unit_id, 'NOTA', t.length > 190 ? `${t.slice(0, 187)}...` : t, t.length > 190 ? t : null, caller_user);
@@ -285,6 +332,7 @@ class Ficha {
   };
 
   guardarAjustes = async (params) => {
+    assertAdmin(params?.caller_profile, 'cambiar los intervalos de mantenimiento');
     for (const key of SETTING_KEYS) {
       if (params[key] === undefined) continue;
       const n = parseInt(params[key], 10);

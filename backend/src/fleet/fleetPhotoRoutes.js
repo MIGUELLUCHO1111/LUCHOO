@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import DBMS from '../dbms/dbms.js';
 import Config from '../../config/config.js';
 import Security from '../security/security.js';
+import { canEditUnit } from '../bo/sub_system/classes/fleetAccess.js';
 
 // Foto de cada modelo del Catalogo de Flota. Ruta aparte del dispatcher
 // JSON (igual que fuel/fuelPhotoRoutes.js): la subida necesita multipart.
@@ -115,6 +116,10 @@ router.post('/documents/file', (req, res) => {
       const found = await dbms.executeNamedQuery({ nameQuery: 'fleetGetDocument', params: { id } });
       const doc = found?.rows?.[0];
       if (!doc) return fail(res, STATUS_CODES.NOT_FOUND, `Documento con id ${id} no encontrado`);
+      // Un encargado solo adjunta archivos a documentos de SUS unidades.
+      if (!(await canEditUnit(dbms, { caller_profile: profile, caller_user_id: req.user.id, unit_id: doc.unit_id }))) {
+        return fail(res, STATUS_CODES.FORBIDDEN, 'Solo puedes modificar las unidades que tienes asignadas como encargado.');
+      }
 
       const dir = path.join(DOCS_ROOT, String(id));
       await fs.mkdir(dir, { recursive: true });

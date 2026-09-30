@@ -20,6 +20,10 @@ const TX = {
   CATALOGO_QUITAR_UNIDAD: 181,
   CATALOGO_GUARDAR_FAMILIA: 182,
   CATALOGO_ELIMINAR_FAMILIA: 183,
+  // Rango reservado para Flota: 200-249 (acordado con Julio, 30/09/2026).
+  ENCARGADOS_LISTAR: 200,
+  ENCARGADO_ASIGNAR: 201,
+  ENCARGADO_QUITAR: 202,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -73,6 +77,11 @@ const fleetService = {
   quitarModeloDeUnidad: (unit_id) => call(TX.CATALOGO_QUITAR_UNIDAD, { unit_id }),
   guardarFamilia: (familia) => call(TX.CATALOGO_GUARDAR_FAMILIA, familia),
   eliminarFamilia: (code) => call(TX.CATALOGO_ELIMINAR_FAMILIA, { code }),
+
+  // Encargados de unidad (solo admin)
+  listarEncargados: () => call(TX.ENCARGADOS_LISTAR),
+  asignarEncargado: (unit_ids, user_id) => call(TX.ENCARGADO_ASIGNAR, { unit_ids, user_id }),
+  quitarEncargado: (unit_id) => call(TX.ENCARGADO_QUITAR, { unit_id }),
   subirFotoModelo: async (modelId, file) => {
     const formData = new FormData();
     formData.append("model_id", modelId);

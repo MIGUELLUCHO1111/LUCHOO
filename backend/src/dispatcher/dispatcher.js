@@ -74,7 +74,8 @@ export default class Dispatcher {
       // caller_user: nombre del usuario autenticado, para dejar quien hizo
       // cada cambio en el historial de la Ficha de Vehiculos (fleet_unit_event).
       const callerUser = request.user.username || request.user.name || null;
-      return await this.security.execute(txId, { ...parameters, caller_profile: profile, caller_user: callerUser });
+      // caller_user_id: para que Flota valide que un encargado solo toque SUS unidades.
+      return await this.security.execute(txId, { ...parameters, caller_profile: profile, caller_user: callerUser, caller_user_id: userId });
 
     } catch (error) {
       console.error(error);

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { LayoutGrid, Plus, Search, X, Upload, ImagePlus, Link2, Unlink, Pencil, Archive, Check, Gauge, Layers, Truck, ArrowUpRight } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
+import { getCurrentProfile } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
@@ -205,7 +206,7 @@ const UnitPicker = ({ model, units, onDone }) => {
   const list = useMemo(() => {
     const term = q.trim().toLowerCase();
     return units
-      .filter((u) => !linked.has(Number(u.id)))
+      .filter((u) => !linked.has(Number(u.id)) && u.puede_editar !== false)
       .filter((u) => !term || [u.code, u.plate, u.driver_name].some((v) => String(v || "").toLowerCase().includes(term)))
       .map((u) => ({ ...u, sugerida: categoryOf(u.code) === model.category }))
       .sort((a, b) => Number(b.sugerida) - Number(a.sugerida) || String(a.code).localeCompare(String(b.code)));
@@ -258,7 +259,7 @@ const UnitPicker = ({ model, units, onDone }) => {
 };
 
 // ---------- Panel del modelo ----------
-const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onManageFamilies, startEditing = false }) => {
+const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onManageFamilies, isAdmin = true, startEditing = false }) => {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const fileRef = useRef(null);
@@ -302,12 +303,12 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
             className={`relative h-72 shrink-0 overflow-hidden ${dragging ? "ring-4 ring-inset ring-brand-gold" : ""}`}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setDragging(false); upload(e.dataTransfer.files?.[0]); }}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); if (isAdmin) upload(e.dataTransfer.files?.[0]); }}
           >
             <ModelImage model={model} className="absolute inset-0 w-full h-full" iconClass="w-1/2" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30" />
             <button onClick={onClose} className="absolute top-4 right-4 h-9 w-9 rounded-xl bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60"><X size={18} /></button>
-            <button onClick={() => fileRef.current?.click()} className="absolute top-4 left-4 inline-flex items-center gap-2 rounded-xl bg-white/90 dark:bg-black/60 backdrop-blur px-3 py-2 text-xs font-bold text-slate-900 dark:text-white hover:bg-white">
+            <button onClick={() => fileRef.current?.click()} className={`${isAdmin ? "" : "hidden"} absolute top-4 left-4 inline-flex items-center gap-2 rounded-xl bg-white/90 dark:bg-black/60 backdrop-blur px-3 py-2 text-xs font-bold text-slate-900 dark:text-white hover:bg-white`}>
               <Upload size={14} /> {uploading ? "Subiendo…" : model.photo_url ? "Cambiar foto" : "Subir foto"}
             </button>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
@@ -372,7 +373,7 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
                           <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{u.code}</p>
                           <p className="text-[10px] text-slate-400 flex items-center gap-1">Abrir ficha <ArrowUpRight size={10} /></p>
                         </button>
-                        <button onClick={() => unlink(u)} title="Quitar de este modelo" className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"><Unlink size={15} /></button>
+                        <button onClick={() => unlink(u)} title="Quitar de este modelo" hidden={!isAdmin && !units.find((x) => String(x.id) === String(u.id))?.puede_editar} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"><Unlink size={15} /></button>
                       </div>
                     ))}
                   </div>
@@ -386,7 +387,7 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
           )}
         </div>
 
-        {!isNew && mode === "view" && (
+        {!isNew && mode === "view" && isAdmin && (
           <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
             <button onClick={archive} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-red-500"><Archive size={14} /> Archivar</button>
             <Button onClick={() => setMode("edit")} className="rounded-xl gap-2 bg-brand-navy hover:bg-brand-navy-light text-white"><Pencil size={14} /> Editar modelo</Button>
@@ -401,6 +402,7 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
 
 // ---------- Pantalla ----------
 const FleetCatalog = () => {
+  const isAdmin = getCurrentProfile() === "admin";
   const [data, setData] = useState({ modelos: [], marcas: [] });
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -477,7 +479,7 @@ const FleetCatalog = () => {
             </span>
           </button>
         ))}
-        <motion.button type="button" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowFamilies(true)} className="shrink-0 inline-flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-sm font-bold border-2 border-dashed border-brand-navy/30 text-brand-navy dark:text-sky-300 hover:bg-brand-navy/5">
+        <motion.button type="button" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowFamilies(true)} hidden={!isAdmin} className="shrink-0 inline-flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-sm font-bold border-2 border-dashed border-brand-navy/30 text-brand-navy dark:text-sky-300 hover:bg-brand-navy/5">
           <Plus size={15} /> Familia
         </motion.button>
       </div>
@@ -496,7 +498,7 @@ const FleetCatalog = () => {
           <option value="marca">Orden: marca y modelo</option>
           <option value="unidades">Orden: más unidades</option>
         </select>
-        <Button onClick={() => setCreating(true)} className="h-11 rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white"><Plus size={16} /> Nuevo modelo</Button>
+        {isAdmin && <Button onClick={() => setCreating(true)} className="h-11 rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white"><Plus size={16} /> Nuevo modelo</Button>}
       </div>
 
       {loading ? (
@@ -510,7 +512,7 @@ const FleetCatalog = () => {
           </div>
           <h3 className="font-display text-xl text-slate-900 dark:text-white">El catálogo está vacío</h3>
           <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">Crea el primer modelo (por ejemplo, Grove RT760E o Toyota Hilux), súbele una foto y asócialo a sus unidades. Así cada ficha muestra el equipo real.</p>
-          <Button onClick={() => setCreating(true)} className="mt-5 rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white"><Plus size={16} /> Crear el primer modelo</Button>
+          {isAdmin && <Button onClick={() => setCreating(true)} className="mt-5 rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white"><Plus size={16} /> Crear el primer modelo</Button>}
         </motion.div>
       ) : shown.length === 0 ? (
         <p className="text-center text-slate-400 py-16">Ningún modelo coincide con el filtro.</p>
@@ -531,6 +533,7 @@ const FleetCatalog = () => {
             categories={categories}
             units={units}
             onManageFamilies={() => setShowFamilies(true)}
+            isAdmin={isAdmin}
             onClose={() => { setOpenId(null); setCreating(false); }}
             onChanged={async (id, closed) => {
               await load();

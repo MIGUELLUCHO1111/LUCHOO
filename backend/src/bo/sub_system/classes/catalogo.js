@@ -1,5 +1,6 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
+import { assertUnitAccess, assertAdmin } from './fleetAccess.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -32,12 +33,14 @@ class Catalogo {
   evento = (unit_id, title, created_by) =>
     this.query('fleetInsertEvent', { unit_id, event_type: 'EDICION', title, detail: null, created_by: created_by || null });
 
-  listar = async () => {
+  // Nombre unico (ver Ficha.listarFichas): 'listar' tambien existe en el Tracker.
+  listarCatalogo = async () => {
     const [modelos, marcas, familias] = await Promise.all([this.query('fleetCatalogModels'), this.query('fleetCatalogBrands'), this.query('fleetListFamilies')]);
     return { statusCode: STATUS_CODES.OK, data: { modelos, marcas, familias } };
   };
 
-  guardarModelo = async ({ id, brand_name, name, category, body_type, capacity, fuel_type, meter_type, description, versions }) => {
+  guardarModelo = async ({ id, brand_name, name, category, body_type, capacity, fuel_type, meter_type, description, versions, caller_profile }) => {
+    assertAdmin(caller_profile, 'crear o editar modelos del catálogo');
     const marca = text(brand_name);
     const modelo = text(name);
     if (!marca || !modelo) throw badRequest("Campos requeridos: 'brand_name' y 'name'");
@@ -90,7 +93,8 @@ class Catalogo {
   };
 
   // Familia = prefijo del codigo interno (FP-GT.06 -> GT). Crear o renombrar.
-  guardarFamilia = async ({ code, name, art }) => {
+  guardarFamilia = async ({ code, name, art, caller_profile }) => {
+    assertAdmin(caller_profile, 'crear o renombrar familias');
     const codigo = String(code || '').trim().toUpperCase();
     const nombre = text(name);
     if (!/^[A-Z0-9]{1,10}$/.test(codigo)) throw badRequest('El código de la familia debe tener de 1 a 10 letras o números (ej. GT, CBA)');
@@ -99,7 +103,8 @@ class Catalogo {
     return { statusCode: STATUS_CODES.OK, data: row, message: 'Familia guardada' };
   };
 
-  eliminarFamilia = async ({ code }) => {
+  eliminarFamilia = async ({ code, caller_profile }) => {
+    assertAdmin(caller_profile, 'eliminar familias');
     const codigo = String(code || '').trim().toUpperCase();
     const [{ n } = { n: 0 }] = await this.query('fleetCountFamilyModels', { code: codigo });
     if (n > 0) {
@@ -110,7 +115,8 @@ class Catalogo {
     return { statusCode: STATUS_CODES.OK, message: `Familia ${row.name} eliminada` };
   };
 
-  archivarModelo = async ({ id }) => {
+  archivarModelo = async ({ id, caller_profile }) => {
+    assertAdmin(caller_profile, 'archivar modelos');
     if (!id) throw badRequest("Campo requerido: 'id'");
     const [row] = await this.query('fleetArchiveModel', { id });
     if (!row) throw notFound(`Modelo con id ${id} no encontrado`);
@@ -118,8 +124,10 @@ class Catalogo {
   };
 
   // Asocia varias unidades a un modelo (y opcionalmente a una version).
-  asignarUnidades = async ({ model_id, unit_ids, version_id, caller_user }) => {
+  asignarUnidades = async ({ model_id, unit_ids, version_id, caller_user, caller_profile, caller_user_id }) => {
     if (!model_id || !Array.isArray(unit_ids) || !unit_ids.length) throw badRequest("Campos requeridos: 'model_id' y 'unit_ids'");
+    await this.dbmsReady;
+    for (const unitId of unit_ids) await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id: unitId });
     const [modelo] = await this.query('fleetGetModel', { id: model_id });
     if (!modelo || modelo.archived_at) throw notFound(`Modelo con id ${model_id} no encontrado`);
     for (const unitId of unit_ids.map(Number).filter(Number.isInteger)) {
@@ -129,8 +137,10 @@ class Catalogo {
     return { statusCode: STATUS_CODES.OK, message: 'Unidades asociadas al modelo' };
   };
 
-  quitarUnidad = async ({ unit_id, caller_user }) => {
+  quitarUnidad = async ({ unit_id, caller_user, caller_profile, caller_user_id }) => {
     if (!unit_id) throw badRequest("Campo requerido: 'unit_id'");
+    await this.dbmsReady;
+    await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id });
     await this.query('fleetSetUnitModel', { unit_id, model_id: null, version_id: null });
     await this.evento(unit_id, 'Modelo del catálogo quitado', caller_user);
     return { statusCode: STATUS_CODES.OK, message: 'Unidad desvinculada del modelo' };

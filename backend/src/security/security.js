@@ -147,10 +147,16 @@ export default class Security {
     const csvMap = await this.utils.readCSV(csvPath);
     const permissions = new Map();
 
+    // readCSV indexa por id, asi que una transaccion no puede repetirse en
+    // dos filas: para darla a varios perfiles se separan por coma en la
+    // columna profile (ej. "admin,encargado_flota", Flota 30/09/2026).
     for (const row of csvMap.values()) {
-      const normalized = this.normalizePermission(row);
-      const key = this.buildPermissionKey(normalized);
-      permissions.set(key, normalized);
+      const perfiles = String(row.profile ?? row.profile_name ?? '').split(',').map((p) => p.trim()).filter(Boolean);
+      for (const profile of perfiles.length ? perfiles : [row.profile]) {
+        const normalized = this.normalizePermission({ ...row, profile, profile_name: profile });
+        const key = this.buildPermissionKey(normalized);
+        permissions.set(key, normalized);
+      }
     }
 
     return permissions;

@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ArrowLeft, Pencil, Gauge, User, MapPin, Phone, FileText, Wrench, StickyNote, Activity,
-  Radio, Plus, X, Fingerprint, Fuel, Cpu, Repeat, History,
+  Radio, Plus, X, Fingerprint, UserCog, CheckCircle2, Circle, Lock, Fuel, Cpu, Repeat, History,
 } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
@@ -17,6 +17,8 @@ import {
 } from "./fleetParts";
 import { categoryLabel, useFamilies } from "./fleetArt";
 import DocumentsPanel from "./fleetDocuments";
+import { fichaChecklist } from "./fleetCompleteness";
+import AssignManagersModal from "./fleetManagers";
 
 const EVENT_ICON = {
   CONDUCTOR: User, ESTADO: Activity, UBICACION: MapPin, ODOMETRO: Gauge, MANTENIMIENTO: Wrench,
@@ -150,7 +152,9 @@ const valueOf = (unit, key) => {
 
 const EditDrawer = ({ unit, full, onClose, onSaved }) => {
   // La ficha basica (flota liviana y equipos fuera del contrato) no lleva datos fiscales.
-  const sections = full ? EDIT_SECTIONS : EDIT_SECTIONS.filter((s) => s.title !== "Fiscal y contrato");
+  const sections = (full ? EDIT_SECTIONS : EDIT_SECTIONS.filter((s) => s.title !== "Fiscal y contrato")).map((s) =>
+    unit.es_admin ? s : { ...s, fields: s.fields.filter(([k]) => k !== "fleet_type") },
+  );
   const initial = useMemo(() => {
     const o = {};
     sections.forEach((s) => s.fields.forEach(([k, , t]) => { if (t !== "catalog") o[k] = t === "bool" ? !!unit.profile?.[k] : valueOf(unit, k); }));
@@ -285,7 +289,7 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
 // solo en la ficha completa (equipos del contrato PDVSA-Chevron).
 const tabsFor = (full) => (full ? [["fiscal", "Datos fiscales y contrato"], ["notas", "Notas"]] : [["notas", "Notas"]]);
 
-const TabsPanel = ({ unit, full, onChange }) => {
+const TabsPanel = ({ unit, full, onChange, canEdit = true }) => {
   const TABS = tabsFor(full);
   const [tab, setTab] = useState(TABS[0][0]);
   const p = unit.profile || {};
@@ -330,7 +334,7 @@ const TabsPanel = ({ unit, full, onChange }) => {
 
           {tab === "notas" && (
             <div>
-              <form onSubmit={addNota} className="flex gap-2 mb-5">
+              <form onSubmit={addNota} className={`flex gap-2 mb-5 ${canEdit ? "" : "hidden"}`}>
                 <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Escribe una nota sobre la unidad…" className={inputCls} />
                 <Button type="submit" className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">Agregar</Button>
               </form>
@@ -399,6 +403,61 @@ const Timeline = ({ unit }) => {
         ))}
       </div>
     </Panel>
+  );
+};
+
+// ---------- Lo que le falta a la ficha ----------
+const ChecklistCard = ({ unit }) => {
+  const f = fichaChecklist(unit);
+  return (
+    <Panel>
+      <div className="flex items-center justify-between mb-3">
+        <SectionTitle icon={CheckCircle2}>Ficha</SectionTitle>
+        <span className={`-mt-4 text-xs font-bold ${f.complete ? "text-emerald-600" : "text-slate-500"}`}>{f.complete ? "Completa" : `${f.done} de ${f.total}`}</span>
+      </div>
+      <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden mb-4">
+        <motion.div initial={{ width: 0 }} animate={{ width: `${f.pct}%` }} transition={{ duration: 0.7 }} className={`h-full rounded-full ${f.complete ? "bg-emerald-500" : f.pct >= 60 ? "bg-amber-500" : "bg-red-400"}`} />
+      </div>
+      <ul className="space-y-2">
+        {f.items.map((it) => (
+          <li key={it.key} className="flex items-start gap-2 text-sm">
+            <span className={`inline-flex mt-0.5 ${it.ok ? "text-emerald-500" : "text-slate-300 dark:text-slate-600"}`}>{it.ok ? <CheckCircle2 size={15} /> : <Circle size={15} />}</span>
+            <span className="min-w-0">
+              <span className={it.ok ? "text-slate-500 dark:text-slate-400" : "font-bold text-slate-800 dark:text-slate-100"}>{it.label}</span>
+              {it.detail && !it.ok && <span className="block text-[11px] text-slate-400">{it.detail}</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+};
+
+const ManagerRow = ({ unit, onChanged }) => {
+  const [assign, setAssign] = useState(false);
+  const e = unit.encargado;
+  const quitar = async () => {
+    await fleetService.quitarEncargado(unit.id);
+    onChanged();
+  };
+  return (
+    <div className="sm:col-span-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-white/5 p-3">
+      <span className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${e ? "bg-brand-gold/20 text-amber-800 dark:text-brand-gold" : "bg-slate-100 dark:bg-white/5 text-slate-400"}`}>{e ? initials(e.nombre) : <UserCog size={16} />}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Encargado de la unidad</p>
+        <p className={`text-sm font-bold truncate ${e ? "text-slate-900 dark:text-white" : "text-amber-600"}`}>{e ? e.nombre : "Sin encargado asignado"}</p>
+        {e?.desde && <p className="text-[10px] text-slate-400">Desde {fmtDate(String(e.desde).slice(0, 10))}</p>}
+      </div>
+      {unit.es_admin && (
+        <div className="flex gap-2 shrink-0">
+          <button type="button" onClick={() => setAssign(true)} className="rounded-xl px-3 py-1.5 text-xs font-bold bg-brand-navy text-white hover:bg-brand-navy-light">{e ? "Cambiar" : "Asignar"}</button>
+          {e && <button type="button" onClick={quitar} className="rounded-xl px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-red-600">Quitar</button>}
+        </div>
+      )}
+      <AnimatePresence>
+        {assign && <AssignManagersModal units={[unit]} initialUnitIds={[unit.id]} onClose={() => setAssign(false)} onDone={() => { setAssign(false); onChanged(); }} />}
+      </AnimatePresence>
+    </div>
   );
 };
 
@@ -540,9 +599,13 @@ const FleetDetail = () => {
           </div>
           <div className="flex flex-col items-stretch lg:items-end gap-3">
             <StatusControl unit={unit} onSaved={setUnit} />
-            <Button onClick={() => setEditing(true)} className="rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white">
-              <Pencil size={14} /> Editar ficha
-            </Button>
+            {unit.puede_editar ? (
+              <Button onClick={() => setEditing(true)} className="rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white">
+                <Pencil size={14} /> Editar ficha
+              </Button>
+            ) : (
+              <p className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 dark:bg-white/5 px-3 py-2 text-xs font-bold text-slate-500"><Lock size={13} /> Solo lectura: la completa su encargado</p>
+            )}
           </div>
         </div>
       </motion.div>
@@ -626,6 +689,7 @@ const FleetDetail = () => {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Zona asignada</p>
                   <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{p.assigned_zone || "Sin zona"}</p>
                 </div>
+                <ManagerRow unit={unit} onChanged={load} />
                 <div className="sm:col-span-2 flex items-start gap-2 rounded-2xl bg-slate-50 dark:bg-white/[0.03] p-3">
                   <MapPin size={14} className="text-slate-400 mt-0.5 shrink-0" />
                   <div className="min-w-0">
@@ -650,11 +714,14 @@ const FleetDetail = () => {
             </Panel>
           </div>
 
-          <DocumentsPanel unit={unit} alertDays={alertDays} onChange={load} />
-          <TabsPanel key={full ? "full" : "basic"} unit={unit} full={full} onChange={load} />
+          <DocumentsPanel unit={unit} alertDays={alertDays} onChange={load} canEdit={unit.puede_editar} />
+          <TabsPanel key={full ? "full" : "basic"} unit={unit} full={full} onChange={load} canEdit={unit.puede_editar} />
         </div>
 
-        <Timeline unit={unit} />
+        <div className="space-y-6 self-start min-w-0">
+          <ChecklistCard unit={unit} />
+          <Timeline unit={unit} />
+        </div>
       </div>
 
       <AnimatePresence>
