@@ -19,6 +19,7 @@ import { categoryLabel, useFamilies } from "./fleetArt";
 import DocumentsPanel from "./fleetDocuments";
 import { fichaChecklist } from "./fleetCompleteness";
 import AssignManagersModal from "./fleetManagers";
+import ReadingsPanel, { SOURCE as READING_SOURCE } from "./fleetReadings";
 
 const EVENT_ICON = {
   CONDUCTOR: User, ESTADO: Activity, UBICACION: MapPin, ODOMETRO: Gauge, MANTENIMIENTO: Wrench,
@@ -125,7 +126,6 @@ const EDIT_SECTIONS = [
   {
     title: "Operación y mantenimiento",
     fields: [
-      ["odometer_km", "Odómetro manual (km)", "number"], ["odometer_at", "Fecha de la lectura", "date"],
       ["last_maint_km", "Último mantenimiento (km)", "number"], ["last_maint_at", "Fecha último mantenimiento", "date"],
       ["maint_interval_km", "Intervalo propio (km, vacío = el de su flota)", "number"], ["avg_consumption_kml", "Consumo promedio (km/L)", "number"],
       ["change_plan", "Plan para cambiar de vehículo", "bool"],
@@ -267,7 +267,7 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
               </div>
             </section>
           ))}
-          <p className="text-xs text-slate-400">El odómetro del GPS se lee solo; el manual sirve mientras la API del GPS no tenga esta unidad.</p>
+          <p className="text-xs text-slate-400">El odómetro y el horómetro no se editan aquí: se registran en la pestaña "Lecturas" de la ficha (quedan en su historial).</p>
         </div>
         <div className="px-6 py-4 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-3">
           <p className="text-sm text-red-600 truncate">{error}</p>
@@ -287,7 +287,7 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
 // El historial de servicios lo lleva Mantenimiento (ordenes de trabajo de
 // Julio): aqui no se muestra para no tener dos historiales. Datos fiscales
 // solo en la ficha completa (equipos del contrato PDVSA-Chevron).
-const tabsFor = (full) => (full ? [["fiscal", "Datos fiscales y contrato"], ["notas", "Notas"]] : [["notas", "Notas"]]);
+const tabsFor = (full) => (full ? [["lecturas", "Lecturas"], ["fiscal", "Datos fiscales y contrato"], ["notas", "Notas"]] : [["lecturas", "Lecturas"], ["notas", "Notas"]]);
 
 const TabsPanel = ({ unit, full, onChange, canEdit = true }) => {
   const TABS = tabsFor(full);
@@ -316,6 +316,8 @@ const TabsPanel = ({ unit, full, onChange, canEdit = true }) => {
       </div>
       <AnimatePresence mode="wait">
         <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="p-6">
+          {tab === "lecturas" && <ReadingsPanel unit={unit} canEdit={canEdit} isAdmin={unit.es_admin} onChange={onChange} />}
+
           {tab === "fiscal" && (
             <dl className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-5">
               <Field label="Fecha de la orden" value={fmtDate(p.order_date)} />
@@ -658,8 +660,8 @@ const FleetDetail = () => {
                   <p className="font-display text-4xl text-slate-900 dark:text-white leading-none mt-1">{odo ? Number(odo.km).toLocaleString("es-VE", { maximumFractionDigits: 0 }) : "—"}<span className="text-base text-slate-400 ml-1">km</span></p>
                 </div>
                 {odo && (
-                  <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${odo.fuente === "GPS" ? "bg-emerald-500/10 text-emerald-600" : "bg-slate-500/10 text-slate-500"}`}>
-                    {odo.fuente === "GPS" ? "Leído del GPS" : "Cargado a mano"} · {odo.fuente === "GPS" ? haceCuanto(odo.fecha) : fmtDate(odo.fecha)}
+                  <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${READING_SOURCE[odo.fuente]?.cls || "bg-slate-500/10 text-slate-500"}`}>
+                    {odo.fuente === "GPS" ? "Leído del GPS" : `Lectura ${(READING_SOURCE[odo.fuente]?.label || "manual").toLowerCase()}`} · {haceCuanto(odo.fecha)}
                   </span>
                 )}
               </div>

@@ -2,6 +2,7 @@ import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import ForesightClient from '../../../tracker/foresightClient.js';
 import { assertUnitAccess, assertAdmin, canEditUnit, isAdminCaller } from './fleetAccess.js';
+import Lectura, { resumenLecturas } from './lectura.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -19,7 +20,7 @@ const PROFILE_FIELDS = {
   brand: 'text', model: 'text', model_year: 'int', vin: 'text', engine_serial: 'text', color: 'text', fuel_type: 'text',
   assigned_zone: 'text', driver_phone: 'text', driver_assigned_at: 'date', next_driver: 'text',
   change_plan: 'bool', fleet_manager: 'text', avg_consumption_kml: 'num',
-  odometer_km: 'num', odometer_at: 'date', maint_interval_km: 'int', last_maint_km: 'num', last_maint_at: 'date',
+  maint_interval_km: 'int', last_maint_km: 'num', last_maint_at: 'date',
   order_date: 'date', registration_date: 'date', cancellation_date: 'date', first_contract_date: 'date',
   hp_tax: 'num', catalog_value: 'num', purchase_value: 'num', residual_value: 'num', tags: 'text',
 };
@@ -72,6 +73,7 @@ class Ficha {
     this.dbms = new DBMS();
     this.dbmsReady = this.dbms.init();
     this.gps = new ForesightClient();
+    this.lectura = new Lectura();
   }
 
   query = async (nameQuery, params = {}) => {
@@ -135,9 +137,10 @@ class Ficha {
   // (method_profile no tiene la clase) y 'listar' existe tambien en clases
   // del Tracker -- darselo a otro perfil le abriria esas tambien.
   listarFichas = async ({ caller_profile, caller_user_id } = {}) => {
-    const [unidades, snaps, encargados, docs] = await Promise.all([
-      this.query('fleetListUnits'), this.snapshotsPorPlaca(), this.query('fleetCurrentManagers'), this.query('fleetDocsSummary'),
+    const [unidades, snaps, encargados, docs, conLectura] = await Promise.all([
+      this.query('fleetListUnits'), this.snapshotsPorPlaca(), this.query('fleetCurrentManagers'), this.query('fleetDocsSummary'), this.query('fleetUnitsWithReadings'),
     ]);
+    const tieneLectura = new Set(conLectura.map((r) => String(r.unit_id)));
     const porUnidad = new Map(encargados.map((m) => [String(m.unit_id), m]));
     const docsPorUnidad = docs.reduce((acc, d) => {
       (acc[d.unit_id] = acc[d.unit_id] || []).push({ doc_type: d.doc_type, has_file: d.has_file, days_left: d.days_left });
@@ -154,6 +157,7 @@ class Ficha {
         docs_resumen: docsPorUnidad[u.id] || [],
         // Odometro del GPS solo si ya se consulto (cache de la API v3): la lista no pregunta por cada placa.
         odometro_gps: gpsCache.get(normPlate(u.plate))?.data?.odometro_km ?? null,
+        tiene_lectura: tieneLectura.has(String(u.id)),
         soy_encargado: mia,
         puede_editar: admin || mia,
         gps: s ? { status: s.status, is_stale: s.is_stale, location_text: s.location_text, location_category: s.location_category, last_report_at: s.last_report_at, ignition: s.ignition } : null,
@@ -177,20 +181,21 @@ class Ficha {
       canEditUnit(this.dbms, { caller_profile, caller_user_id, unit_id: id }),
     ]);
     const actual = encargados.find((m) => !m.ended_at) || null;
+    // La lectura del GPS se guarda en el historial (una vez al dia) y el
+    // odometro que se muestra es la ultima lectura de la serie.
+    if (gps.disponible && gps.odometro_km) {
+      try { await this.lectura.registrarLecturaGps(id, gps.odometro_km, gps.ultimo_reporte); } catch (e) { console.error('[Flota] No se pudo guardar la lectura del GPS:', e?.message || e); }
+    }
+    const lecturas = await resumenLecturas(this.dbms, unidad);
     const snapshot = snaps.get(normPlate(unidad.plate)) || null;
 
-    // Odometro: el mas reciente entre el del GPS (v3) y el cargado a mano.
-    const p = unidad.profile || {};
-    let odometro = null;
-    if (gps.disponible && gps.odometro_km) odometro = { km: gps.odometro_km, fuente: 'GPS', fecha: gps.ultimo_reporte };
-    if (p.odometer_km != null && (!odometro || (p.odometer_at && p.odometer_at > String(odometro.fecha || '').slice(0, 10)))) {
-      odometro = { km: Number(p.odometer_km), fuente: 'MANUAL', fecha: p.odometer_at || null };
-    }
+    const km = lecturas.actual.KM;
+    const odometro = km ? { km: km.valor, fuente: km.fuente, fecha: km.fecha } : (gps.disponible && gps.odometro_km ? { km: gps.odometro_km, fuente: 'GPS', fecha: gps.ultimo_reporte } : null);
 
     return {
       statusCode: STATUS_CODES.OK,
       data: {
-        ...unidad, documentos, servicios, eventos, snapshot, gps_v3: gps, odometro,
+        ...unidad, documentos, servicios, eventos, snapshot, gps_v3: gps, odometro, lecturas,
         encargado: actual ? { user_id: Number(actual.user_id), nombre: actual.display_name, desde: actual.assigned_at } : null,
         encargados_historial: encargados,
         puede_editar: puedeEditar,
@@ -249,10 +254,7 @@ class Ficha {
     if (patch.assigned_zone !== undefined && patch.assigned_zone !== (prev.assigned_zone ?? null)) {
       await this.evento(id, 'UBICACION', `Zona asignada: ${patch.assigned_zone || 'sin zona'}`, null, quien);
     }
-    if (patch.odometer_km != null && Number(patch.odometer_km) !== Number(prev.odometer_km)) {
-      await this.evento(id, 'ODOMETRO', `Odómetro actualizado: ${Number(patch.odometer_km).toLocaleString('es-VE')} km`, null, quien);
-    }
-    const otros = Object.keys(patch).filter((k) => !['operational_status', 'status_cause', 'assigned_zone', 'odometer_km', 'odometer_at'].includes(k) && String(patch[k] ?? '') !== String(prev[k] ?? ''));
+    const otros = Object.keys(patch).filter((k) => !['operational_status', 'status_cause', 'assigned_zone'].includes(k) && String(patch[k] ?? '') !== String(prev[k] ?? ''));
     if (otros.length || (cambiosUnidad && ['fleet_type', 'name', 'tank_capacity_liters'].some((k) => campos[k] !== undefined && String(campos[k] ?? '') !== String(actual[k] ?? '')))) {
       await this.evento(id, 'EDICION', 'Ficha actualizada', null, quien);
     }

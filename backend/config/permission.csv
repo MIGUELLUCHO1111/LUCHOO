@@ -188,3 +188,6 @@ id;sub_system;class;method;profile
 203;Flota;Catalogo;proponerModelo;admin,encargado_flota
 204;Flota;Catalogo;aprobarModelo;admin
 205;Flota;Catalogo;rechazarModelo;admin
+206;Flota;Lectura;registrarLectura;admin,encargado_flota
+207;Flota;Lectura;reemplazarMedidor;admin,encargado_flota
+208;Flota;Lectura;anularLectura;admin

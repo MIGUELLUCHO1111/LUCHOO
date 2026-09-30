@@ -361,6 +361,17 @@ export default class Security {
       };
 
     } catch (error) {
+      // Errores de negocio esperados (400/403/404/409 que el metodo lanza con
+      // JSON.stringify({ message, statusCode })) pasan tal cual: el
+      // dispatcher los devuelve con su mensaje real ("Ya existe el modelo…",
+      // "Solo puedes modificar tus unidades…"). Antes todos se tapaban con el
+      // 500 generico de abajo y el usuario no sabia por que fallo (30/09/2026).
+      try {
+        const payload = JSON.parse(error?.message);
+        if (payload?.statusCode >= 400 && payload.statusCode < 500) throw error;
+      } catch (parsed) {
+        if (parsed === error) throw error;
+      }
       console.error(`Error en execute:`, error);
       return this.utils.handleError({
         message: 'Error interno al ejecutar la transacción',

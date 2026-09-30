@@ -11,7 +11,7 @@ import { requiredFor, docLabel } from "./fleetDocuments";
 
 export const CHECK_LABELS = {
   encargado: "Encargado",
-  km: "Lectura de km",
+  km: "Lectura de km u horas",
   documentos: "Documentos",
   modelo: "Modelo del catálogo",
   anio: "Año",
@@ -24,7 +24,8 @@ export function fichaChecklist(unit) {
   const docs = unit.docs_resumen || (unit.documentos || []).map((d) => ({ doc_type: d.doc_type, has_file: !!d.file_url, days_left: d.days_left }));
   const conArchivo = new Set(docs.filter((d) => d.has_file).map((d) => d.doc_type));
   const faltanDocs = requiredFor(unit).filter((t) => !conArchivo.has(t));
-  const km = p.odometer_km != null || unit.odometro?.km != null || unit.odometro_gps != null;
+  // Lectura de km u horas: alguna lectura en el historial (o la del GPS ya consultada).
+  const km = !!unit.tiene_lectura || Object.keys(unit.lecturas?.actual || {}).length > 0 || unit.odometro?.km != null || unit.odometro_gps != null;
 
   const items = [
     { key: "encargado", ok: !!unit.encargado },

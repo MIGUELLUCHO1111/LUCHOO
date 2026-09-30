@@ -1703,5 +1703,51 @@
     query: 'UPDATE public.fleet_unit_profile SET model_id = NULL, version_id = NULL, updated_at = NOW() WHERE model_id = $1 RETURNING unit_id;',
     structure_params: { id: 'int' },
     orderArray: ['id']
+  },
+
+  # ========== FLOTA: HISTORIAL DE LECTURAS (050_fleet_unit_reading.sql) ==========
+  'fleetListReadings': {
+    query: 'SELECT id, meter, value, read_at, source, note, created_by, created_at, voided_at, voided_by, void_reason FROM public.fleet_unit_reading WHERE unit_id = $1 ORDER BY read_at DESC, id DESC;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  # Lecturas que ya viven en Combustible (no se copian): odometro de la liviana
+  # y km u horas de la pesada al momento de cada llenado.
+  'fleetFuelReadings': {
+    query: "SELECT 'KM' AS meter, c.odometer AS value, c.filled_at AS read_at FROM public.fuel_carga c WHERE c.vehicle_id = $1 AND c.deleted_at IS NULL AND c.odometer IS NOT NULL UNION ALL SELECT CASE WHEN LOWER(f.measurement_type) LIKE 'hora%' THEN 'HORAS' ELSE 'KM' END, f.measurement_value, f.filled_at FROM public.fuel_pesada f WHERE f.vehicle_id = $1 AND f.deleted_at IS NULL AND f.measurement_value IS NOT NULL ORDER BY read_at DESC LIMIT 50;",
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  # Horas trabajadas en Control de Horas despues de una fecha (para estimar el horometro).
+  'fleetHoursSince': {
+    query: 'SELECT COALESCE(SUM(executed_hours), 0) AS total, MAX(fecha)::text AS ultima, COUNT(*)::int AS dias FROM public.hours_daily_entry WHERE equipment_id = $1 AND fecha > $2::date;',
+    structure_params: { unit_id: 'int', since: 'string' },
+    orderArray: ['unit_id', 'since']
+  },
+
+  'fleetInsertReading': {
+    query: 'INSERT INTO public.fleet_unit_reading (unit_id, meter, value, read_at, source, note, created_by) VALUES ($1, $2, $3::numeric, $4::timestamptz, $5, $6, $7) RETURNING id;',
+    structure_params: { unit_id: 'int', meter: 'string', value: 'string', read_at: 'string', source: 'string', note: 'string|null', created_by: 'string|null' },
+    orderArray: ['unit_id', 'meter', 'value', 'read_at', 'source', 'note', 'created_by']
+  },
+
+  'fleetGetReading': {
+    query: 'SELECT id, unit_id, meter, value, source, voided_at FROM public.fleet_unit_reading WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'fleetVoidReading': {
+    query: 'UPDATE public.fleet_unit_reading SET voided_at = NOW(), voided_by = $2, void_reason = $3 WHERE id = $1 AND voided_at IS NULL RETURNING id, unit_id, meter, value;',
+    structure_params: { id: 'int', voided_by: 'string|null', void_reason: 'string' },
+    orderArray: ['id', 'voided_by', 'void_reason']
+  },
+
+  'fleetUnitsWithReadings': {
+    query: 'SELECT DISTINCT unit_id FROM public.fleet_unit_reading WHERE voided_at IS NULL;',
+    structure_params: {},
+    orderArray: []
   }
 }

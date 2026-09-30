@@ -27,6 +27,9 @@ const TX = {
   MODELO_PROPONER: 203,
   MODELO_APROBAR: 204,
   MODELO_RECHAZAR: 205,
+  LECTURA_REGISTRAR: 206,
+  LECTURA_REEMPLAZO: 207,
+  LECTURA_ANULAR: 208,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -43,15 +46,24 @@ const unwrap = (res) => {
 
 // El dispatcher responde 200 aunque el metodo falle (el codigo real va en el
 // cuerpo): se convierte en error para que la pantalla lo muestre.
+const toError = (d) => {
+  const err = new Error(d.message || "No se pudo completar la operación");
+  err.status = d.statusCode;
+  err.detail = d.error; // ej. { duplicado_id } cuando el modelo ya existe
+  return err;
+};
+
 const call = async (tx, data = {}) => {
-  const res = await executeTransaction(tx, data);
-  const code = res?.data?.statusCode;
-  if (code && code >= 400) {
-    const err = new Error(res.data.message || "No se pudo completar la operación");
-    err.status = code;
-    err.detail = res.data.error; // ej. { duplicado_id } cuando el modelo ya existe
-    throw err;
+  let res;
+  try {
+    res = await executeTransaction(tx, data);
+  } catch (e) {
+    // El backend responde 4xx con el mensaje real del error de negocio.
+    if (e.response?.data?.message) throw toError(e.response.data);
+    throw e;
   }
+  const code = res?.data?.statusCode;
+  if (code && code >= 400) throw toError(res.data);
   return unwrap(res);
 };
 
@@ -95,6 +107,11 @@ const fleetService = {
   proponerModelo: (modelo) => call(TX.MODELO_PROPONER, modelo),
   aprobarModelo: (id) => call(TX.MODELO_APROBAR, { id }),
   rechazarModelo: (id, { nota, fusionar_con_id } = {}) => call(TX.MODELO_RECHAZAR, { id, nota, fusionar_con_id }),
+
+  // Historial de lecturas de odometro/horometro (no se editan, se vuelven a leer)
+  registrarLectura: (unit_id, lectura) => call(TX.LECTURA_REGISTRAR, { unit_id, ...lectura }),
+  reemplazarMedidor: (unit_id, lectura) => call(TX.LECTURA_REEMPLAZO, { unit_id, ...lectura }),
+  anularLectura: (id, reason) => call(TX.LECTURA_ANULAR, { id, reason }),
   subirFotoModelo: async (modelId, file) => {
     const formData = new FormData();
     formData.append("model_id", modelId);
