@@ -1,6 +1,6 @@
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
-import { assertUnitAccess, assertAdmin } from './fleetAccess.js';
+import { assertUnitAccess, assertAdmin, isAdminCaller } from './fleetAccess.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -17,6 +17,10 @@ const ARTS = ['crane', 'knuckle', 'forklift', 'loader', 'bucket', 'pickup', 'tru
 const badRequest = (message) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.BAD_REQUEST }));
 const notFound = (message) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.NOT_FOUND }));
 const text = (v) => (v == null ? null : String(v).trim() || null);
+// "GROVE RT-760E" y "Grove RT760E" son el mismo modelo: se compara sin
+// mayusculas, espacios, guiones ni puntos.
+const norm = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const conflict = (message, extra) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.CONFLICT, error: extra }));
 
 class Catalogo {
   constructor() {
@@ -34,9 +38,21 @@ class Catalogo {
     this.query('fleetInsertEvent', { unit_id, event_type: 'EDICION', title, detail: null, created_by: created_by || null });
 
   // Nombre unico (ver Ficha.listarFichas): 'listar' tambien existe en el Tracker.
-  listarCatalogo = async () => {
-    const [modelos, marcas, familias] = await Promise.all([this.query('fleetCatalogModels'), this.query('fleetCatalogBrands'), this.query('fleetListFamilies')]);
-    return { statusCode: STATUS_CODES.OK, data: { modelos, marcas, familias } };
+  listarCatalogo = async ({ caller_profile, caller_user_id } = {}) => {
+    const [todos, marcas, familias] = await Promise.all([this.query('fleetCatalogModels'), this.query('fleetCatalogBrands'), this.query('fleetListFamilies')]);
+    const admin = isAdminCaller(caller_profile);
+    const modelos = todos
+      .filter((m) => admin || m.status === 'ACTIVO' || Number(m.proposed_by_user_id) === Number(caller_user_id))
+      .map((m) => ({ ...m, mio: !!caller_user_id && Number(m.proposed_by_user_id) === Number(caller_user_id) }));
+    const pendientes = admin ? todos.filter((m) => m.status === 'PENDIENTE').length : undefined;
+    return { statusCode: STATUS_CODES.OK, data: { modelos, marcas, familias, pendientes } };
+  };
+
+  // Modelo vigente (activo o pendiente) que se llama igual, sin contar mayusculas ni signos.
+  duplicadoDe = async (marca, modelo, exceptId = null) => {
+    const clave = norm(marca) + '|' + norm(modelo);
+    const vivos = await this.query('fleetLiveModelNames');
+    return vivos.find((m) => Number(m.id) !== Number(exceptId) && norm(m.brand_name) + '|' + norm(m.name) === clave) || null;
   };
 
   guardarModelo = async ({ id, brand_name, name, category, body_type, capacity, fuel_type, meter_type, description, versions, caller_profile }) => {
@@ -44,6 +60,8 @@ class Catalogo {
     const marca = text(brand_name);
     const modelo = text(name);
     if (!marca || !modelo) throw badRequest("Campos requeridos: 'brand_name' y 'name'");
+    const dup = await this.duplicadoDe(marca, modelo, id);
+    if (dup) throw conflict(`Ya existe "${dup.brand_name} ${dup.name}" en el catálogo${dup.status === 'PENDIENTE' ? ' (propuesto, pendiente de aprobar)' : ''}.`, { duplicado_id: Number(dup.id) });
 
     const [brand] = await this.query('fleetUpsertBrand', { name: marca });
     const campos = {
@@ -129,12 +147,73 @@ class Catalogo {
     await this.dbmsReady;
     for (const unitId of unit_ids) await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id: unitId });
     const [modelo] = await this.query('fleetGetModel', { id: model_id });
-    if (!modelo || modelo.archived_at) throw notFound(`Modelo con id ${model_id} no encontrado`);
+    if (!modelo || modelo.archived_at || modelo.status === 'RECHAZADO') throw notFound(`Modelo con id ${model_id} no encontrado`);
+    if (modelo.status === 'PENDIENTE' && !isAdminCaller(caller_profile) && Number(modelo.proposed_by_user_id) !== Number(caller_user_id)) {
+      throw badRequest('Ese modelo todavía está pendiente de aprobación.');
+    }
     for (const unitId of unit_ids.map(Number).filter(Number.isInteger)) {
       await this.query('fleetSetUnitModel', { unit_id: unitId, model_id: String(model_id), version_id: version_id ? String(version_id) : null });
       await this.evento(unitId, `Modelo asignado: ${modelo.brand_name} ${modelo.name}`, caller_user);
     }
     return { statusCode: STATUS_CODES.OK, message: 'Unidades asociadas al modelo' };
+  };
+
+  // El encargado propone un modelo que no esta en el catalogo: queda
+  // PENDIENTE y, si indica una de SUS unidades, se le asigna de una vez.
+  proponerModelo = async ({ brand_name, name, category, body_type, capacity, fuel_type, meter_type, description, versions, unit_id, caller_profile, caller_user_id, caller_user }) => {
+    const marca = text(brand_name);
+    const modelo = text(name);
+    if (!marca || !modelo) throw badRequest("Campos requeridos: 'brand_name' y 'name'");
+    if (!caller_user_id) throw badRequest('Falta el usuario que propone');
+    await this.dbmsReady;
+    if (unit_id) await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id });
+    const dup = await this.duplicadoDe(marca, modelo);
+    if (dup) {
+      throw conflict(`"${dup.brand_name} ${dup.name}" ya está en el catálogo${dup.status === 'PENDIENTE' ? ' (propuesto por otro encargado)' : ''}: elígelo en vez de proponerlo de nuevo.`, { duplicado_id: Number(dup.id) });
+    }
+    const [brand] = await this.query('fleetUpsertBrand', { name: marca });
+    const [row] = await this.query('fleetInsertModelProposal', {
+      brand_id: Number(brand.id), name: modelo, category: (text(category) || 'OTRO').toUpperCase().slice(0, 10),
+      body_type: text(body_type), capacity: text(capacity), fuel_type: text(fuel_type),
+      meter_type: METERS.includes(meter_type) ? meter_type : 'KM', description: text(description), user_id: Number(caller_user_id),
+    });
+    const modelId = Number(row.id);
+    for (const v of [...new Set((versions || []).map(text).filter(Boolean))]) await this.query('fleetInsertVersion', { model_id: modelId, name: v });
+    if (unit_id) {
+      await this.query('fleetSetUnitModel', { unit_id: Number(unit_id), model_id: String(modelId), version_id: null });
+      await this.evento(Number(unit_id), `Modelo propuesto: ${marca} ${modelo} (pendiente de aprobación)`, caller_user);
+    }
+    return { statusCode: STATUS_CODES.CREATED, data: { id: modelId }, message: 'Modelo propuesto: queda pendiente hasta que un administrador lo apruebe' };
+  };
+
+  aprobarModelo = async ({ id, caller_profile, caller_user }) => {
+    assertAdmin(caller_profile, 'aprobar modelos');
+    const [row] = await this.query('fleetApproveModel', { id, reviewed_by: caller_user || null });
+    if (!row) throw notFound(`No hay una propuesta pendiente con id ${id}`);
+    return { statusCode: STATUS_CODES.OK, message: `Modelo "${row.name}" aprobado: ya está en el catálogo` };
+  };
+
+  // Rechaza una propuesta. Con fusionar_con_id, sus unidades pasan a ese
+  // modelo existente; sin el, quedan sin modelo del catalogo.
+  rechazarModelo = async ({ id, nota, fusionar_con_id, caller_profile, caller_user }) => {
+    assertAdmin(caller_profile, 'rechazar o fusionar modelos');
+    const [propuesta] = await this.query('fleetGetModel', { id });
+    if (!propuesta || propuesta.status !== 'PENDIENTE') throw notFound(`No hay una propuesta pendiente con id ${id}`);
+    let destino = null;
+    if (fusionar_con_id) {
+      [destino] = await this.query('fleetGetModel', { id: fusionar_con_id });
+      if (!destino || destino.status !== 'ACTIVO' || destino.archived_at || Number(destino.id) === Number(id)) throw badRequest('El modelo con el que se fusiona debe estar activo en el catálogo.');
+    }
+    const [row] = await this.query('fleetRejectModel', { id, reviewed_by: caller_user || null, review_note: text(nota), merged_into_id: destino ? String(destino.id) : null });
+    if (!row) throw notFound(`No hay una propuesta pendiente con id ${id}`);
+    const unidades = destino
+      ? await this.query('fleetMoveModelUnits', { from_id: Number(id), to_id: Number(destino.id) })
+      : await this.query('fleetUnlinkModelUnits', { id: Number(id) });
+    const titulo = destino
+      ? `Modelo unificado: ${propuesta.brand_name} ${propuesta.name} → ${destino.brand_name} ${destino.name}`
+      : `Modelo propuesto rechazado: ${propuesta.brand_name} ${propuesta.name}${text(nota) ? ` (${text(nota)})` : ''}`;
+    for (const u of unidades) await this.evento(Number(u.unit_id), titulo, caller_user);
+    return { statusCode: STATUS_CODES.OK, message: destino ? `Fusionado con ${destino.brand_name} ${destino.name}` : 'Propuesta rechazada' };
   };
 
   quitarUnidad = async ({ unit_id, caller_user, caller_profile, caller_user_id }) => {

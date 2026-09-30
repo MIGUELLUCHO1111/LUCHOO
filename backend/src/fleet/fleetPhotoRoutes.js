@@ -43,15 +43,18 @@ router.post('/models/photo', (req, res) => {
       const id = parseInt(modelId, 10);
       if (!Number.isInteger(id) || !profile) return fail(res, STATUS_CODES.BAD_REQUEST, "Campos requeridos: 'model_id' y 'profile'");
       if (!req.file) return fail(res, STATUS_CODES.BAD_REQUEST, "Falta el archivo 'photo'");
-      if (!security.hasUserProfile(req.user.id, profile) || !security.hasPermission({ sub_system: 'Flota', class: 'Catalogo', method: 'guardarModelo', profile })) {
-        return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
-      }
+      if (!security.hasUserProfile(req.user.id, profile)) return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
 
       const dbms = new DBMS();
       await dbms.init();
       const found = await dbms.executeNamedQuery({ nameQuery: 'fleetGetModel', params: { id } });
       const modelo = found?.rows?.[0];
       if (!modelo) return fail(res, STATUS_CODES.NOT_FOUND, `Modelo con id ${id} no encontrado`);
+      // Admin: cualquier modelo. Encargado: solo SU propuesta mientras esta pendiente.
+      const esAdmin = security.hasPermission({ sub_system: 'Flota', class: 'Catalogo', method: 'guardarModelo', profile });
+      const esSuPropuesta = modelo.status === 'PENDIENTE' && Number(modelo.proposed_by_user_id) === Number(req.user.id)
+        && security.hasPermission({ sub_system: 'Flota', class: 'Catalogo', method: 'proponerModelo', profile });
+      if (!esAdmin && !esSuPropuesta) return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
 
       const dir = path.join(UPLOADS_ROOT, String(id));
       await fs.mkdir(dir, { recursive: true });

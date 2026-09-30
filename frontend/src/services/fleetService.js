@@ -24,6 +24,9 @@ const TX = {
   ENCARGADOS_LISTAR: 200,
   ENCARGADO_ASIGNAR: 201,
   ENCARGADO_QUITAR: 202,
+  MODELO_PROPONER: 203,
+  MODELO_APROBAR: 204,
+  MODELO_RECHAZAR: 205,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -43,7 +46,12 @@ const unwrap = (res) => {
 const call = async (tx, data = {}) => {
   const res = await executeTransaction(tx, data);
   const code = res?.data?.statusCode;
-  if (code && code >= 400) throw new Error(res.data.message || "No se pudo completar la operación");
+  if (code && code >= 400) {
+    const err = new Error(res.data.message || "No se pudo completar la operación");
+    err.status = code;
+    err.detail = res.data.error; // ej. { duplicado_id } cuando el modelo ya existe
+    throw err;
+  }
   return unwrap(res);
 };
 
@@ -82,6 +90,11 @@ const fleetService = {
   listarEncargados: () => call(TX.ENCARGADOS_LISTAR),
   asignarEncargado: (unit_ids, user_id) => call(TX.ENCARGADO_ASIGNAR, { unit_ids, user_id }),
   quitarEncargado: (unit_id) => call(TX.ENCARGADO_QUITAR, { unit_id }),
+
+  // Modelos propuestos por los encargados (quedan pendientes hasta que un admin los revisa)
+  proponerModelo: (modelo) => call(TX.MODELO_PROPONER, modelo),
+  aprobarModelo: (id) => call(TX.MODELO_APROBAR, { id }),
+  rechazarModelo: (id, { nota, fusionar_con_id } = {}) => call(TX.MODELO_RECHAZAR, { id, nota, fusionar_con_id }),
   subirFotoModelo: async (modelId, file) => {
     const formData = new FormData();
     formData.append("model_id", modelId);

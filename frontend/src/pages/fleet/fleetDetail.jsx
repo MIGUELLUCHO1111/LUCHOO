@@ -208,7 +208,7 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
           <select value={modelId} onChange={(e) => { setModelId(e.target.value); setVersionId(""); }} className={inputCls}>
             <option value="">— Sin modelo del catálogo —</option>
             {Object.entries(porMarca).map(([marca, modelos]) => (
-              <optgroup key={marca} label={marca}>{modelos.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>
+              <optgroup key={marca} label={marca}>{modelos.map((m) => <option key={m.id} value={m.id}>{m.name}{m.status === "PENDIENTE" ? " (pendiente de aprobación)" : ""}</option>)}</optgroup>
             ))}
           </select>
           {modeloSel?.versions?.length > 0 && (
@@ -217,7 +217,7 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
               {modeloSel.versions.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
           )}
-          <p className="text-[11px] text-slate-400">{catalogo.length ? "Si falta el modelo, se crea en Flota → Catálogo de Modelos." : "El catálogo está vacío: crea los modelos en Flota → Catálogo de Modelos."}</p>
+          <p className="text-[11px] text-slate-400">{unit.es_admin ? (catalogo.length ? "Si falta el modelo, se crea en Flota → Catálogo de Modelos." : "El catálogo está vacío: crea los modelos en Flota → Catálogo de Modelos.") : "Si falta el modelo, propónlo en Flota → Catálogo de Modelos (queda pendiente hasta que un admin lo apruebe)."}</p>
         </div>
       );
     if (t === "fleet")

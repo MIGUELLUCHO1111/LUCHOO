@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { LayoutGrid, Plus, Search, X, Upload, ImagePlus, Link2, Unlink, Pencil, Archive, Check, Gauge, Layers, Truck, ArrowUpRight } from "lucide-react";
+import { LayoutGrid, Plus, Search, X, Upload, ImagePlus, Link2, Unlink, Pencil, Archive, Check, Gauge, Layers, Truck, ArrowUpRight, Hourglass, GitMerge, Ban, Lightbulb } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,66 @@ import FamilyManager from "./fleetFamilies";
 
 const METER_LABEL = { KM: "Kilometraje", HORAS: "Horómetro", AMBOS: "Km + horas" };
 const FUELS = ["Gasoil", "Gasolina", "Gas", "Eléctrico"];
+
+// "GROVE RT-760E" y "Grove RT760E" son el mismo modelo (misma regla que el backend).
+const norm = (v) => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const keyOf = (m) => norm(m.brand_name) + "|" + norm(m.name);
+/** Modelos parecidos: mismo nombre normalizado, o uno contiene al otro dentro de la misma marca. */
+const similares = (models, brand, name, exceptId) => {
+  const b = norm(brand), n = norm(name);
+  if (!n || n.length < 2) return [];
+  return models.filter((m) => String(m.id) !== String(exceptId) && m.status !== "RECHAZADO" && (keyOf(m) === b + "|" + n || ((!b || norm(m.brand_name) === b) && (norm(m.name).includes(n) || n.includes(norm(m.name))) && Math.min(n.length, norm(m.name).length) >= 3)));
+};
+
+// Aprobar, fusionar con uno existente o rechazar una propuesta (admin).
+const ReviewActions = ({ model, models, onDone, compact = false }) => {
+  const [mode, setMode] = useState(null);
+  const [target, setTarget] = useState("");
+  const [nota, setNota] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const activos = models.filter((m) => m.status === "ACTIVO");
+  const parecidos = similares(activos, model.brand_name, model.name, model.id).map((m) => String(m.id));
+  const opciones = [...activos].sort((a, b) => Number(parecidos.includes(String(b.id))) - Number(parecidos.includes(String(a.id))));
+  const run = async (fn) => {
+    setBusy(true);
+    setError(null);
+    try { await fn(); onDone(); } catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="space-y-2">
+      <div className={`flex flex-wrap gap-2 ${compact ? "" : "justify-end"}`}>
+        <button type="button" disabled={busy} onClick={() => run(() => fleetService.aprobarModelo(model.id))} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white"><Check size={13} /> Aprobar</button>
+        <button type="button" onClick={() => { setMode(mode === "merge" ? null : "merge"); setTarget(parecidos[0] || ""); }} className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold ${mode === "merge" ? "bg-brand-navy text-white" : "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-200"}`}><GitMerge size={13} /> Fusionar</button>
+        <button type="button" onClick={() => setMode(mode === "reject" ? null : "reject")} className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold ${mode === "reject" ? "bg-red-600 text-white" : "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-200"}`}><Ban size={13} /> Rechazar</button>
+      </div>
+      <AnimatePresence>
+        {mode === "merge" && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <div className="flex gap-2 pt-1">
+              <select value={target} onChange={(e) => setTarget(e.target.value)} className={inputCls}>
+                <option value="">Elige el modelo existente…</option>
+                {opciones.map((m) => <option key={m.id} value={m.id}>{parecidos.includes(String(m.id)) ? "★ " : ""}{m.brand_name} {m.name}</option>)}
+              </select>
+              <Button disabled={!target || busy} onClick={() => run(() => fleetService.rechazarModelo(model.id, { fusionar_con_id: Number(target), nota: "Fusionado con un modelo existente" }))} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">Fusionar</Button>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Sus unidades pasan al modelo elegido. ★ = nombre parecido.</p>
+          </motion.div>
+        )}
+        {mode === "reject" && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <div className="flex gap-2 pt-1">
+              <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Motivo (lo verá el encargado)" className={inputCls} />
+              <Button disabled={busy} onClick={() => run(() => fleetService.rechazarModelo(model.id, { nota }))} className="rounded-xl bg-red-600 hover:bg-red-700 text-white">Rechazar</Button>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Sus unidades quedan sin modelo del catálogo.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+};
 
 // ---------- Foto o ilustracion ----------
 const ModelImage = ({ model, className = "", iconClass }) =>
@@ -58,6 +118,9 @@ const ModelCard = ({ model, onOpen, index }) => {
           <CategoryGlyph category={model.category} className="w-4 h-3.5" /> {categoryLabel(model.category)}
         </span>
         <span className="absolute top-3 right-3 rounded-full bg-black/50 backdrop-blur px-2.5 py-1 text-[10px] font-bold text-white">{METER_LABEL[model.meter_type]}</span>
+        {model.status === "PENDIENTE" && (
+          <span className="absolute left-0 right-0 top-12 mx-3 inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/90 backdrop-blur px-2 py-1 text-[10px] font-bold text-white shadow"><Hourglass size={11} /> Pendiente de aprobación{model.mio ? " · tu propuesta" : ""}</span>
+        )}
         {!model.photo_url && (
           <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-full bg-white/80 dark:bg-black/50 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-200"><ImagePlus size={11} /> Sin foto</span>
         )}
@@ -84,7 +147,9 @@ const ModelCard = ({ model, onOpen, index }) => {
 };
 
 // ---------- Formulario de modelo ----------
-const ModelForm = ({ model, brands, categories, onCancel, onSaved, onManageFamilies }) => {
+const ModelForm = ({ model, brands, categories, onCancel, onSaved, onManageFamilies, propose = false, models = [], myUnits = [], onOpenExisting }) => {
+  const [unitId, setUnitId] = useState("");
+  const [dupId, setDupId] = useState(null);
   const [form, setForm] = useState(() => ({
     brand_name: model?.brand_name || "",
     name: model?.name || "",
@@ -112,10 +177,13 @@ const ModelForm = ({ model, brands, categories, onCancel, onSaved, onManageFamil
     setSaving(true);
     setError(null);
     try {
-      const res = await fleetService.guardarModelo({ ...(model?.id ? { id: model.id } : {}), ...form });
+      const res = propose
+        ? await fleetService.proponerModelo({ ...form, unit_id: unitId ? Number(unitId) : null })
+        : await fleetService.guardarModelo({ ...(model?.id ? { id: model.id } : {}), ...form });
       onSaved(res?.id || model?.id);
     } catch (err) {
       setError(err.message);
+      setDupId(err.detail?.duplicado_id || null);
     } finally {
       setSaving(false);
     }
@@ -123,6 +191,11 @@ const ModelForm = ({ model, brands, categories, onCancel, onSaved, onManageFamil
 
   return (
     <form onSubmit={save} className="space-y-4">
+      {propose && (
+        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-xs text-amber-800 dark:text-amber-300">
+          Tu propuesta queda <b>pendiente</b> hasta que un administrador la apruebe. Mientras tanto puedes usarla en tus unidades, pero los demás no la ven.
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className="block">
           <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Marca *</span>
@@ -134,6 +207,21 @@ const ModelForm = ({ model, brands, categories, onCancel, onSaved, onManageFamil
           <input required value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ej: RT760E" className={`${inputCls} mt-1`} />
         </label>
       </div>
+      {(() => {
+        const parecidos = similares(models, form.brand_name, form.name, model?.id).slice(0, 4);
+        return parecidos.length > 0 ? (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-4 py-3">
+            <p className="flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-brand-gold"><Lightbulb size={13} /> ¿Es alguno de estos? Así evitamos duplicados:</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {parecidos.map((m) => (
+                <button type="button" key={m.id} onClick={() => onOpenExisting?.(m.id)} className="rounded-lg bg-white dark:bg-black/30 px-2.5 py-1 text-xs font-bold text-slate-800 dark:text-white hover:ring-2 hover:ring-brand-gold">
+                  {m.brand_name} {m.name}{m.status === "PENDIENTE" ? " (pendiente)" : ""}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        ) : null;
+      })()}
 
       <div>
         <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Familia</span>
@@ -183,13 +271,22 @@ const ModelForm = ({ model, brands, categories, onCancel, onSaved, onManageFamil
         </div>
       </div>
 
+      {propose && myUnits.length > 0 && (
+        <label className="block">
+          <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Usarlo de una vez en mi unidad (opcional)</span>
+          <select value={unitId} onChange={(e) => setUnitId(e.target.value)} className={`${inputCls} mt-1`}>
+            <option value="">— Ninguna por ahora —</option>
+            {myUnits.map((u) => <option key={u.id} value={u.id}>{u.code} · {u.plate || "sin placa"}</option>)}
+          </select>
+        </label>
+      )}
       <label className="block"><span className="text-xs font-bold text-slate-600 dark:text-slate-300">Descripción</span><textarea rows={2} value={form.description} onChange={(e) => set("description", e.target.value)} className={`${inputCls} mt-1`} /></label>
 
       <div className="flex items-center justify-between gap-3 pt-2">
-        <p className="text-sm text-red-600">{error}</p>
+        <p className="text-sm text-red-600">{error}{dupId && onOpenExisting && <button type="button" onClick={() => onOpenExisting(dupId)} className="ml-2 font-bold underline">Ver el existente</button>}</p>
         <div className="flex gap-2">
           <Button type="button" variant="outline" className="rounded-xl" onClick={onCancel}>Cancelar</Button>
-          <Button type="submit" disabled={saving} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">{saving ? "Guardando…" : model?.id ? "Guardar cambios" : "Crear modelo"}</Button>
+          <Button type="submit" disabled={saving} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">{saving ? "Guardando…" : propose ? "Enviar propuesta" : model?.id ? "Guardar cambios" : "Crear modelo"}</Button>
         </div>
       </div>
     </form>
@@ -259,7 +356,9 @@ const UnitPicker = ({ model, units, onDone }) => {
 };
 
 // ---------- Panel del modelo ----------
-const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onManageFamilies, isAdmin = true, startEditing = false }) => {
+const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onManageFamilies, isAdmin = true, startEditing = false, models = [], onOpenExisting }) => {
+  const canPhoto = isAdmin || (model?.mio && model?.status === "PENDIENTE");
+  const propose = !isAdmin;
   const navigate = useNavigate();
   const confirm = useConfirm();
   const fileRef = useRef(null);
@@ -303,12 +402,12 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
             className={`relative h-72 shrink-0 overflow-hidden ${dragging ? "ring-4 ring-inset ring-brand-gold" : ""}`}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
-            onDrop={(e) => { e.preventDefault(); setDragging(false); if (isAdmin) upload(e.dataTransfer.files?.[0]); }}
+            onDrop={(e) => { e.preventDefault(); setDragging(false); if (canPhoto) upload(e.dataTransfer.files?.[0]); }}
           >
             <ModelImage model={model} className="absolute inset-0 w-full h-full" iconClass="w-1/2" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/30" />
             <button onClick={onClose} className="absolute top-4 right-4 h-9 w-9 rounded-xl bg-black/40 backdrop-blur text-white flex items-center justify-center hover:bg-black/60"><X size={18} /></button>
-            <button onClick={() => fileRef.current?.click()} className={`${isAdmin ? "" : "hidden"} absolute top-4 left-4 inline-flex items-center gap-2 rounded-xl bg-white/90 dark:bg-black/60 backdrop-blur px-3 py-2 text-xs font-bold text-slate-900 dark:text-white hover:bg-white`}>
+            <button onClick={() => fileRef.current?.click()} className={`${canPhoto ? "" : "hidden"} absolute top-4 left-4 inline-flex items-center gap-2 rounded-xl bg-white/90 dark:bg-black/60 backdrop-blur px-3 py-2 text-xs font-bold text-slate-900 dark:text-white hover:bg-white`}>
               <Upload size={14} /> {uploading ? "Subiendo…" : model.photo_url ? "Cambiar foto" : "Subir foto"}
             </button>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
@@ -322,7 +421,7 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
         )}
         {isNew && (
           <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-white/5">
-            <h3 className="font-display text-xl text-slate-900 dark:text-white">Nuevo modelo</h3>
+            <h3 className="font-display text-xl text-slate-900 dark:text-white">{propose ? "Proponer un modelo" : "Nuevo modelo"}</h3>
             <button onClick={onClose} className="h-9 w-9 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"><X size={18} /></button>
           </div>
         )}
@@ -330,7 +429,7 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {error && <p className="text-sm text-red-600">{error}</p>}
           {mode === "edit" ? (
-            <ModelForm model={model} brands={brands} categories={categories} onManageFamilies={onManageFamilies} onCancel={() => (isNew ? onClose() : setMode("view"))} onSaved={(id) => { setMode("view"); onChanged(id); }} />
+            <ModelForm model={model} brands={brands} categories={categories} onManageFamilies={isAdmin ? onManageFamilies : undefined} propose={propose && !model?.id} models={models} myUnits={units.filter((u) => u.puede_editar)} onOpenExisting={onOpenExisting} onCancel={() => (isNew ? onClose() : setMode("view"))} onSaved={(id) => { setMode("view"); onChanged(id); }} />
           ) : mode === "assign" ? (
             <div>
               <h3 className="font-display text-lg text-slate-900 dark:text-white mb-3">Asociar unidades a este modelo</h3>
@@ -338,6 +437,13 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
             </div>
           ) : (
             <>
+              {model.status === "PENDIENTE" && (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
+                  <p className="flex items-center gap-2 text-sm font-bold text-amber-800 dark:text-amber-300"><Hourglass size={15} /> Pendiente de aprobación</p>
+                  <p className="text-xs text-amber-800/80 dark:text-amber-300/80">Propuesto por {model.proposed_by_name || "un encargado"}{model.proposed_at ? ` el ${new Date(model.proposed_at).toLocaleDateString("es-VE")}` : ""}. Solo lo ven quien lo propuso y los administradores.</p>
+                  {isAdmin && <ReviewActions model={model} models={models} onDone={() => onChanged(null, true)} compact />}
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   ["Se mide por", METER_LABEL[model.meter_type], Gauge],
@@ -444,6 +550,7 @@ const FleetCatalog = () => {
   }, [modelos, q, cat, brand, sort]);
 
   const open = modelos.find((m) => String(m.id) === String(openId));
+  const pendientes = modelos.filter((m) => m.status === "PENDIENTE");
 
   return (
     <PageLayout icon={LayoutGrid} title="Catálogo de Modelos" subtitle="FLOTA • MARCA, MODELO Y VERSIÓN DE CADA EQUIPO" maxWidth="max-w-[1400px]">
@@ -466,6 +573,32 @@ const FleetCatalog = () => {
           </div>
         </div>
       </div>
+
+      {/* Propuestas pendientes (admin) */}
+      {isAdmin && pendientes.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-amber-500/30 bg-amber-500/5 p-5 mb-6">
+          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300 mb-3"><Hourglass size={13} /> Modelos propuestos por encargados · {pendientes.length} por revisar</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {pendientes.map((m) => {
+              const parecidos = similares(modelos.filter((x) => x.status === "ACTIVO"), m.brand_name, m.name, m.id);
+              return (
+                <div key={m.id} className="rounded-2xl bg-white/80 dark:bg-[#0f1115]/80 border border-slate-100 dark:border-white/5 p-4 flex gap-4">
+                  <button type="button" onClick={() => setOpenId(m.id)} className="w-24 h-20 rounded-xl overflow-hidden shrink-0"><ModelImage model={m} className="w-full h-full" iconClass="w-3/4" /></button>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">{m.brand_name}</p>
+                      <p className="font-display text-lg text-slate-900 dark:text-white leading-tight truncate">{m.name}</p>
+                      <p className="text-[11px] text-slate-500">Por {m.proposed_by_name || "un encargado"} · {categoryLabel(m.category)} · {m.units?.length || 0} unidad(es)</p>
+                      {parecidos.length > 0 && <p className="text-[11px] font-bold text-amber-700 dark:text-brand-gold mt-1">Parecido a: {parecidos.map((x) => `${x.brand_name} ${x.name}`).join(", ")}</p>}
+                    </div>
+                    <ReviewActions model={m} models={modelos} onDone={load} compact />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
 
       {/* Familias */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
@@ -498,7 +631,7 @@ const FleetCatalog = () => {
           <option value="marca">Orden: marca y modelo</option>
           <option value="unidades">Orden: más unidades</option>
         </select>
-        {isAdmin && <Button onClick={() => setCreating(true)} className="h-11 rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white"><Plus size={16} /> Nuevo modelo</Button>}
+        <Button onClick={() => setCreating(true)} className="h-11 rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white"><Plus size={16} /> {isAdmin ? "Nuevo modelo" : "Proponer modelo"}</Button>
       </div>
 
       {loading ? (
@@ -534,6 +667,8 @@ const FleetCatalog = () => {
             units={units}
             onManageFamilies={() => setShowFamilies(true)}
             isAdmin={isAdmin}
+            models={modelos}
+            onOpenExisting={(id) => { setCreating(false); setOpenId(id); }}
             onClose={() => { setOpenId(null); setCreating(false); }}
             onChanged={async (id, closed) => {
               await load();

@@ -1511,7 +1511,7 @@
 
   # ========== FLOTA: CATALOGO DE MODELOS (044_fleet_catalog.sql) ==========
   'fleetCatalogModels': {
-    query: "SELECT m.id, m.name, m.category, m.body_type, m.capacity, m.fuel_type, m.meter_type, m.photo_url, m.description, m.created_at, b.id AS brand_id, b.name AS brand_name, COALESCE((SELECT json_agg(json_build_object('id', v.id, 'name', v.name) ORDER BY v.name) FROM public.fleet_model_version v WHERE v.model_id = m.id), '[]'::json) AS versions, COALESCE((SELECT json_agg(json_build_object('id', u.id, 'code', u.code, 'plate', u.plate, 'fleet_type', u.fleet_type, 'version_id', p.version_id) ORDER BY u.code) FROM public.fleet_unit_profile p JOIN public.fleet_unit u ON u.id = p.unit_id AND u.deleted_at IS NULL WHERE p.model_id = m.id), '[]'::json) AS units FROM public.fleet_model m JOIN public.fleet_brand b ON b.id = m.brand_id WHERE m.archived_at IS NULL ORDER BY b.name, m.name;",
+    query: "SELECT m.id, m.name, m.category, m.body_type, m.capacity, m.fuel_type, m.meter_type, m.photo_url, m.description, m.created_at, m.status, m.proposed_by_user_id, m.proposed_at, (SELECT COALESCE(NULLIF(TRIM(CONCAT_WS(' ', COALESCE(pe.first_name, pu.first_name), COALESCE(pe.last_name, pu.last_name))), ''), pu.name) FROM public.\"user\" pu LEFT JOIN public.person pe ON pe.id = pu.person_id WHERE pu.id = m.proposed_by_user_id) AS proposed_by_name, b.id AS brand_id, b.name AS brand_name, COALESCE((SELECT json_agg(json_build_object('id', v.id, 'name', v.name) ORDER BY v.name) FROM public.fleet_model_version v WHERE v.model_id = m.id), '[]'::json) AS versions, COALESCE((SELECT json_agg(json_build_object('id', u.id, 'code', u.code, 'plate', u.plate, 'fleet_type', u.fleet_type, 'version_id', p.version_id) ORDER BY u.code) FROM public.fleet_unit_profile p JOIN public.fleet_unit u ON u.id = p.unit_id AND u.deleted_at IS NULL WHERE p.model_id = m.id), '[]'::json) AS units FROM public.fleet_model m JOIN public.fleet_brand b ON b.id = m.brand_id WHERE m.archived_at IS NULL AND m.status <> 'RECHAZADO' ORDER BY b.name, m.name;",
     structure_params: {},
     orderArray: []
   },
@@ -1529,7 +1529,7 @@
   },
 
   'fleetGetModel': {
-    query: 'SELECT m.id, m.name, m.category, m.photo_url, m.archived_at, b.name AS brand_name FROM public.fleet_model m JOIN public.fleet_brand b ON b.id = m.brand_id WHERE m.id = $1;',
+    query: 'SELECT m.id, m.name, m.category, m.photo_url, m.archived_at, m.status, m.proposed_by_user_id, b.name AS brand_name FROM public.fleet_model m JOIN public.fleet_brand b ON b.id = m.brand_id WHERE m.id = $1;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
@@ -1661,6 +1661,46 @@
 
   'fleetGetService': {
     query: 'SELECT id, unit_id FROM public.fleet_unit_service WHERE id = $1 AND deleted_at IS NULL;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # ========== FLOTA: MODELOS PROPUESTOS (049_fleet_model_proposals.sql) ==========
+  'fleetInsertModelProposal': {
+    query: "INSERT INTO public.fleet_model (brand_id, name, category, body_type, capacity, fuel_type, meter_type, description, status, proposed_by_user_id, proposed_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDIENTE', $9, NOW()) RETURNING id;",
+    structure_params: { brand_id: 'int', name: 'string', category: 'string', body_type: 'string|null', capacity: 'string|null', fuel_type: 'string|null', meter_type: 'string', description: 'string|null', user_id: 'int' },
+    orderArray: ['brand_id', 'name', 'category', 'body_type', 'capacity', 'fuel_type', 'meter_type', 'description', 'user_id']
+  },
+
+  # Modelos vigentes (activos y pendientes) para detectar duplicados por nombre normalizado.
+  'fleetLiveModelNames': {
+    query: "SELECT m.id, m.name, m.status, b.name AS brand_name FROM public.fleet_model m JOIN public.fleet_brand b ON b.id = m.brand_id WHERE m.archived_at IS NULL AND m.status <> 'RECHAZADO';",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetApproveModel': {
+    query: "UPDATE public.fleet_model SET status = 'ACTIVO', reviewed_by = $2, reviewed_at = NOW(), review_note = NULL WHERE id = $1 AND status = 'PENDIENTE' RETURNING id, name;",
+    structure_params: { id: 'int', reviewed_by: 'string|null' },
+    orderArray: ['id', 'reviewed_by']
+  },
+
+  'fleetRejectModel': {
+    query: "UPDATE public.fleet_model SET status = 'RECHAZADO', reviewed_by = $2, reviewed_at = NOW(), review_note = $3, merged_into_id = $4::bigint WHERE id = $1 AND status = 'PENDIENTE' RETURNING id, name;",
+    structure_params: { id: 'int', reviewed_by: 'string|null', review_note: 'string|null', merged_into_id: 'string|null' },
+    orderArray: ['id', 'reviewed_by', 'review_note', 'merged_into_id']
+  },
+
+  # Al fusionar: las unidades del modelo propuesto pasan al modelo existente.
+  'fleetMoveModelUnits': {
+    query: 'UPDATE public.fleet_unit_profile SET model_id = $2, version_id = NULL, updated_at = NOW() WHERE model_id = $1 RETURNING unit_id;',
+    structure_params: { from_id: 'int', to_id: 'int' },
+    orderArray: ['from_id', 'to_id']
+  },
+
+  # Al rechazar sin fusionar: las unidades quedan sin modelo del catalogo.
+  'fleetUnlinkModelUnits': {
+    query: 'UPDATE public.fleet_unit_profile SET model_id = NULL, version_id = NULL, updated_at = NOW() WHERE model_id = $1 RETURNING unit_id;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   }

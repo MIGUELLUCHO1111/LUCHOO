@@ -185,3 +185,6 @@ id;sub_system;class;method;profile
 200;Flota;Encargado;listarEncargados;admin
 201;Flota;Encargado;asignarEncargado;admin
 202;Flota;Encargado;quitarEncargado;admin
+203;Flota;Catalogo;proponerModelo;admin,encargado_flota
+204;Flota;Catalogo;aprobarModelo;admin
+205;Flota;Catalogo;rechazarModelo;admin
