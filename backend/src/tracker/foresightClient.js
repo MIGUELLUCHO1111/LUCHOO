@@ -121,6 +121,14 @@ export default class ForesightClient {
       Speed: null,
       Ignition: r.ignition === 'true' || r.ignition === true,
       LastTime: r.lasttime,
+      // Para explicar las unidades "sin senal" (pedido de Lguerra, 30/09/2026):
+      // bateria del equipo GPS (%), bateria del vehiculo, satelites y si la
+      // ultima posicion fue valida, tal como los muestra el panel GEvolution.
+      BatteryLevel: r.batterylevel != null && r.batterylevel !== '' ? Number(r.batterylevel) : null,
+      VehicleBattery: r.vehiclebattery != null && r.vehiclebattery !== '' ? Number(r.vehiclebattery) : null,
+      NumSatellite: r.numsatellite != null && r.numsatellite !== '' ? Number(r.numsatellite) : null,
+      ValidGps: r.validgps == null ? null : r.validgps === 'true' || r.validgps === true,
+      StatusName: r.status || null,
     }));
   }
 

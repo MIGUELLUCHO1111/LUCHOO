@@ -22,6 +22,7 @@ import {
   fleetTypeBadgeClass,
   horasSinConexion,
   formatHoras,
+  motivoSinSenal,
 } from "@/lib/trackerFormat";
 
 const Tracker = () => {
@@ -182,14 +183,19 @@ const Tracker = () => {
   };
 
   const total = snapshots.length;
-  const activeUnits = snapshots.filter((s) => s.status === "ACTIVO" && !s.is_stale);
-  const parkedUnits = snapshots.filter((s) => s.status === "ESTACIONADO" && !s.is_stale);
+  // Las unidades sin senal suman en su ultimo estado conocido (activa o
+  // estacionada), como en el modelo interno (pedido de Lguerra, 30/09/2026);
+  // el bloque "sin senal" sigue aparte para revisarlas en sitio.
+  const activeUnits = snapshots.filter((s) => s.status === "ACTIVO");
+  const parkedUnits = snapshots.filter((s) => s.status !== "ACTIVO");
   const staleUnits = snapshots
     .filter((s) => s.is_stale)
     .sort((a, b) => new Date(a.last_report_at || 0) - new Date(b.last_report_at || 0));
   const activas = activeUnits.length;
   const estacionadas = parkedUnits.length;
   const sinSenal = staleUnits.length;
+  const staleActivas = staleUnits.filter((s) => s.status === "ACTIVO").length;
+  const staleEstacionadas = sinSenal - staleActivas;
 
   // Barra de filtros de un bloque: buscar por unidad/placa, y acotar por
   // flota o por categoria de ubicacion -- independiente por bloque.
@@ -263,7 +269,14 @@ const Tracker = () => {
           <span className="truncate">{s.location_text || "-"}</span>
         </div>
       </TableCell>
-      <TableCell className="text-sm whitespace-nowrap">{formatHora(s.last_report_at)}</TableCell>
+      <TableCell className="text-sm whitespace-nowrap">
+        {formatHora(s.last_report_at)}
+        {s.is_stale && (
+          <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600" title={motivoSinSenal(s).texto}>
+            sin señal · {formatHoras(horasSinConexion(s.last_report_at))}
+          </span>
+        )}
+      </TableCell>
     </TableRow>
   );
 
@@ -295,14 +308,17 @@ const Tracker = () => {
           <Card className="px-5 py-3 border-emerald-200 dark:border-emerald-500/20">
             <div className="text-[11px] font-bold text-emerald-600 uppercase">Activas</div>
             <div className="text-2xl font-black text-emerald-600">{activas}</div>
+            {staleActivas > 0 && <div className="text-[10px] font-bold text-amber-600">incluye {staleActivas} sin señal</div>}
           </Card>
           <Card className="px-5 py-3 border-red-200 dark:border-red-500/20">
             <div className="text-[11px] font-bold text-red-600 uppercase">Estacionadas</div>
             <div className="text-2xl font-black text-red-600">{estacionadas}</div>
+            {staleEstacionadas > 0 && <div className="text-[10px] font-bold text-amber-600">incluye {staleEstacionadas} sin señal</div>}
           </Card>
           <Card className="px-5 py-3 border-amber-200 dark:border-amber-500/20">
             <div className="text-[11px] font-bold text-amber-600 uppercase">Sin señal reciente</div>
             <div className="text-2xl font-black text-amber-600">{sinSenal}</div>
+            {sinSenal > 0 && <div className="text-[10px] font-bold text-slate-400">{staleEstacionadas} estacionada(s) · {staleActivas} activa(s)</div>}
           </Card>
         </div>
 
@@ -403,9 +419,14 @@ const Tracker = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Unidad</TableHead>
+                  <TableHead>Flota</TableHead>
                   <TableHead>Placa</TableHead>
+                  <TableHead>Conductor</TableHead>
+                  <TableHead>Ubicación</TableHead>
+                  <TableHead>Último estado</TableHead>
                   <TableHead>Última conexión</TableHead>
-                  <TableHead>Horas sin conexión</TableHead>
+                  <TableHead>Sin conexión</TableHead>
+                  <TableHead>Motivo probable</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -414,14 +435,14 @@ const Tracker = () => {
                   if (loadingSnapshots) {
                     return (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-slate-400">Cargando...</TableCell>
+                        <TableCell colSpan={9} className="text-center py-8 text-slate-400">Cargando...</TableCell>
                       </TableRow>
                     );
                   }
                   if (filteredStale.length === 0) {
                     return (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-slate-400">
+                        <TableCell colSpan={9} className="text-center py-8 text-slate-400">
                           {staleUnits.length === 0 ? "Todas las unidades reportaron recientemente." : "Ningún resultado con estos filtros."}
                         </TableCell>
                       </TableRow>
@@ -432,12 +453,33 @@ const Tracker = () => {
                       <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
                         {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
                       </TableCell>
+                      <TableCell className="text-sm">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(s.fleet_type)}`}>{fleetTypeLabel(s.fleet_type)}</span>
+                      </TableCell>
                       <TableCell className="text-sm">{s.plate || "-"}</TableCell>
-                      <TableCell className="text-sm">{formatHora(s.last_report_at)}</TableCell>
+                      <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
+                      <TableCell className="text-sm max-w-xs">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${CATEGORY_STYLES[s.location_category] || CATEGORY_STYLES.OTRAS}`}>{s.location_category}</span>
+                          <span className="truncate" title={s.location_text || ""}>{s.location_text || "-"}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${s.status === "ACTIVO" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}>
+                          {s.status === "ACTIVO" ? "Activa" : "Estacionada"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm whitespace-nowrap">{formatHora(s.last_report_at)}</TableCell>
+                      <TableCell>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 whitespace-nowrap">
                           {formatHoras(horasSinConexion(s.last_report_at))}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[260px]">
+                        {(() => {
+                          const m = motivoSinSenal(s);
+                          return <span className={m.tono === "red" ? "text-red-600 font-bold" : m.tono === "amber" ? "text-amber-700 dark:text-amber-400 font-bold" : "text-slate-500"}>{m.texto}</span>;
+                        })()}
                       </TableCell>
                     </TableRow>
                   ));

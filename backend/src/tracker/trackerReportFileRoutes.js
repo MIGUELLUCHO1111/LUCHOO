@@ -2,6 +2,10 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Config from '../../config/config.js';
+import Security from '../security/security.js';
+import Reporte from '../bo/sub_system/classes/reporte.js';
+import { buildModeloInternoWorkbook, buildModeloInternoHtml, modeloInternoFileName } from './modeloInterno.js';
+import { renderReportOutputs } from './reportRenderer.js';
 
 // Ruta aparte del dispatcher JSON (mismo espíritu que trackerAttachmentRoutes.js):
 // descarga del Excel de un Reporte de Turno ya generado y guardado por
@@ -42,6 +46,44 @@ router.get('/reports/file/:fecha/:filename', async (req, res) => {
       res.status(STATUS_CODES.NOT_FOUND).json({ statusCode: STATUS_CODES.NOT_FOUND, message: 'Archivo no encontrado' });
     }
   });
+});
+
+// GET /tracker/modelo-interno?turno=MATUTINO&formato=xlsx|pdf&profile=admin
+// Reporte de turno "como el modelo interno" (provisional, pedido de Lguerra
+// 30/09/2026): mismo formato que el que se genera en el chat
+// (src/tracker/modeloInterno.js), con los datos del momento (enVivo).
+const security = new Security();
+const TURNOS_OK = ['MATUTINO', 'VESPERTINO', 'NOCTURNO'];
+router.get('/modelo-interno', async (req, res) => {
+  const fail = (statusCode, message) => res.status(statusCode).json({ statusCode, message });
+  if (!req.user) return fail(STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+  const turno = String(req.query.turno || '').toUpperCase();
+  const formato = String(req.query.formato || 'xlsx').toLowerCase();
+  const profile = String(req.query.profile || '');
+  if (!TURNOS_OK.includes(turno)) return fail(STATUS_CODES.BAD_REQUEST, 'Turno inválido (MATUTINO, VESPERTINO o NOCTURNO)');
+  if (!['xlsx', 'pdf'].includes(formato)) return fail(STATUS_CODES.BAD_REQUEST, 'Formato inválido (xlsx o pdf)');
+  if (!security.hasUserProfile(req.user.id, profile) || !security.hasPermission({ sub_system: 'Tracker', class: 'Reporte', method: 'generarReporte', profile })) {
+    return fail(STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
+  }
+  try {
+    const { data } = await new Reporte().generarReporte({ turno, enVivo: true });
+    const now = new Date();
+    const filename = modeloInternoFileName(data, formato, now);
+    let buffer;
+    if (formato === 'xlsx') {
+      buffer = Buffer.from(await buildModeloInternoWorkbook(data).xlsx.writeBuffer());
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    } else {
+      ({ pdfBuffer: buffer } = await renderReportOutputs(buildModeloInternoHtml(data, now), { width: 900 }));
+      res.setHeader('Content-Type', 'application/pdf');
+    }
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+    return res.send(buffer);
+  } catch (error) {
+    console.error('[Tracker] Error generando el modelo interno:', error);
+    return fail(STATUS_CODES.INTERNAL_SERVER_ERROR, 'No se pudo generar el reporte');
+  }
 });
 
 export default router;

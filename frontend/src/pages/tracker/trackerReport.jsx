@@ -16,6 +16,7 @@ import {
 import { PageLayout } from "@/components/layout/PageLayout";
 import { formatHora, formatFechaISO, TURNOS, detectTurnoActual, veTodayISO } from "@/lib/trackerFormat";
 import { useConfirm } from "@/context";
+import ModeloInternoDownload from "./modeloInternoDownload";
 
 // Los DATE de Postgres llegan como ISO con hora (medianoche UTC) -- esto se
 // queda solo con "YYYY-MM-DD" para comparar/usar como parámetro de fecha.
@@ -527,6 +528,9 @@ const TrackerReport = () => {
           {anexoMessage && <p className="text-xs text-slate-500 dark:text-slate-400">{anexoMessage}</p>}
         </div>
       </div>
+
+      {/* Provisional (pedido de Lguerra, 30/09/2026): descarga como el modelo interno */}
+      <ModeloInternoDownload />
     </PageLayout>
   );
 };

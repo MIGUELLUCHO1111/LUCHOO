@@ -45,6 +45,17 @@ const unwrap = (res) => {
 };
 
 const trackerService = {
+  /**
+   * Reporte de turno "como el modelo interno" (provisional): descarga el
+   * Excel o el PDF con los datos del momento. Devuelve { blob, filename }.
+   */
+  descargarModeloInterno: async (turno, formato = "xlsx") => {
+    const res = await api.get("/tracker/modelo-interno", { params: { turno, formato, profile: getCurrentProfile() }, responseType: "blob", timeout: 120000 });
+    const cd = res.headers?.["content-disposition"] || "";
+    const filename = (cd.match(/filename="([^"]+)"/) || [])[1] || `Reporte_Tracker_${turno}_formato_interno.${formato}`;
+    return { blob: res.data, filename };
+  },
+
   getAllUnidades: async () => unwrap(await executeTransaction(TX.GET_ALL_UNIDADES, {})),
   createUnidad: async (data) => unwrap(await executeTransaction(TX.CREATE_UNIDAD, data)),
   updateUnidad: async (id, data) => unwrap(await executeTransaction(TX.UPDATE_UNIDAD, { id, ...data })),

@@ -47,6 +47,8 @@ Vista en vivo: total, activas, estacionadas, sin señal reciente — todo sale d
 ### Gestión de Unidades
 Registro interno placa–unidad–conductor–tipo de flota (LIVIANA/PESADA), es solo referencia, no participa en los conteos. **Las unidades nuevas se auto-registran solas** apenas aparece su placa por primera vez en la API (usa el código que ya le pone la plataforma, `raw.Name`, y "ROTATIVO" de conductor por defecto) — pedido de Lguerra, 18/09/2026. Ya no queda nada "sin registrar" esperando que alguien lo note.
 
+- **Unidades sin señal (30/09/2026):** en Estado de Flota cada unidad sin señal suma en su **último estado** (Activas/Estacionadas incluyen las sin señal, con "incluye N sin señal"); el bloque "sin señal" muestra todas las columnas + último estado, última conexión, tiempo sin conexión y **motivo probable** (`motivoSinSenal` en `frontend/src/lib/trackerFormat.js`: evento "Desconexión de alimentación", batería del vehículo en V, batería interna del equipo en %, satélites, >7 días). Para eso `foresightClient.getCurrentUnitsStatus` guarda además `BatteryLevel`, `VehicleBattery`, `NumSatellite`, `ValidGps`, `StatusName` en `raw_response` y `getLatestSnapshots` los devuelve. El reporte de turno de la app NO cambió (sigue separando "Sin señal").
+
 ### Mapa en Vivo (`/tracker/map`)
 Mapa Leaflet con un marcador por unidad coloreado por estado, refresco automático cada 30s. El mapa va **primero** en la página, el selector de Recorridos debajo (pedido explícito).
 
@@ -112,10 +114,12 @@ Ver la sección siguiente — **hay DOS formatos de reporte, no confundirlos.**
 ### 2. Reporte "modelo interno"
 - Formato Excel aparte que replica el diseño manual que usaban antes de la app (mismo layout, mismas leyendas de color).
 - **Mantiene el orden natural de las unidades — nunca se ordena por categoría de ubicación** (eso es exclusivo del reporte de la app). Se corrigió una vez porque se había ordenado mal por asumir que compartían esa lógica.
-- **Formato (30/09/2026, pedido de Lguerra):** igual al Excel manual `Reporte_Tracker_MATUTINO_21092026.xlsx`: leyenda con colores de relleno (tema Office 2007-2010 al 80%, ya en RGB), bordes medianos en encabezado/indicadores/leyenda, "ESTACIONADO" en D8:D9 y "ACTIVO" en E8:F9, y la tabla como **Tabla de Excel estilo TableStyleLight16** (bordes azules finos y filtros). En "Otras direcciones", las largas (>40) o con "CERCA DE" se resumen en **calle o avenida, municipio, estado** (sin las palabras "Municipio"/"Estado", sacados de `location_raw`); las cortas quedan igual; la columna D usa "Reducir hasta ajustar".
+- **Formato (30/09/2026, pedido de Lguerra):** igual al Excel manual `Reporte_Tracker_MATUTINO_21092026.xlsx`: leyenda con colores de relleno (tema Office 2007-2010 al 80%, ya en RGB), bordes medianos **blancos** en encabezado/indicadores/leyenda, "ESTACIONADO" en D8:D9 y "ACTIVO" en E8:F9, y la tabla como **Tabla de Excel estilo TableStyleLight16** (bordes azules finos y filtros). En "Otras direcciones", las largas (>40) o con "CERCA DE" se resumen en **calle o avenida, municipio, estado** (sin las palabras "Municipio"/"Estado", sacados de `location_raw`); las cortas quedan igual; la columna D usa "Reducir hasta ajustar".
 - **Solo tiene Activas y Estacionadas, sin casilla "sin señal"** (25/09/2026): las unidades sin señal cuentan según su último estado conocido, así Activas + Estacionadas = Total. El reporte de la app sí las separa en "Sin señal".
 - **Nunca se guarda ni se comitea** — se genera con un script de un solo uso, se envía, y se borra.
 - Se pide con frases como "dame el reporte como el modelo interno".
+
+**Desde el 30/09/2026 el formato vive en `backend/src/tracker/modeloInterno.js`** (`buildModeloInternoWorkbook` para Excel y `buildModeloInternoHtml` para PDF): la plantilla `build_modelo_interno.template.mjs` ya solo lo importa, y la app lo descarga desde **Reportes de Turno → "Descargar reporte de turno como el modelo interno" (provisional, Excel y PDF)** por `GET /tracker/modelo-interno?turno=&formato=xlsx|pdf&profile=` (permiso `Tracker.Reporte.generarReporte`, datos en vivo). Cualquier cambio de formato se hace en el módulo, no en la plantilla.
 
 **IMPORTANTE — no recrear el script de memoria.** Las plantillas EXACTAS
 (byte a byte, ya probadas y aprobadas por el usuario) están versionadas en

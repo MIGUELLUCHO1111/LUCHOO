@@ -110,3 +110,22 @@ export function formatFechaISO(fechaStr) {
   if (!y || !m || !d) return fechaStr;
   return `${d}/${m}/${y}`;
 }
+
+// Motivo probable de que una unidad este "sin senal", con los datos que manda
+// el GPS en su ultima lectura (pedido de Lguerra, 30/09/2026): evento del
+// equipo, bateria del vehiculo (V), bateria interna del equipo (%), satelites
+// y dias sin reportar. Es una estimacion para orientar la revision en sitio.
+export function motivoSinSenal(s) {
+  const evento = String(s.gps_status_name || "").toLowerCase();
+  const vVehiculo = s.vehicle_battery != null && s.vehicle_battery !== "" ? Number(s.vehicle_battery) : null;
+  const bEquipo = s.battery_level != null && s.battery_level !== "" ? Number(s.battery_level) : null;
+  const sat = s.num_satellite != null && s.num_satellite !== "" ? Number(s.num_satellite) : null;
+  const horas = horasSinConexion(s.last_report_at);
+  if (evento.includes("desconex")) return { texto: `Se desconectó la alimentación del equipo GPS${vVehiculo != null ? ` (batería del vehículo ${vVehiculo} V)` : ""}`, tono: "red" };
+  if (vVehiculo === 0) return { texto: "Sin alimentación del vehículo (0 V): batería desconectada o descargada", tono: "red" };
+  if (vVehiculo != null && vVehiculo < 10) return { texto: `Batería del vehículo baja (${vVehiculo} V)`, tono: "red" };
+  if (bEquipo != null && bEquipo <= 15) return { texto: `Batería interna del equipo GPS agotada (${bEquipo}%)`, tono: "red" };
+  if (s.valid_gps === "false" || (sat != null && sat < 4)) return { texto: `Sin cobertura de satélites${sat != null ? ` (${sat})` : ""}`, tono: "amber" };
+  if (horas != null && horas > 7 * 24) return { texto: "Más de 7 días sin reportar con batería normal: equipo apagado, retirado o sin cobertura", tono: "amber" };
+  return { texto: "Última señal normal: posible zona sin cobertura celular", tono: "slate" };
+}
