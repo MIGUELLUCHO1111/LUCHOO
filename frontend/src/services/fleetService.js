@@ -53,6 +53,16 @@ const fleetService = {
   getAjustes: () => call(TX.GET_AJUSTES),
   guardarAjustes: (ajustes) => call(TX.GUARDAR_AJUSTES, ajustes),
 
+  /** Adjunta el archivo (PDF o foto) de un documento ya creado. */
+  subirArchivoDocumento: async (documentId, file) => {
+    const formData = new FormData();
+    formData.append("document_id", documentId);
+    formData.append("profile", getCurrentProfile());
+    formData.append("file", file);
+    const res = await api.post("/fleet/documents/file", formData, { headers: { "Content-Type": undefined } });
+    return res?.data?.data;
+  },
+
   // Catálogo de modelos (marca -> modelo -> versión, con foto)
   catalogo: () => call(TX.CATALOGO_LISTAR),
   guardarModelo: (modelo) => call(TX.CATALOGO_GUARDAR_MODELO, modelo),

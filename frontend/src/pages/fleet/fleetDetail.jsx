@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ArrowLeft, Pencil, Gauge, User, MapPin, Phone, FileText, Wrench, StickyNote, Activity,
-  Radio, Plus, Trash2, X, Fingerprint, Fuel, Cpu, Repeat, History, ShieldCheck,
+  Radio, Plus, Trash2, X, Fingerprint, Fuel, Cpu, Repeat, History,
 } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { Card } from "@/components/ui/card";
@@ -13,20 +13,10 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import {
   STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, FLEET_LABEL, Field, inputCls,
-  fmtKm, fmtMoney, fmtDate, fmtDateTime, initials, haceCuanto, maintProgress, TONE, docTone,
+  fmtKm, fmtMoney, fmtDate, fmtDateTime, initials, haceCuanto, maintProgress, TONE,
 } from "./fleetParts";
 import { categoryLabel } from "./fleetArt";
-
-// Documentos venezolanos de uso comun (consejo recibido 30/09/2026).
-const DOC_TYPES = [
-  ["RCV", "RCV (Responsabilidad Civil)"],
-  ["INTT", "Certificado del INTT"],
-  ["PERMISO_CIRCULACION", "Permiso de circulación"],
-  ["POLIZA", "Póliza de seguro"],
-  ["REVISION", "Revisión técnica"],
-  ["OTRO", "Otro"],
-];
-const docTypeLabel = (t) => (DOC_TYPES.find(([k]) => k === t) || [null, t])[1];
+import DocumentsPanel from "./fleetDocuments";
 
 const EVENT_ICON = {
   CONDUCTOR: User, ESTADO: Activity, UBICACION: MapPin, ODOMETRO: Gauge, MANTENIMIENTO: Wrench,
@@ -284,96 +274,6 @@ const EditDrawer = ({ unit, onClose, onSaved }) => {
     </motion.div>,
     document.body,
     )
-  );
-};
-
-// ---------- Documentacion ----------
-const DocumentsPanel = ({ unit, alertDays, onChange }) => {
-  const confirm = useConfirm();
-  const [adding, setAdding] = useState(false);
-  const empty = { doc_type: "RCV", name: "", number: "", provider: "", issued_at: "", expires_at: "" };
-  const [form, setForm] = useState(empty);
-  const [error, setError] = useState(null);
-
-  const add = async (e) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      await fleetService.guardarDocumento(unit.id, { ...form, name: form.name || docTypeLabel(form.doc_type) });
-      setForm(empty);
-      setAdding(false);
-      onChange();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-  const remove = async (d) => {
-    if (!(await confirm(`¿Eliminar el documento "${d.name}"?`, { title: "Eliminar documento" }))) return;
-    await fleetService.eliminarDocumento(d.id);
-    onChange();
-  };
-
-  return (
-    <Panel>
-      <SectionTitle
-        icon={ShieldCheck}
-        right={
-          <button onClick={() => setAdding(!adding)} className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-navy dark:text-sky-300 hover:opacity-80">
-            {adding ? <X size={14} /> : <Plus size={14} />} {adding ? "Cancelar" : "Agregar documento"}
-          </button>
-        }
-      >
-        Documentación y seguros
-      </SectionTitle>
-
-      <AnimatePresence>
-        {adding && (
-          <motion.form initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} onSubmit={add} className="overflow-hidden">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pb-5">
-              <select value={form.doc_type} onChange={(e) => setForm({ ...form, doc_type: e.target.value })} className={inputCls}>
-                {DOC_TYPES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-              </select>
-              <input placeholder="Nombre (opcional)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
-              <input placeholder="Número / póliza" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} className={inputCls} />
-              <input placeholder="Emisor / aseguradora" value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} className={inputCls} />
-              <label className="text-xs text-slate-500">Emitido<input type="date" value={form.issued_at} onChange={(e) => setForm({ ...form, issued_at: e.target.value })} className={inputCls} /></label>
-              <label className="text-xs text-slate-500">Vence<input type="date" value={form.expires_at} onChange={(e) => setForm({ ...form, expires_at: e.target.value })} className={inputCls} /></label>
-              <div className="md:col-span-3 flex items-center justify-between">
-                <p className="text-sm text-red-600">{error}</p>
-                <Button type="submit" className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">Guardar documento</Button>
-              </div>
-            </div>
-          </motion.form>
-        )}
-      </AnimatePresence>
-
-      {unit.documentos.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 p-6 text-center">
-          <p className="text-sm text-slate-500">Sin documentos cargados.</p>
-          <p className="text-xs text-slate-400 mt-1">RCV, Certificado del INTT y Permiso de circulación avisan aquí cuando están por vencer.</p>
-        </div>
-      ) : (
-        <ul className="divide-y divide-slate-100 dark:divide-white/5">
-          {unit.documentos.map((d) => {
-            const tone = docTone(d.days_left, alertDays);
-            return (
-              <li key={d.id} className="py-3 flex items-center gap-4 group">
-                <span className="h-9 w-9 rounded-xl bg-violet-500/10 text-violet-600 flex items-center justify-center shrink-0"><FileText size={16} /></span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{d.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{[docTypeLabel(d.doc_type), d.number, d.provider].filter(Boolean).join(" · ")}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold ${tone.cls}`}>{tone.label}</span>
-                  {d.expires_at && <p className="text-[10px] text-slate-400 mt-1">{fmtDate(d.expires_at)}</p>}
-                </div>
-                <button onClick={() => remove(d)} className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity"><Trash2 size={15} /></button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Panel>
   );
 };
 

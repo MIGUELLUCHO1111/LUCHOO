@@ -85,4 +85,66 @@ router.get('/models/file/:modelId/:filename', async (req, res) => {
   });
 });
 
+// ---------- Archivo de cada documento de la ficha (PDF o foto) ----------
+const DOCS_ROOT = path.resolve(__dirname, '../../uploads/fleet/documents');
+const DOC_EXT = { ...MIME_EXT, 'application/pdf': '.pdf' };
+const uploadDoc = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => (DOC_EXT[file.mimetype] ? cb(null, true) : cb(new Error('INVALID_MIME'))),
+});
+
+// POST /fleet/documents/file — campos: document_id, profile, file.
+router.post('/documents/file', (req, res) => {
+  uploadDoc.single('file')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return fail(res, STATUS_CODES.BAD_REQUEST, uploadErr.message === 'INVALID_MIME' ? 'Tipo de archivo no permitido (solo PDF, JPG, PNG o WEBP)' : uploadErr.code === 'LIMIT_FILE_SIZE' ? 'El archivo pesa más de 10 MB' : uploadErr.message || 'Error al procesar el archivo');
+    }
+    try {
+      if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+      const { document_id: documentId, profile } = req.body || {};
+      const id = parseInt(documentId, 10);
+      if (!Number.isInteger(id) || !profile) return fail(res, STATUS_CODES.BAD_REQUEST, "Campos requeridos: 'document_id' y 'profile'");
+      if (!req.file) return fail(res, STATUS_CODES.BAD_REQUEST, "Falta el archivo 'file'");
+      if (!security.hasUserProfile(req.user.id, profile) || !security.hasPermission({ sub_system: 'Flota', class: 'Ficha', method: 'guardarDocumento', profile })) {
+        return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
+      }
+
+      const dbms = new DBMS();
+      await dbms.init();
+      const found = await dbms.executeNamedQuery({ nameQuery: 'fleetGetDocument', params: { id } });
+      const doc = found?.rows?.[0];
+      if (!doc) return fail(res, STATUS_CODES.NOT_FOUND, `Documento con id ${id} no encontrado`);
+
+      const dir = path.join(DOCS_ROOT, String(id));
+      await fs.mkdir(dir, { recursive: true });
+      const filename = `${randomUUID()}${DOC_EXT[req.file.mimetype]}`;
+      await fs.writeFile(path.join(dir, filename), req.file.buffer);
+      const url = `/fleet/documents/file/${id}/${filename}`;
+      const originalName = String(req.file.originalname || filename).slice(0, 200);
+      await dbms.executeNamedQuery({ nameQuery: 'fleetSetDocumentFile', params: { id, file_url: url, file_name: originalName, file_mime: req.file.mimetype } });
+
+      const prev = doc.file_url && doc.file_url.split('/').pop();
+      if (prev && SAFE_SEGMENT.test(prev) && prev !== filename) await fs.unlink(path.join(dir, prev)).catch(() => {});
+
+      return res.status(STATUS_CODES.CREATED).json({ statusCode: STATUS_CODES.CREATED, data: { id, file_url: url }, message: 'Archivo guardado' });
+    } catch (error) {
+      console.error('[Flota] Error subiendo archivo de documento:', error);
+      return fail(res, STATUS_CODES.INTERNAL_SERVER_ERROR, config.getMessage('es', 'server_error'));
+    }
+  });
+});
+
+// GET /fleet/documents/file/:docId/:filename — solo con sesion.
+router.get('/documents/file/:docId/:filename', async (req, res) => {
+  if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+  const { docId, filename } = req.params;
+  if (!SAFE_SEGMENT.test(docId) || !SAFE_SEGMENT.test(filename)) return fail(res, STATUS_CODES.BAD_REQUEST, 'Ruta de archivo inválida');
+  const filePath = path.resolve(DOCS_ROOT, docId, filename);
+  if (!filePath.startsWith(DOCS_ROOT + path.sep)) return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
+  res.sendFile(filePath, (err) => {
+    if (err && !res.headersSent) fail(res, STATUS_CODES.NOT_FOUND, 'Archivo no encontrado');
+  });
+});
+
 export default router;
