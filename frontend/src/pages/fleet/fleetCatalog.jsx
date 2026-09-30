@@ -468,7 +468,7 @@ const FleetCatalog = () => {
       {/* Familias */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
         {["", ...categories].map((c) => (
-          <button key={c || "all"} onClick={() => setCat(c)} className={`relative shrink-0 inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition-colors ${cat === c ? "text-white" : c && c !== "OTRO" && !isNamedFamily(c) ? "text-slate-400 bg-transparent border border-dashed border-slate-300 dark:border-white/15 hover:border-brand-navy/40" : "text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-white/[0.04] border border-slate-100 dark:border-white/5 hover:border-brand-navy/30"}`}>
+          <button key={c || "all"} onClick={() => setCat(c)} title={c && c !== "OTRO" && !isNamedFamily(c) ? `Código ${c}: hay unidades con este código pero la familia aún no tiene nombre. Pónselo con "+ Familia".` : undefined} className={`relative shrink-0 inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition-colors ${cat === c ? "text-white" : c && c !== "OTRO" && !isNamedFamily(c) ? "text-slate-400 bg-transparent border border-dashed border-slate-300 dark:border-white/15 hover:border-brand-navy/40" : "text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-white/[0.04] border border-slate-100 dark:border-white/5 hover:border-brand-navy/30"}`}>
             {cat === c && <motion.span layoutId="cat-pill" className="absolute inset-0 rounded-2xl bg-brand-navy" transition={{ type: "spring", stiffness: 300, damping: 28 }} />}
             <span className="relative flex items-center gap-2">
               {c ? <CategoryGlyph category={c} className="w-6 h-5" /> : <span className="inline-flex"><LayoutGrid size={16} /></span>}
