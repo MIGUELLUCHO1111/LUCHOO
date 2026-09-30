@@ -10,6 +10,8 @@ const STATUS_CODES = config.STATUS_CODES;
 // la ruta aparte /fleet/models/photo (multipart), ver fleetPhotoRoutes.js.
 
 const METERS = ['KM', 'HORAS', 'AMBOS'];
+// Ilustraciones disponibles para una familia (deben existir en fleetArt.jsx).
+const ARTS = ['crane', 'knuckle', 'forklift', 'loader', 'bucket', 'pickup', 'truck', 'tanker', 'machine'];
 
 const badRequest = (message) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.BAD_REQUEST }));
 const notFound = (message) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.NOT_FOUND }));
@@ -31,8 +33,8 @@ class Catalogo {
     this.query('fleetInsertEvent', { unit_id, event_type: 'EDICION', title, detail: null, created_by: created_by || null });
 
   listar = async () => {
-    const [modelos, marcas] = await Promise.all([this.query('fleetCatalogModels'), this.query('fleetCatalogBrands')]);
-    return { statusCode: STATUS_CODES.OK, data: { modelos, marcas } };
+    const [modelos, marcas, familias] = await Promise.all([this.query('fleetCatalogModels'), this.query('fleetCatalogBrands'), this.query('fleetListFamilies')]);
+    return { statusCode: STATUS_CODES.OK, data: { modelos, marcas, familias } };
   };
 
   guardarModelo = async ({ id, brand_name, name, category, body_type, capacity, fuel_type, meter_type, description, versions }) => {
@@ -85,6 +87,27 @@ class Catalogo {
     }
 
     return { statusCode: id ? STATUS_CODES.OK : STATUS_CODES.CREATED, data: { id: modelId }, message: id ? 'Modelo actualizado' : 'Modelo creado' };
+  };
+
+  // Familia = prefijo del codigo interno (FP-GT.06 -> GT). Crear o renombrar.
+  guardarFamilia = async ({ code, name, art }) => {
+    const codigo = String(code || '').trim().toUpperCase();
+    const nombre = text(name);
+    if (!/^[A-Z0-9]{1,10}$/.test(codigo)) throw badRequest('El código de la familia debe tener de 1 a 10 letras o números (ej. GT, CBA)');
+    if (!nombre) throw badRequest("Campo requerido: 'name'");
+    const [row] = await this.query('fleetUpsertFamily', { code: codigo, name: nombre, art: ARTS.includes(art) ? art : 'truck' });
+    return { statusCode: STATUS_CODES.OK, data: row, message: 'Familia guardada' };
+  };
+
+  eliminarFamilia = async ({ code }) => {
+    const codigo = String(code || '').trim().toUpperCase();
+    const [{ n } = { n: 0 }] = await this.query('fleetCountFamilyModels', { code: codigo });
+    if (n > 0) {
+      throw new Error(JSON.stringify({ message: `No se puede eliminar: ${n} modelo${n === 1 ? '' : 's'} usa${n === 1 ? '' : 'n'} esta familia. Cámbialos de familia primero.`, statusCode: STATUS_CODES.CONFLICT }));
+    }
+    const [row] = await this.query('fleetDeleteFamily', { code: codigo });
+    if (!row) throw notFound(`Familia ${codigo} no encontrada`);
+    return { statusCode: STATUS_CODES.OK, message: `Familia ${row.name} eliminada` };
   };
 
   archivarModelo = async ({ id }) => {

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import { PlateBadge, inputCls } from "./fleetParts";
-import { CATEGORIES, categoryOf, categoryLabel, EquipmentArt, CategoryGlyph } from "./fleetArt";
+import { categoryOf, categoryLabel, EquipmentArt, CategoryGlyph, setFamilies, isNamedFamily } from "./fleetArt";
+import FamilyManager from "./fleetFamilies";
 
 const METER_LABEL = { KM: "Kilometraje", HORAS: "Horómetro", AMBOS: "Km + horas" };
 const FUELS = ["Gasoil", "Gasolina", "Gas", "Eléctrico"];
@@ -82,7 +83,7 @@ const ModelCard = ({ model, onOpen, index }) => {
 };
 
 // ---------- Formulario de modelo ----------
-const ModelForm = ({ model, brands, categories, onCancel, onSaved }) => {
+const ModelForm = ({ model, brands, categories, onCancel, onSaved, onManageFamilies }) => {
   const [form, setForm] = useState(() => ({
     brand_name: model?.brand_name || "",
     name: model?.name || "",
@@ -141,6 +142,9 @@ const ModelForm = ({ model, brands, categories, onCancel, onSaved }) => {
               <CategoryGlyph category={c} className="w-5 h-4" /> {categoryLabel(c)}
             </button>
           ))}
+          {onManageFamilies && (
+            <button type="button" onClick={onManageFamilies} className="inline-flex items-center gap-1 rounded-xl border border-dashed border-slate-300 dark:border-white/20 px-3 py-1.5 text-xs font-bold text-slate-500 hover:border-brand-navy hover:text-brand-navy"><Plus size={12} /> Nueva familia</button>
+          )}
         </div>
       </div>
 
@@ -254,7 +258,7 @@ const UnitPicker = ({ model, units, onDone }) => {
 };
 
 // ---------- Panel del modelo ----------
-const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, startEditing = false }) => {
+const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onManageFamilies, startEditing = false }) => {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const fileRef = useRef(null);
@@ -325,7 +329,7 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, sta
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
           {error && <p className="text-sm text-red-600">{error}</p>}
           {mode === "edit" ? (
-            <ModelForm model={model} brands={brands} categories={categories} onCancel={() => (isNew ? onClose() : setMode("view"))} onSaved={(id) => { setMode("view"); onChanged(id); }} />
+            <ModelForm model={model} brands={brands} categories={categories} onManageFamilies={onManageFamilies} onCancel={() => (isNew ? onClose() : setMode("view"))} onSaved={(id) => { setMode("view"); onChanged(id); }} />
           ) : mode === "assign" ? (
             <div>
               <h3 className="font-display text-lg text-slate-900 dark:text-white mb-3">Asociar unidades a este modelo</h3>
@@ -406,22 +410,26 @@ const FleetCatalog = () => {
   const [sort, setSort] = useState("marca");
   const [openId, setOpenId] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [showFamilies, setShowFamilies] = useState(false);
 
   const load = () =>
     Promise.all([fleetService.catalogo(), fleetService.listar()])
-      .then(([c, u]) => { setData(c || { modelos: [], marcas: [] }); setUnits(Array.isArray(u) ? u : []); })
+      .then(([c, u]) => { setFamilies(c?.familias); setData(c || { modelos: [], marcas: [], familias: [] }); setUnits(Array.isArray(u) ? u : []); })
       .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   const modelos = data.modelos || [];
   // Familias: las confirmadas + las que aparecen en los codigos reales de la flota.
+  // Familias: las guardadas (con nombre) primero, luego los prefijos de la flota que aun no tienen nombre.
   const categories = useMemo(() => {
-    const set = new Set(Object.keys(CATEGORIES).filter((k) => k !== "OTRO"));
+    const named = (data.familias || []).map((f) => f.code);
+    const set = new Set();
     units.forEach((u) => set.add(categoryOf(u.code)));
     modelos.forEach((m) => set.add(m.category));
     set.delete("OTRO");
-    return [...set, "OTRO"];
-  }, [units, modelos]);
+    const unnamed = [...set].filter((c) => !named.includes(c)).sort();
+    return [...named, ...unnamed, "OTRO"];
+  }, [units, modelos, data.familias]);
   const countBy = useMemo(() => modelos.reduce((acc, m) => ({ ...acc, [m.category]: (acc[m.category] || 0) + 1 }), {}), [modelos]);
   const linkedUnits = units.filter((u) => u.profile?.model_id).length;
   const pct = units.length ? Math.round((linkedUnits / units.length) * 100) : 0;
@@ -460,7 +468,7 @@ const FleetCatalog = () => {
       {/* Familias */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 -mx-1 px-1">
         {["", ...categories].map((c) => (
-          <button key={c || "all"} onClick={() => setCat(c)} className={`relative shrink-0 inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition-colors ${cat === c ? "text-white" : "text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-white/[0.04] border border-slate-100 dark:border-white/5 hover:border-brand-navy/30"}`}>
+          <button key={c || "all"} onClick={() => setCat(c)} className={`relative shrink-0 inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition-colors ${cat === c ? "text-white" : c && c !== "OTRO" && !isNamedFamily(c) ? "text-slate-400 bg-transparent border border-dashed border-slate-300 dark:border-white/15 hover:border-brand-navy/40" : "text-slate-600 dark:text-slate-300 bg-white/70 dark:bg-white/[0.04] border border-slate-100 dark:border-white/5 hover:border-brand-navy/30"}`}>
             {cat === c && <motion.span layoutId="cat-pill" className="absolute inset-0 rounded-2xl bg-brand-navy" transition={{ type: "spring", stiffness: 300, damping: 28 }} />}
             <span className="relative flex items-center gap-2">
               {c ? <CategoryGlyph category={c} className="w-6 h-5" /> : <span className="inline-flex"><LayoutGrid size={16} /></span>}
@@ -469,6 +477,9 @@ const FleetCatalog = () => {
             </span>
           </button>
         ))}
+        <motion.button type="button" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => setShowFamilies(true)} className="shrink-0 inline-flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-sm font-bold border-2 border-dashed border-brand-navy/30 text-brand-navy dark:text-sky-300 hover:bg-brand-navy/5">
+          <Plus size={15} /> Familia
+        </motion.button>
       </div>
 
       {/* Herramientas */}
@@ -519,6 +530,7 @@ const FleetCatalog = () => {
             brands={data.marcas || []}
             categories={categories}
             units={units}
+            onManageFamilies={() => setShowFamilies(true)}
             onClose={() => { setOpenId(null); setCreating(false); }}
             onChanged={async (id, closed) => {
               await load();
@@ -527,6 +539,9 @@ const FleetCatalog = () => {
             }}
           />
         )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showFamilies && <FamilyManager familias={data.familias || []} units={units} onClose={() => setShowFamilies(false)} onChanged={load} />}
       </AnimatePresence>
     </PageLayout>
   );

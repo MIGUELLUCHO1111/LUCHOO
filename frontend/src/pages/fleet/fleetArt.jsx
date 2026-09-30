@@ -1,25 +1,56 @@
+import { useEffect, useState } from "react";
+import { fleetService } from "@/services";
+
 // Familias de equipo (prefijo del codigo interno) e ilustraciones para el
-// Catalogo de Flota. Solo se nombran las familias confirmadas en
-// ROADMAP_FLOTA_DETALLE.md; las demas se muestran como "Familia XX" hasta
-// que Operaciones confirme que son.
+// Catalogo de Flota. Las familias viven en la tabla fleet_family (se crean y
+// renombran desde el Catalogo); setFamilies() las registra aqui para que
+// categoryLabel() y las ilustraciones las usen en todas las pantallas.
+// CATEGORIES queda como respaldo mientras no ha cargado la lista.
 
 export const CATEGORIES = {
-  GT: { label: "Grúa telescópica", art: "crane", hue: "from-amber-400/30 via-orange-300/10" },
-  BA: { label: "Brazo articulado", art: "knuckle", hue: "from-sky-400/30 via-cyan-300/10" },
-  MT: { label: "Montacargas", art: "forklift", hue: "from-yellow-400/30 via-amber-200/10" },
-  CF: { label: "Cargador frontal", art: "loader", hue: "from-yellow-500/30 via-orange-200/10" },
-  CC: { label: "Camión cesta", art: "bucket", hue: "from-emerald-400/25 via-teal-200/10" },
-  VEH: { label: "Vehículo", art: "pickup", hue: "from-indigo-400/25 via-sky-200/10" },
-  OTRO: { label: "Otro equipo", art: "truck", hue: "from-slate-400/25 via-slate-200/10" },
+  GT: { label: "Grúa telescópica", art: "crane" },
+  BA: { label: "Brazo articulado", art: "knuckle" },
+  MT: { label: "Montacargas", art: "forklift" },
+  CF: { label: "Cargador frontal", art: "loader" },
+  CC: { label: "Camión cesta", art: "bucket" },
+  VEH: { label: "Vehículo", art: "pickup" },
 };
+
+/** Ilustraciones que se pueden elegir para una familia (mismas claves que acepta el backend). */
+export const ART_OPTIONS = [
+  ["crane", "Grúa"], ["knuckle", "Brazo articulado"], ["forklift", "Montacargas"], ["loader", "Cargador"],
+  ["bucket", "Cesta"], ["pickup", "Pickup"], ["truck", "Camión"], ["tanker", "Cisterna"], ["machine", "Equipo industrial"],
+];
+const HUE = {
+  crane: "from-amber-400/30 via-orange-300/10", knuckle: "from-sky-400/30 via-cyan-300/10", forklift: "from-yellow-400/30 via-amber-200/10",
+  loader: "from-yellow-500/30 via-orange-200/10", bucket: "from-emerald-400/25 via-teal-200/10", pickup: "from-indigo-400/25 via-sky-200/10",
+  truck: "from-slate-400/25 via-slate-200/10", tanker: "from-cyan-400/25 via-blue-200/10", machine: "from-violet-400/25 via-fuchsia-200/10",
+};
+
+let FAMILIES = {};
+export const setFamilies = (list) => {
+  FAMILIES = Object.fromEntries((list || []).map((f) => [f.code, { label: f.name, art: f.art }]));
+};
+// Carga las familias una vez por minuto como mucho y re-renderiza al llegar.
+let familiesLoadedAt = 0;
+export const useFamilies = () => {
+  const [, setVersion] = useState(0);
+  useEffect(() => {
+    if (Date.now() - familiesLoadedAt < 60000) return;
+    familiesLoadedAt = Date.now();
+    fleetService.catalogo().then((c) => { setFamilies(c?.familias); setVersion((v) => v + 1); }).catch(() => {});
+  }, []);
+};
+const famOf = (cat) => FAMILIES[cat] || CATEGORIES[cat];
+export const isNamedFamily = (cat) => !!famOf(cat);
 
 export const categoryOf = (code) => {
   const m = String(code || "").toUpperCase().match(/^FP-?([A-Z]+)/);
   return m ? m[1] : "OTRO";
 };
-export const categoryLabel = (cat) => CATEGORIES[cat]?.label || (cat && cat !== "OTRO" ? `Familia ${cat}` : "Otro equipo");
-const artOf = (cat, fleetType) => CATEGORIES[cat]?.art || (fleetType === "LIVIANA" ? "pickup" : "truck");
-const hueOf = (cat) => CATEGORIES[cat]?.hue || "from-slate-400/25 via-slate-200/10";
+export const categoryLabel = (cat) => famOf(cat)?.label || (cat && cat !== "OTRO" ? `Familia ${cat}` : "Otro equipo");
+const artOf = (cat, fleetType, art) => art || famOf(cat)?.art || (fleetType === "LIVIANA" ? "pickup" : "truck");
+const hueOf = (cat, art) => HUE[artOf(cat, null, art)] || HUE.truck;
 
 const common = { fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
 const Wheel = ({ cx, cy, r = 6 }) => (
@@ -71,6 +102,19 @@ const ART = {
       <Wheel cx={24} cy={62} r={8} /><Wheel cx={74} cy={62} r={8} /><path d="M12 49v-4h26" opacity="0.4" />
     </g>
   ),
+  tanker: (
+    <g {...common}>
+      <path d="M60 36h14l12 14v12H60z" /><path d="M66 36v14h20" /><rect x="8" y="30" width="50" height="24" rx="12" fill="currentColor" fillOpacity="0.12" />
+      <path d="M8 62h86" /><path d="M22 30v-4h10v4" /><Wheel cx={20} cy={66} /><Wheel cx={36} cy={66} /><Wheel cx={78} cy={66} />
+    </g>
+  ),
+  machine: (
+    <g {...common}>
+      <rect x="14" y="24" width="64" height="34" rx="4" fill="currentColor" fillOpacity="0.1" />
+      <path d="M22 32h14v18H22z" /><path d="M44 32h26M44 38h26M44 44h26M44 50h26" opacity="0.5" />
+      <path d="M78 34h8l4 6v12h-12" /><path d="M14 58l-6 8h84l-6-8" /><path d="M30 24v-6h8v6" />
+    </g>
+  ),
   truck: (
     <g {...common}>
       <path d="M8 62V26a3 3 0 0 1 3-3h46a3 3 0 0 1 3 3v36" /><path d="M60 36h16l12 14v12" /><path d="M66 36v14h22" />
@@ -85,16 +129,16 @@ const ART = {
 // directos de un contenedor "relative".
 
 /** Ilustracion de la familia sobre un degradado (cuando el modelo no tiene foto). */
-export const EquipmentArt = ({ category, fleetType, className = "", iconClass = "w-2/3" }) => (
-  <div className={`relative flex items-center justify-center bg-gradient-to-br ${hueOf(category)} to-transparent bg-slate-100 dark:bg-white/[0.04] overflow-hidden ${className}`}>
+export const EquipmentArt = ({ category, fleetType, art, className = "", iconClass = "w-2/3" }) => (
+  <div className={`relative flex items-center justify-center bg-gradient-to-br ${hueOf(category, art)} to-transparent bg-slate-100 dark:bg-white/[0.04] overflow-hidden ${className}`}>
     <div className="absolute inset-0 opacity-[0.07] dark:opacity-[0.1]" style={{ backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)", backgroundSize: "14px 14px" }} />
     <span className={`relative flex justify-center text-brand-navy/70 dark:text-sky-200/70 ${iconClass}`}>
-      <span className="block w-full"><svg viewBox="0 0 100 80" className="w-full h-auto">{ART[artOf(category, fleetType)]}</svg></span>
+      <span className="block w-full"><svg viewBox="0 0 100 80" className="w-full h-auto">{ART[artOf(category, fleetType, art)]}</svg></span>
     </span>
   </div>
 );
 
 /** Icono pequeno de la familia (para chips). */
-export const CategoryGlyph = ({ category, fleetType, className = "w-6 h-5" }) => (
-  <span className="inline-flex shrink-0"><svg viewBox="0 0 100 80" className={className}>{ART[artOf(category, fleetType)]}</svg></span>
+export const CategoryGlyph = ({ category, fleetType, art, className = "w-6 h-5" }) => (
+  <span className="inline-flex shrink-0"><svg viewBox="0 0 100 80" className={className}>{ART[artOf(category, fleetType, art)]}</svg></span>
 );

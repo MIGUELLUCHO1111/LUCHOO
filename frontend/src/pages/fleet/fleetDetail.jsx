@@ -15,7 +15,7 @@ import {
   STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, FLEET_LABEL, Field, inputCls,
   fmtKm, fmtMoney, fmtDate, fmtDateTime, initials, haceCuanto, maintProgress, TONE,
 } from "./fleetParts";
-import { categoryLabel } from "./fleetArt";
+import { categoryLabel, useFamilies } from "./fleetArt";
 import DocumentsPanel from "./fleetDocuments";
 
 const EVENT_ICON = {
@@ -452,6 +452,7 @@ const Timeline = ({ unit }) => {
 
 // ---------- Pantalla ----------
 const FleetDetail = () => {
+  useFamilies();
   const { id } = useParams();
   const navigate = useNavigate();
   const [unit, setUnit] = useState(null);
@@ -565,7 +566,7 @@ const FleetDetail = () => {
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
                 <Field label="Marca" value={unit.brand_name || p.brand} />
                 <Field label="Modelo" value={unit.model_name ? [unit.model_name, unit.version_name].filter(Boolean).join(" · ") : p.model} hint={unit.model_name ? "Del catálogo" : p.model || p.brand ? "Texto libre (elige el modelo del catálogo)" : null} />
-                {unit.model_name && <Field label="Familia" value={categoryLabel(unit.model_category)} />}
+                {unit.model_name && <Field label="Familia" value={unit.model_family_name || categoryLabel(unit.model_category)} />}
                 {unit.model_capacity && <Field label="Capacidad nominal" value={unit.model_capacity} />}
                 <Field label="Año" value={p.model_year} />
                 <Field label="Color" value={p.color} />

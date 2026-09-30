@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, inputCls } from "./fleetParts";
+import { useFamilies } from "./fleetArt";
 
 const Kpi = ({ label, value, tone = "text-slate-900 dark:text-white", active, onClick }) => (
   <button
@@ -138,6 +139,7 @@ const UnitCard = ({ u, onOpen, i }) => {
 };
 
 const FleetList = () => {
+  useFamilies();
   const navigate = useNavigate();
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);

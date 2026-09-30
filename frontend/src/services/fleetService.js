@@ -18,6 +18,8 @@ const TX = {
   CATALOGO_ARCHIVAR_MODELO: 179,
   CATALOGO_ASIGNAR_UNIDADES: 180,
   CATALOGO_QUITAR_UNIDAD: 181,
+  CATALOGO_GUARDAR_FAMILIA: 182,
+  CATALOGO_ELIMINAR_FAMILIA: 183,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -69,6 +71,8 @@ const fleetService = {
   archivarModelo: (id) => call(TX.CATALOGO_ARCHIVAR_MODELO, { id }),
   asignarUnidades: (model_id, unit_ids, version_id = null) => call(TX.CATALOGO_ASIGNAR_UNIDADES, { model_id, unit_ids, version_id }),
   quitarModeloDeUnidad: (unit_id) => call(TX.CATALOGO_QUITAR_UNIDAD, { unit_id }),
+  guardarFamilia: (familia) => call(TX.CATALOGO_GUARDAR_FAMILIA, familia),
+  eliminarFamilia: (code) => call(TX.CATALOGO_ELIMINAR_FAMILIA, { code }),
   subirFotoModelo: async (modelId, file) => {
     const formData = new FormData();
     formData.append("model_id", modelId);

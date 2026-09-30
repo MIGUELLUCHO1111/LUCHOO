@@ -180,3 +180,5 @@ id;sub_system;class;method;profile
 179;Flota;Catalogo;archivarModelo;admin
 180;Flota;Catalogo;asignarUnidades;admin
 181;Flota;Catalogo;quitarUnidad;admin
+182;Flota;Catalogo;guardarFamilia;admin
+183;Flota;Catalogo;eliminarFamilia;admin

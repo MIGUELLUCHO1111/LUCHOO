@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useConfirm } from "@/context";
 import { fmtDate, inputCls } from "./fleetParts";
-import { categoryOf } from "./fleetArt";
+import { categoryOf, categoryLabel } from "./fleetArt";
 
 // Cada documento con su icono y como se llena. Tipos venezolanos (RCV, INTT,
 // permiso) + los de izaje que pide la politica de mantenimiento (§3.5 del
@@ -29,12 +29,17 @@ export const DOC_DEFS = {
 };
 export const docLabel = (t) => DOC_DEFS[t]?.label || t;
 
-const IZAJE = ["GT", "BA", "CBA", "MT"];
+// Documentos base de toda unidad + los adicionales segun la familia del equipo.
+const BASE_DOCS = ["RCV", "INTT", "PERMISO_CIRCULACION", "POLIZA"];
+export const EXTRA_RULES = [
+  { families: ["GT", "BA", "CBA", "MT"], docs: ["IZAMIENTO", "PRUEBA_CARGA"], why: "Equipos de izaje" },
+  { families: ["CC"], docs: ["PRUEBA_CARGA", "DIELECTRICA"], why: "Trabajo en altura cerca de líneas eléctricas" },
+];
+const familyOfUnit = (unit) => unit.model_category || categoryOf(unit.code);
 const requiredFor = (unit) => {
-  const fam = unit.model_category || categoryOf(unit.code);
-  const list = ["RCV", "INTT", "PERMISO_CIRCULACION", "POLIZA"];
-  if (IZAJE.includes(fam)) list.push("IZAMIENTO", "PRUEBA_CARGA");
-  if (fam === "CC") list.push("PRUEBA_CARGA", "DIELECTRICA");
+  const fam = familyOfUnit(unit);
+  const list = [...BASE_DOCS];
+  EXTRA_RULES.filter((r) => r.families.includes(fam)).forEach((r) => r.docs.forEach((d) => !list.includes(d) && list.push(d)));
   return list;
 };
 
@@ -296,7 +301,29 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange }) => {
           )}
         </AnimatePresence>
       </div>
-      <p className="text-[11px] text-slate-400 mt-4">Los documentos sugeridos dependen del tipo de equipo (los de izaje piden certificado de izamiento y prueba de carga). La lista obligatoria por familia se confirmará con Operaciones.</p>
+      <div className="mt-5 pt-4 border-t border-slate-100 dark:border-white/5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Documentos adicionales según el tipo de equipo</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {EXTRA_RULES.map((rule) => {
+            const applies = rule.families.includes(familyOfUnit(unit));
+            return (
+              <div key={rule.docs.join()} className={`rounded-2xl p-3 border ${applies ? "border-brand-gold/50 bg-brand-gold/5" : "border-slate-100 dark:border-white/5"}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {rule.docs.map((d) => {
+                      const D = DOC_DEFS[d].icon;
+                      return <span key={d} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"><span className="inline-flex text-brand-navy dark:text-sky-300"><D size={14} /></span>{DOC_DEFS[d].label}</span>;
+                    })}
+                  </div>
+                  {applies && <span className="shrink-0 rounded-full bg-brand-gold/20 text-amber-700 dark:text-brand-gold px-2 py-0.5 text-[10px] font-bold">Aplica a esta unidad</span>}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5">{rule.why}: {rule.families.map((c) => `${categoryLabel(c)} (${c})`).join(", ")}.</p>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-[11px] text-slate-400 mt-2">RCV, Certificado del INTT, Permiso de circulación y Póliza aplican a todas las unidades. La lista obligatoria por familia se confirmará con Operaciones.</p>
+      </div>
     </Card>
   );
 };
