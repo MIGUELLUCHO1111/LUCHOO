@@ -78,7 +78,8 @@ const ws = wb.addWorksheet(`Tracker ${r.turno}`, {
 ws.columns = [{ width: 16 }, { width: 14 }, { width: 20 }, { width: 42 }, { width: 14 }, { width: 14 }];
 
 const CENTER = { horizontal: 'center', vertical: 'middle' };
-const MED = { style: 'medium', color: { argb: 'FF000000' } };
+// Bordes blancos en encabezado, indicadores y leyenda (pedido de Lguerra, 30/09/2026).
+const MED = { style: 'medium', color: { argb: 'FFFFFFFF' } };
 const fillCell = (cell, { fill, fontColor, bold = false, size = 10, align } = {}) => {
   if (fill) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
   cell.font = { name: 'Calibri', bold, size, color: { argb: fontColor || 'FF000000' } };
