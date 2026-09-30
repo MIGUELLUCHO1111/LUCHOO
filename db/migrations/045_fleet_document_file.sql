@@ -4,8 +4,8 @@
 -- pedido de Lguerra 30/09/2026: cada documento (RCV, INTT, permiso,
 -- izamiento...) se carga por separado y con su respaldo. El archivo se sube
 -- por la ruta multipart /fleet/documents/file (fleetPhotoRoutes.js).
--- OJO al integrar con la rama de Mantenimiento de Julio: si alli tambien
--- existe una 045, renumerar una de las dos.
+-- OJO al integrar con la rama de Julio (la principal, no se modifica): si
+-- alli tambien existe una 043/044/045, se renumeran LAS NUESTRAS.
 -- ============================================================
 
 ALTER TABLE public.fleet_unit_document
