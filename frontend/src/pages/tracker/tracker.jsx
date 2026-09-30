@@ -317,8 +317,13 @@ const Tracker = () => {
           </Card>
           <Card className="px-5 py-3 border-amber-200 dark:border-amber-500/20">
             <div className="text-[11px] font-bold text-amber-600 uppercase">Sin señal reciente</div>
-            <div className="text-2xl font-black text-amber-600">{sinSenal}</div>
-            {sinSenal > 0 && <div className="text-[10px] font-bold text-slate-400">{staleEstacionadas} estacionada(s) · {staleActivas} activa(s)</div>}
+            <div className="text-2xl font-black text-amber-600">{sinSenal} <span className="text-xs font-bold text-slate-400">de {total}</span></div>
+            {sinSenal > 0 && (
+              <div className="text-[10px] font-bold leading-tight">
+                <span className="text-red-600">{staleEstacionadas} estacionada(s)</span> · <span className="text-emerald-600">{staleActivas} activa(s)</span>
+                <div className="text-slate-400 font-medium">ya sumadas en Activas y Estacionadas</div>
+              </div>
+            )}
           </Card>
         </div>
 
@@ -409,6 +414,13 @@ const Tracker = () => {
             </span>
             <span className="font-bold text-amber-700 dark:text-amber-400">Unidades sin señal reciente — revisar en sitio</span>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600">{sinSenal}</span>
+            {sinSenal > 0 && (
+              <>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-500/10 text-red-600">{staleEstacionadas} estacionada(s)</span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600">{staleActivas} activa(s)</span>
+                <span className="hidden md:inline text-[11px] text-slate-400">· ya sumadas en los totales</span>
+              </>
+            )}
           </div>
           <ChevronDown size={18} className={`text-amber-400 transition-transform duration-300 ${openBlocks.stale ? "rotate-180" : ""}`} />
         </button>
@@ -450,7 +462,7 @@ const Tracker = () => {
                   }
                   return filteredStale.map((s, i) => (
                     <TableRow key={s.unit_id ?? `stale-${s.plate}` ?? i} className={i % 2 === 0 ? "bg-transparent" : "bg-amber-500/[0.03]"}>
-                      <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm">
+                      <TableCell className="font-mono font-bold text-slate-900 dark:text-white text-sm whitespace-nowrap">
                         {s.unit_code || <span className="italic text-slate-400 font-normal">sin registrar</span>}
                       </TableCell>
                       <TableCell className="text-sm">
@@ -458,7 +470,7 @@ const Tracker = () => {
                       </TableCell>
                       <TableCell className="text-sm">{s.plate || "-"}</TableCell>
                       <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
-                      <TableCell className="text-sm max-w-xs">
+                      <TableCell className="text-sm max-w-[220px]">
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${CATEGORY_STYLES[s.location_category] || CATEGORY_STYLES.OTRAS}`}>{s.location_category}</span>
                           <span className="truncate" title={s.location_text || ""}>{s.location_text || "-"}</span>
@@ -475,10 +487,15 @@ const Tracker = () => {
                           {formatHoras(horasSinConexion(s.last_report_at))}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs max-w-[260px]">
+                      <TableCell className="text-xs">
                         {(() => {
                           const m = motivoSinSenal(s);
-                          return <span className={m.tono === "red" ? "text-red-600 font-bold" : m.tono === "amber" ? "text-amber-700 dark:text-amber-400 font-bold" : "text-slate-500"}>{m.texto}</span>;
+                          return (
+                            <div className="min-w-[170px] max-w-[220px]" title={`${m.texto} — ${m.detalle}`}>
+                              <p className={`font-bold ${m.tono === "red" ? "text-red-600" : m.tono === "amber" ? "text-amber-700 dark:text-amber-400" : "text-slate-600 dark:text-slate-300"}`}>{m.texto}</p>
+                              <p className="text-[10px] text-slate-400">{m.detalle}</p>
+                            </div>
+                          );
                         })()}
                       </TableCell>
                     </TableRow>

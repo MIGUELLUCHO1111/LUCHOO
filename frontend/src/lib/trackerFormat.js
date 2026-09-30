@@ -121,11 +121,11 @@ export function motivoSinSenal(s) {
   const bEquipo = s.battery_level != null && s.battery_level !== "" ? Number(s.battery_level) : null;
   const sat = s.num_satellite != null && s.num_satellite !== "" ? Number(s.num_satellite) : null;
   const horas = horasSinConexion(s.last_report_at);
-  if (evento.includes("desconex")) return { texto: `Se desconectó la alimentación del equipo GPS${vVehiculo != null ? ` (batería del vehículo ${vVehiculo} V)` : ""}`, tono: "red" };
-  if (vVehiculo === 0) return { texto: "Sin alimentación del vehículo (0 V): batería desconectada o descargada", tono: "red" };
-  if (vVehiculo != null && vVehiculo < 10) return { texto: `Batería del vehículo baja (${vVehiculo} V)`, tono: "red" };
-  if (bEquipo != null && bEquipo <= 15) return { texto: `Batería interna del equipo GPS agotada (${bEquipo}%)`, tono: "red" };
-  if (s.valid_gps === "false" || (sat != null && sat < 4)) return { texto: `Sin cobertura de satélites${sat != null ? ` (${sat})` : ""}`, tono: "amber" };
-  if (horas != null && horas > 7 * 24) return { texto: "Más de 7 días sin reportar con batería normal: equipo apagado, retirado o sin cobertura", tono: "amber" };
-  return { texto: "Última señal normal: posible zona sin cobertura celular", tono: "slate" };
+  if (evento.includes("desconex")) return { texto: "Alimentación del GPS desconectada", detalle: `Último evento del equipo${vVehiculo != null ? ` · batería del vehículo ${vVehiculo} V` : ""}`, tono: "red" };
+  if (vVehiculo === 0) return { texto: "Sin alimentación del vehículo (0 V)", detalle: "Batería desconectada o descargada", tono: "red" };
+  if (vVehiculo != null && vVehiculo < 10) return { texto: `Batería del vehículo baja (${vVehiculo} V)`, detalle: "Revisar batería y conexión del equipo", tono: "red" };
+  if (bEquipo != null && bEquipo <= 15) return { texto: `Batería del equipo GPS agotada (${bEquipo}%)`, detalle: "El equipo se apaga al quedarse sin su batería interna", tono: "red" };
+  if (s.valid_gps === "false" || (sat != null && sat < 4)) return { texto: "Sin cobertura de satélites", detalle: sat != null ? `${sat} satélite(s) en la última lectura` : "Última posición no válida", tono: "amber" };
+  if (horas != null && horas > 7 * 24) return { texto: "Equipo apagado o retirado", detalle: "Más de 7 días sin reportar con batería normal", tono: "amber" };
+  return { texto: "Posible zona sin cobertura", detalle: "La última señal fue normal", tono: "slate" };
 }
