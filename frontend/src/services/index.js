@@ -7,4 +7,4 @@ export { default as fuelService, resolvePhotoUrl } from "./fuelService";
 export { default as optionService } from "./optionService";
 export { default as trackerService, resolveAttachmentUrl, resolveReportFileUrl } from "./trackerService";
 export { default as hoursService } from "./hoursService";
-export { default as fleetService } from "./fleetService";
+export { default as fleetService, resolveFleetFileUrl } from "./fleetService";

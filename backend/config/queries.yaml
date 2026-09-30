@@ -1406,13 +1406,13 @@
   # fleetListUnits y fleetGetUnit comparten el mismo SELECT (la segunda solo
   # agrega el filtro por id): si se cambia uno, cambiar el otro igual.
   'fleetListUnits': {
-    query: "SELECT u.id, u.code, u.name, u.plate, u.driver_name, u.fleet_type, u.tank_capacity_liters, u.is_active, u.created_at, COALESCE(to_jsonb(p) - 'unit_id', '{}'::jsonb) AS profile, COALESCE(NULLIF(p.maint_interval_km, 0), (SELECT value::int FROM public.fleet_setting WHERE key = 'MAINT_INTERVAL_' || COALESCE(u.fleet_type, 'LIVIANA'))) AS maint_interval_effective, COALESCE(d.expired, 0)::int AS docs_expired, COALESCE(d.expiring, 0)::int AS docs_expiring, d.next_expiry::text AS next_expiry FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id LEFT JOIN LATERAL (SELECT COUNT(*) FILTER (WHERE expires_at < CURRENT_DATE) AS expired, COUNT(*) FILTER (WHERE expires_at >= CURRENT_DATE AND expires_at <= CURRENT_DATE + (SELECT value::int FROM public.fleet_setting WHERE key = 'DOC_ALERT_DAYS')) AS expiring, MIN(expires_at) FILTER (WHERE expires_at >= CURRENT_DATE) AS next_expiry FROM public.fleet_unit_document WHERE unit_id = u.id AND deleted_at IS NULL) d ON TRUE WHERE u.deleted_at IS NULL ORDER BY u.code;",
+    query: "SELECT u.id, u.code, u.name, u.plate, u.driver_name, u.fleet_type, u.tank_capacity_liters, u.is_active, u.created_at, COALESCE(to_jsonb(p) - 'unit_id', '{}'::jsonb) AS profile, COALESCE(NULLIF(p.maint_interval_km, 0), (SELECT value::int FROM public.fleet_setting WHERE key = 'MAINT_INTERVAL_' || COALESCE(u.fleet_type, 'LIVIANA'))) AS maint_interval_effective, COALESCE(d.expired, 0)::int AS docs_expired, COALESCE(d.expiring, 0)::int AS docs_expiring, d.next_expiry::text AS next_expiry, m.name AS model_name, b.name AS brand_name, m.photo_url AS model_photo, m.category AS model_category, m.capacity AS model_capacity, m.meter_type AS model_meter, m.body_type AS model_body, mv.name AS version_name FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id LEFT JOIN public.fleet_model m ON m.id = p.model_id LEFT JOIN public.fleet_brand b ON b.id = m.brand_id LEFT JOIN public.fleet_model_version mv ON mv.id = p.version_id LEFT JOIN LATERAL (SELECT COUNT(*) FILTER (WHERE expires_at < CURRENT_DATE) AS expired, COUNT(*) FILTER (WHERE expires_at >= CURRENT_DATE AND expires_at <= CURRENT_DATE + (SELECT value::int FROM public.fleet_setting WHERE key = 'DOC_ALERT_DAYS')) AS expiring, MIN(expires_at) FILTER (WHERE expires_at >= CURRENT_DATE) AS next_expiry FROM public.fleet_unit_document WHERE unit_id = u.id AND deleted_at IS NULL) d ON TRUE WHERE u.deleted_at IS NULL ORDER BY u.code;",
     structure_params: {},
     orderArray: []
   },
 
   'fleetGetUnit': {
-    query: "SELECT u.id, u.code, u.name, u.plate, u.driver_name, u.fleet_type, u.tank_capacity_liters, u.is_active, u.created_at, COALESCE(to_jsonb(p) - 'unit_id', '{}'::jsonb) AS profile, COALESCE(NULLIF(p.maint_interval_km, 0), (SELECT value::int FROM public.fleet_setting WHERE key = 'MAINT_INTERVAL_' || COALESCE(u.fleet_type, 'LIVIANA'))) AS maint_interval_effective, COALESCE(d.expired, 0)::int AS docs_expired, COALESCE(d.expiring, 0)::int AS docs_expiring, d.next_expiry::text AS next_expiry FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id LEFT JOIN LATERAL (SELECT COUNT(*) FILTER (WHERE expires_at < CURRENT_DATE) AS expired, COUNT(*) FILTER (WHERE expires_at >= CURRENT_DATE AND expires_at <= CURRENT_DATE + (SELECT value::int FROM public.fleet_setting WHERE key = 'DOC_ALERT_DAYS')) AS expiring, MIN(expires_at) FILTER (WHERE expires_at >= CURRENT_DATE) AS next_expiry FROM public.fleet_unit_document WHERE unit_id = u.id AND deleted_at IS NULL) d ON TRUE WHERE u.deleted_at IS NULL AND u.id = $1;",
+    query: "SELECT u.id, u.code, u.name, u.plate, u.driver_name, u.fleet_type, u.tank_capacity_liters, u.is_active, u.created_at, COALESCE(to_jsonb(p) - 'unit_id', '{}'::jsonb) AS profile, COALESCE(NULLIF(p.maint_interval_km, 0), (SELECT value::int FROM public.fleet_setting WHERE key = 'MAINT_INTERVAL_' || COALESCE(u.fleet_type, 'LIVIANA'))) AS maint_interval_effective, COALESCE(d.expired, 0)::int AS docs_expired, COALESCE(d.expiring, 0)::int AS docs_expiring, d.next_expiry::text AS next_expiry, m.name AS model_name, b.name AS brand_name, m.photo_url AS model_photo, m.category AS model_category, m.capacity AS model_capacity, m.meter_type AS model_meter, m.body_type AS model_body, mv.name AS version_name FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id LEFT JOIN public.fleet_model m ON m.id = p.model_id LEFT JOIN public.fleet_brand b ON b.id = m.brand_id LEFT JOIN public.fleet_model_version mv ON mv.id = p.version_id LEFT JOIN LATERAL (SELECT COUNT(*) FILTER (WHERE expires_at < CURRENT_DATE) AS expired, COUNT(*) FILTER (WHERE expires_at >= CURRENT_DATE AND expires_at <= CURRENT_DATE + (SELECT value::int FROM public.fleet_setting WHERE key = 'DOC_ALERT_DAYS')) AS expiring, MIN(expires_at) FILTER (WHERE expires_at >= CURRENT_DATE) AS next_expiry FROM public.fleet_unit_document WHERE unit_id = u.id AND deleted_at IS NULL) d ON TRUE WHERE u.deleted_at IS NULL AND u.id = $1;",
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
@@ -1495,5 +1495,80 @@
     query: 'UPDATE public.fleet_setting SET value = $2, updated_at = NOW() WHERE key = $1 RETURNING key, value;',
     structure_params: { key: 'string', value: 'string' },
     orderArray: ['key', 'value']
+  },
+
+  # ========== FLOTA: CATALOGO DE MODELOS (044_fleet_catalog.sql) ==========
+  'fleetCatalogModels': {
+    query: "SELECT m.id, m.name, m.category, m.body_type, m.capacity, m.fuel_type, m.meter_type, m.photo_url, m.description, m.created_at, b.id AS brand_id, b.name AS brand_name, COALESCE((SELECT json_agg(json_build_object('id', v.id, 'name', v.name) ORDER BY v.name) FROM public.fleet_model_version v WHERE v.model_id = m.id), '[]'::json) AS versions, COALESCE((SELECT json_agg(json_build_object('id', u.id, 'code', u.code, 'plate', u.plate, 'fleet_type', u.fleet_type, 'version_id', p.version_id) ORDER BY u.code) FROM public.fleet_unit_profile p JOIN public.fleet_unit u ON u.id = p.unit_id AND u.deleted_at IS NULL WHERE p.model_id = m.id), '[]'::json) AS units FROM public.fleet_model m JOIN public.fleet_brand b ON b.id = m.brand_id WHERE m.archived_at IS NULL ORDER BY b.name, m.name;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetCatalogBrands': {
+    query: 'SELECT id, name FROM public.fleet_brand ORDER BY name;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetUpsertBrand': {
+    query: 'INSERT INTO public.fleet_brand (name) VALUES ($1) ON CONFLICT ((LOWER(name))) DO UPDATE SET name = public.fleet_brand.name RETURNING id, name;',
+    structure_params: { name: 'string' },
+    orderArray: ['name']
+  },
+
+  'fleetGetModel': {
+    query: 'SELECT m.id, m.name, m.category, m.photo_url, m.archived_at, b.name AS brand_name FROM public.fleet_model m JOIN public.fleet_brand b ON b.id = m.brand_id WHERE m.id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'fleetInsertModel': {
+    query: 'INSERT INTO public.fleet_model (brand_id, name, category, body_type, capacity, fuel_type, meter_type, description) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;',
+    structure_params: { brand_id: 'int', name: 'string', category: 'string', body_type: 'string|null', capacity: 'string|null', fuel_type: 'string|null', meter_type: 'string', description: 'string|null' },
+    orderArray: ['brand_id', 'name', 'category', 'body_type', 'capacity', 'fuel_type', 'meter_type', 'description']
+  },
+
+  'fleetUpdateModel': {
+    query: 'UPDATE public.fleet_model SET brand_id = $2, name = $3, category = $4, body_type = $5, capacity = $6, fuel_type = $7, meter_type = $8, description = $9 WHERE id = $1 AND archived_at IS NULL RETURNING id;',
+    structure_params: { id: 'int', brand_id: 'int', name: 'string', category: 'string', body_type: 'string|null', capacity: 'string|null', fuel_type: 'string|null', meter_type: 'string', description: 'string|null' },
+    orderArray: ['id', 'brand_id', 'name', 'category', 'body_type', 'capacity', 'fuel_type', 'meter_type', 'description']
+  },
+
+  'fleetSetModelPhoto': {
+    query: 'UPDATE public.fleet_model SET photo_url = $2 WHERE id = $1 RETURNING id, photo_url;',
+    structure_params: { id: 'int', photo_url: 'string|null' },
+    orderArray: ['id', 'photo_url']
+  },
+
+  'fleetArchiveModel': {
+    query: 'UPDATE public.fleet_model SET archived_at = NOW() WHERE id = $1 AND archived_at IS NULL RETURNING id, name;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'fleetListVersions': {
+    query: 'SELECT id, name FROM public.fleet_model_version WHERE model_id = $1 ORDER BY name;',
+    structure_params: { model_id: 'int' },
+    orderArray: ['model_id']
+  },
+
+  'fleetInsertVersion': {
+    query: 'INSERT INTO public.fleet_model_version (model_id, name) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id;',
+    structure_params: { model_id: 'int', name: 'string' },
+    orderArray: ['model_id', 'name']
+  },
+
+  'fleetDeleteVersion': {
+    query: 'DELETE FROM public.fleet_model_version WHERE id = $1 AND model_id = $2;',
+    structure_params: { id: 'int', model_id: 'int' },
+    orderArray: ['id', 'model_id']
+  },
+
+  # model_id/version_id van como texto (o null) y se castean: el validador
+  # no acepta 'int|null' de forma confiable.
+  'fleetSetUnitModel': {
+    query: 'INSERT INTO public.fleet_unit_profile (unit_id, model_id, version_id) VALUES ($1, $2::bigint, $3::bigint) ON CONFLICT (unit_id) DO UPDATE SET model_id = EXCLUDED.model_id, version_id = EXCLUDED.version_id, updated_at = NOW() RETURNING unit_id;',
+    structure_params: { unit_id: 'int', model_id: 'string|null', version_id: 'string|null' },
+    orderArray: ['unit_id', 'model_id', 'version_id']
   }
 }

@@ -1,4 +1,4 @@
-import { executeTransaction } from "./api";
+import api, { executeTransaction, getCurrentProfile } from "./api";
 
 // Flota -> Fichas de Vehiculos. Los numeros son los ids de
 // backend/config/permission.csv (unica fuente de verdad, 167-176).
@@ -13,7 +13,17 @@ const TX = {
   AGREGAR_NOTA: 174,
   GET_AJUSTES: 175,
   GUARDAR_AJUSTES: 176,
+  CATALOGO_LISTAR: 177,
+  CATALOGO_GUARDAR_MODELO: 178,
+  CATALOGO_ARCHIVAR_MODELO: 179,
+  CATALOGO_ASIGNAR_UNIDADES: 180,
+  CATALOGO_QUITAR_UNIDAD: 181,
 };
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+/** Las fotos del catálogo vienen como ruta relativa (/fleet/models/file/...). */
+export const resolveFleetFileUrl = (url) => (url ? `${API_BASE_URL}${url}` : null);
 
 const unwrap = (res) => {
   const d = res?.data;
@@ -42,6 +52,21 @@ const fleetService = {
   agregarNota: (unit_id, texto) => call(TX.AGREGAR_NOTA, { unit_id, texto }),
   getAjustes: () => call(TX.GET_AJUSTES),
   guardarAjustes: (ajustes) => call(TX.GUARDAR_AJUSTES, ajustes),
+
+  // Catálogo de modelos (marca -> modelo -> versión, con foto)
+  catalogo: () => call(TX.CATALOGO_LISTAR),
+  guardarModelo: (modelo) => call(TX.CATALOGO_GUARDAR_MODELO, modelo),
+  archivarModelo: (id) => call(TX.CATALOGO_ARCHIVAR_MODELO, { id }),
+  asignarUnidades: (model_id, unit_ids, version_id = null) => call(TX.CATALOGO_ASIGNAR_UNIDADES, { model_id, unit_ids, version_id }),
+  quitarModeloDeUnidad: (unit_id) => call(TX.CATALOGO_QUITAR_UNIDAD, { unit_id }),
+  subirFotoModelo: async (modelId, file) => {
+    const formData = new FormData();
+    formData.append("model_id", modelId);
+    formData.append("profile", getCurrentProfile());
+    formData.append("photo", file);
+    const res = await api.post("/fleet/models/photo", formData, { headers: { "Content-Type": undefined } });
+    return res?.data?.data;
+  },
 };
 
 export default fleetService;

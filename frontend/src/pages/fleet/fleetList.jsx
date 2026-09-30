@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X } from "lucide-react";
-import { fleetService } from "@/services";
+import { Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X, LayoutGrid } from "lucide-react";
+import { fleetService, resolveFleetFileUrl } from "@/services";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -48,6 +49,7 @@ const AjustesModal = ({ onClose }) => {
   ];
 
   return (
+    createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => onClose(false)}>
       <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-3xl bg-white dark:bg-[#111216] border border-slate-100 dark:border-white/10 shadow-2xl p-6">
         <div className="flex items-center justify-between mb-1">
@@ -76,7 +78,9 @@ const AjustesModal = ({ onClose }) => {
           <Button disabled={saving || !form} onClick={save} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">{saving ? "Guardando…" : "Guardar"}</Button>
         </div>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
+    )
   );
 };
 
@@ -84,7 +88,7 @@ const UnitCard = ({ u, onOpen, i }) => {
   const st = statusOf(u);
   const gps = gpsState(u.gps);
   const p = u.profile || {};
-  const modelo = [p.brand, p.model].filter(Boolean).join(" ");
+  const modelo = u.model_name ? [u.brand_name, u.model_name, u.version_name].filter(Boolean).join(" ") : [p.brand, p.model].filter(Boolean).join(" ");
   const docAlert = u.docs_expired > 0 ? "vencido" : u.docs_expiring > 0 ? "por vencer" : null;
 
   return (
@@ -104,7 +108,11 @@ const UnitCard = ({ u, onOpen, i }) => {
           <p className="mt-2 font-display text-base text-slate-900 dark:text-white truncate">{u.code}</p>
           <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{modelo || u.name || "Ficha técnica pendiente"}</p>
         </div>
-        <VehicleIcon fleetType={u.fleet_type} className="w-14 h-10 text-brand-navy/70 dark:text-sky-300/70 shrink-0 group-hover:scale-105 transition-transform" />
+        {u.model_photo ? (
+          <img src={resolveFleetFileUrl(u.model_photo)} alt={modelo} loading="lazy" className="w-20 h-14 rounded-xl object-cover shrink-0 group-hover:scale-105 transition-transform" />
+        ) : (
+          <VehicleIcon fleetType={u.fleet_type} className="w-14 h-10 text-brand-navy/70 dark:text-sky-300/70 shrink-0 group-hover:scale-105 transition-transform" />
+        )}
       </div>
 
       <div className="mt-4 space-y-1.5 text-xs">
@@ -168,7 +176,7 @@ const FleetList = () => {
       if (docsOnly && !(u.docs_expired > 0 || u.docs_expiring > 0)) return false;
       if (!term) return true;
       const p = u.profile || {};
-      return [u.code, u.plate, u.driver_name, u.name, p.brand, p.model, u.gps?.location_text].some((v) => String(v || "").toLowerCase().includes(term));
+      return [u.code, u.plate, u.driver_name, u.name, p.brand, p.model, u.brand_name, u.model_name, u.gps?.location_text].some((v) => String(v || "").toLowerCase().includes(term));
     });
   }, [units, q, fleet, status, docsOnly]);
 
@@ -193,6 +201,9 @@ const FleetList = () => {
               {l}
             </button>
           ))}
+          <Button variant="outline" onClick={() => navigate("/fleet/catalog")} className="h-11 rounded-xl gap-2" title="Catálogo de modelos">
+            <LayoutGrid size={16} /><span className="hidden lg:inline">Catálogo</span>
+          </Button>
           <Button variant="outline" onClick={() => setShowAjustes(true)} className="h-11 rounded-xl gap-2" title="Intervalos de mantenimiento">
             <Wrench size={16} /><span className="hidden lg:inline">Mantenimiento</span><Settings2 size={14} className="lg:hidden" />
           </Button>

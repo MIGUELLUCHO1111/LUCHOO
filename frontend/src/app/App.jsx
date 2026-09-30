@@ -22,7 +22,8 @@ import {
   HoursProjects,
   HoursEquipment,
   FleetList,
-  FleetDetail
+  FleetDetail,
+  FleetCatalog
 } from "@/pages";
 
 import { AuthProvider, ConfirmProvider } from "@/context";
@@ -57,6 +58,7 @@ function App() {
             <Route path="/hours/projects" element={<HoursProjects />} />
             <Route path="/hours/equipment" element={<HoursEquipment />} />
             <Route path="/fleet" element={<FleetList />} />
+            <Route path="/fleet/catalog" element={<FleetCatalog />} />
             <Route path="/fleet/:id" element={<FleetDetail />} />
           </Route>
 

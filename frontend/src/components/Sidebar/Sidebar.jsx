@@ -176,7 +176,10 @@ export const Sidebar = () => {
     {
       icon: Truck,
       label: "Flota",
-      children: [{ title: "Fichas de Vehículos", url: "/fleet" }],
+      children: [
+        { title: "Fichas de Vehículos", url: "/fleet" },
+        { title: "Catálogo de Modelos", url: "/fleet/catalog" },
+      ],
     },
     { icon: BarChart3, label: "Reportes", url: "/reports" },
     {

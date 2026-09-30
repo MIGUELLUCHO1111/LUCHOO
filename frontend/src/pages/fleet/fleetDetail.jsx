@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ArrowLeft, Pencil, Gauge, User, MapPin, Phone, FileText, Wrench, StickyNote, Activity,
   Radio, Plus, Trash2, X, Fingerprint, Fuel, Cpu, Repeat, History, ShieldCheck,
 } from "lucide-react";
-import { fleetService } from "@/services";
+import { fleetService, resolveFleetFileUrl } from "@/services";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
@@ -14,6 +15,7 @@ import {
   STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, FLEET_LABEL, Field, inputCls,
   fmtKm, fmtMoney, fmtDate, fmtDateTime, initials, haceCuanto, maintProgress, TONE, docTone,
 } from "./fleetParts";
+import { categoryLabel } from "./fleetArt";
 
 // Documentos venezolanos de uso comun (consejo recibido 30/09/2026).
 const DOC_TYPES = [
@@ -124,7 +126,7 @@ const EDIT_SECTIONS = [
   {
     title: "ADN del vehículo",
     fields: [
-      ["brand", "Marca"], ["model", "Modelo"], ["model_year", "Año", "number"], ["color", "Color"],
+      ["__model", "Modelo del catálogo", "catalog"], ["model_year", "Año", "number"], ["color", "Color"],
       ["vin", "Serial de carrocería (chasis)"], ["engine_serial", "Serial de motor"], ["fuel_type", "Combustible", "fuel"], ["tank_capacity_liters", "Capacidad del tanque (L)", "number"],
     ],
   },
@@ -159,21 +161,36 @@ const valueOf = (unit, key) => {
 const EditDrawer = ({ unit, onClose, onSaved }) => {
   const initial = useMemo(() => {
     const o = {};
-    EDIT_SECTIONS.forEach((s) => s.fields.forEach(([k, , t]) => { o[k] = t === "bool" ? !!unit.profile?.[k] : valueOf(unit, k); }));
+    EDIT_SECTIONS.forEach((s) => s.fields.forEach(([k, , t]) => { if (t !== "catalog") o[k] = t === "bool" ? !!unit.profile?.[k] : valueOf(unit, k); }));
     return o;
   }, [unit]);
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [catalogo, setCatalogo] = useState([]);
+  const initialModel = String(unit.profile?.model_id || "");
+  const initialVersion = String(unit.profile?.version_id || "");
+  const [modelId, setModelId] = useState(initialModel);
+  const [versionId, setVersionId] = useState(initialVersion);
+  useEffect(() => {
+    fleetService.catalogo().then((c) => setCatalogo(c?.modelos || [])).catch(() => {});
+  }, []);
+  const porMarca = useMemo(() => catalogo.reduce((acc, m) => ({ ...acc, [m.brand_name]: [...(acc[m.brand_name] || []), m] }), {}), [catalogo]);
+  const modeloSel = catalogo.find((m) => String(m.id) === modelId);
 
   const save = async () => {
     const changed = Object.fromEntries(Object.entries(form).filter(([k, v]) => String(v ?? "") !== String(initial[k] ?? "")));
-    if (!Object.keys(changed).length) return onClose();
+    const modelChanged = modelId !== initialModel || versionId !== initialVersion;
+    if (!Object.keys(changed).length && !modelChanged) return onClose();
     setSaving(true);
     setError(null);
     try {
-      const updated = await fleetService.guardar(unit.id, changed);
-      onSaved(updated);
+      if (Object.keys(changed).length) await fleetService.guardar(unit.id, changed);
+      if (modelChanged) {
+        if (modelId) await fleetService.asignarUnidades(Number(modelId), [Number(unit.id)], versionId ? Number(versionId) : null);
+        else await fleetService.quitarModeloDeUnidad(Number(unit.id));
+      }
+      onSaved(await fleetService.obtener(Number(unit.id)));
     } catch (e) {
       setError(e.message);
     } finally {
@@ -188,6 +205,24 @@ const EditDrawer = ({ unit, onClose, onSaved }) => {
         <button type="button" onClick={() => set(!form[k])} className={`h-6 w-11 rounded-full transition-colors relative ${form[k] ? "bg-brand-navy" : "bg-slate-300 dark:bg-slate-700"}`}>
           <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${form[k] ? "left-[22px]" : "left-0.5"}`} />
         </button>
+      );
+    if (t === "catalog")
+      return (
+        <div className="space-y-2">
+          <select value={modelId} onChange={(e) => { setModelId(e.target.value); setVersionId(""); }} className={inputCls}>
+            <option value="">— Sin modelo del catálogo —</option>
+            {Object.entries(porMarca).map(([marca, modelos]) => (
+              <optgroup key={marca} label={marca}>{modelos.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>
+            ))}
+          </select>
+          {modeloSel?.versions?.length > 0 && (
+            <select value={versionId} onChange={(e) => setVersionId(e.target.value)} className={inputCls}>
+              <option value="">Sin versión</option>
+              {modeloSel.versions.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+          )}
+          <p className="text-[11px] text-slate-400">{catalogo.length ? "Si falta el modelo, se crea en Flota → Catálogo de Modelos." : "El catálogo está vacío: crea los modelos en Flota → Catálogo de Modelos."}</p>
+        </div>
       );
     if (t === "fleet")
       return (
@@ -205,6 +240,7 @@ const EditDrawer = ({ unit, onClose, onSaved }) => {
   };
 
   return (
+    createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <motion.aside
         initial={{ x: "100%" }}
@@ -227,7 +263,7 @@ const EditDrawer = ({ unit, onClose, onSaved }) => {
               <h4 className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-navy dark:text-sky-300 mb-3">{s.title}</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {s.fields.map(([k, label, t]) => (
-                  <label key={k} className={`block ${t === "bool" ? "sm:col-span-2 flex items-center justify-between gap-3" : ""}`}>
+                  <label key={k} className={`block ${t === "bool" ? "sm:col-span-2 flex items-center justify-between gap-3" : t === "catalog" ? "sm:col-span-2" : ""}`}>
                     <span className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">{label}</span>
                     {input(k, t)}
                   </label>
@@ -245,7 +281,9 @@ const EditDrawer = ({ unit, onClose, onSaved }) => {
           </div>
         </div>
       </motion.aside>
-    </motion.div>
+    </motion.div>,
+    document.body,
+    )
   );
 };
 
@@ -561,7 +599,7 @@ const FleetDetail = () => {
   const interval = Number(unit.maint_interval_effective) || null;
   const mp = maintProgress(odo?.km ?? null, p, interval);
   const live = gpsState(unit.snapshot);
-  const modelo = [p.brand, p.model, p.model_year].filter(Boolean).join(" · ");
+  const modelo = (unit.model_name ? [unit.brand_name, unit.model_name, unit.version_name, p.model_year] : [p.brand, p.model, p.model_year]).filter(Boolean).join(" · ");
 
   return (
     <PageLayout icon={Truck} title="Ficha de Vehículo" subtitle={`FLOTA • ${unit.code}`} maxWidth="max-w-[1400px]">
@@ -572,8 +610,12 @@ const FleetDetail = () => {
           <button onClick={() => navigate("/fleet")} className="self-start h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5" title="Volver a la flota">
             <ArrowLeft size={16} />
           </button>
-          <div className="h-24 w-32 rounded-2xl bg-slate-50 dark:bg-white/5 flex items-center justify-center shrink-0">
-            <VehicleIcon fleetType={unit.fleet_type} className="w-24 h-16 text-brand-navy dark:text-sky-300" />
+          <div className={`${unit.model_photo ? "h-28 w-44" : "h-24 w-32"} rounded-2xl bg-slate-50 dark:bg-white/5 flex items-center justify-center shrink-0 overflow-hidden shadow-inner`}>
+            {unit.model_photo ? (
+              <motion.img initial={{ scale: 1.1, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} src={resolveFleetFileUrl(unit.model_photo)} alt={modelo} className="w-full h-full object-cover" />
+            ) : (
+              <VehicleIcon fleetType={unit.fleet_type} className="w-24 h-16 text-brand-navy dark:text-sky-300" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -621,8 +663,10 @@ const FleetDetail = () => {
                 </div>
               )}
               <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-                <Field label="Marca" value={p.brand} />
-                <Field label="Modelo" value={p.model} />
+                <Field label="Marca" value={unit.brand_name || p.brand} />
+                <Field label="Modelo" value={unit.model_name ? [unit.model_name, unit.version_name].filter(Boolean).join(" · ") : p.model} hint={unit.model_name ? "Del catálogo" : p.model || p.brand ? "Texto libre (elige el modelo del catálogo)" : null} />
+                {unit.model_name && <Field label="Familia" value={categoryLabel(unit.model_category)} />}
+                {unit.model_capacity && <Field label="Capacidad nominal" value={unit.model_capacity} />}
                 <Field label="Año" value={p.model_year} />
                 <Field label="Color" value={p.color} />
                 {!pesada && <Field label="Serial de carrocería" value={p.vin} />}

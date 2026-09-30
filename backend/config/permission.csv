@@ -175,3 +175,8 @@ id;sub_system;class;method;profile
 174;Flota;Ficha;agregarNota;admin
 175;Flota;Ficha;getAjustes;admin
 176;Flota;Ficha;guardarAjustes;admin
+177;Flota;Catalogo;listar;admin
+178;Flota;Catalogo;guardarModelo;admin
+179;Flota;Catalogo;archivarModelo;admin
+180;Flota;Catalogo;asignarUnidades;admin
+181;Flota;Catalogo;quitarUnidad;admin

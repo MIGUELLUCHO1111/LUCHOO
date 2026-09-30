@@ -11,6 +11,7 @@ import userRouter from '../session/sessionRoutes.js';
 import Security from '../security/security.js';
 import dispatcherRouter from '../dispatcher/dispatcherRoutes.js';
 import fuelPhotoRouter from '../fuel/fuelPhotoRoutes.js';
+import fleetPhotoRouter from '../fleet/fleetPhotoRoutes.js';
 import trackerAttachmentRouter from '../tracker/trackerAttachmentRoutes.js';
 import trackerReportFileRouter from '../tracker/trackerReportFileRoutes.js';
 import authMiddleware from '../auth/authMiddleware.js';
@@ -107,6 +108,7 @@ class Server {
     this.app.use('/', dispatcherRouter);
     this.app.use('/user', userRouter);
     this.app.use('/fuel', fuelPhotoRouter);
+    this.app.use('/fleet', fleetPhotoRouter);
     this.app.use('/tracker', trackerAttachmentRouter);
     this.app.use('/tracker', trackerReportFileRouter);
   }
