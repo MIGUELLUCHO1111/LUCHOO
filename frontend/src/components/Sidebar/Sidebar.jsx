@@ -9,6 +9,7 @@ import {
   Fuel,
   Radio,
   Clock,
+  Truck,
 } from "lucide-react";
 import { useAuth } from "@/context";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -171,6 +172,11 @@ export const Sidebar = () => {
         { title: "Mapa en vivo", url: "/tracker/map" },
         { title: "Reporte de Turno", url: "/tracker/report" },
       ],
+    },
+    {
+      icon: Truck,
+      label: "Flota",
+      children: [{ title: "Fichas de Vehículos", url: "/fleet" }],
     },
     { icon: BarChart3, label: "Reportes", url: "/reports" },
     {

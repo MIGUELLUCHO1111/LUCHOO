@@ -1,7 +1,7 @@
 import { useAuth } from "@/context";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { User, Fuel, Radio, Clock, BarChart3, ArrowRight } from "lucide-react";
+import { User, Fuel, Radio, Clock, BarChart3, ArrowRight, Truck } from "lucide-react";
 import { PageLayout } from "@/components/layout/PageLayout";
 
 // Un acceso directo por sección principal (mismo criterio de visibilidad
@@ -10,6 +10,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 const SHORTCUTS = [
   { icon: Fuel, label: "Combustible", description: "Llenados, tanque de gasoil y unidades", url: "/fuel" },
   { icon: Radio, label: "Tracker GPS", description: "Estado de flota, alertas y mapa en vivo", url: "/tracker" },
+  { icon: Truck, label: "Flota", description: "Ficha 360° de cada vehículo: estado, documentos y mantenimiento", url: "/fleet" },
   { icon: Clock, label: "Control de Horas", description: "Registro diario por proyecto y equipo", url: "/hours" },
   { icon: BarChart3, label: "Reportes", description: "Resumen de combustible y horas trabajadas", url: "/reports" },
 ];

@@ -67,6 +67,15 @@ Se puede abrir de dos formas simultáneas (pedido explícito, "TERMINA COMO VENI
 - Cada mensaje de alerta (el mismo texto que se guarda y el que se manda a Telegram — son idénticos) incluye al final una sección **"🛣️ Recorrido de hoy (hasta ahora)"** con el resumen de viajes/km/tiempo en movimiento del día completo hasta ese momento (no se puede anclar "a partir de la alerta" en Telegram porque se envía justo cuando se dispara, todavía no pasó nada después).
 - **Limpieza automática**: el historial de alertas se borra solo, todos los días a las 3:30am, después de 8 días (`TRACKER_ALERT_RETENTION_DAYS`) — son datos "solo de revisión", no se guardan para siempre. Corre independiente del interruptor `TRACKER_AUTO_REPORTS`.
 
+### Flota → Fichas de Vehículos (`/fleet`, `/fleet/:id`) — primera versión 30/09/2026
+Ficha 360° por unidad de `fleet_unit` (pedido de Lguerra; diseño "Ficha Virtual 360°": encabezado con placa y estado Operativo/En taller/Fuera de servicio, tarjetas ADN del vehículo y Estado operativo, Documentación con aviso de vencimiento, pestañas Fiscal/Servicios/Notas e historial a la derecha). Primera entrega = "verlo habilitado"; queda por completar.
+- **Los datos NO salen de Odoo** (la captura de Odoo solo fue referencia visual): salen del **Tracker GPS por API** + lo que el GPS no tiene se carga a mano en la ficha (marca, modelo, seriales, seguros, mantenimientos).
+- Backend: subsistema `Flota`, clase `Ficha` (`backend/src/bo/sub_system/classes/ficha.js`), transacciones 167-176, tablas de `db/migrations/043_fleet_ficha.sql` (`fleet_unit_profile`, `fleet_unit_document`, `fleet_unit_service`, `fleet_unit_event`, `fleet_setting` con intervalos de mantenimiento Liviana 5.000 / Pesada 10.000 km y aviso de documentos a 30 días). El dispatcher ahora pasa `caller_user` (quién hizo el cambio, para el historial).
+- **API oficial v3** (documento `ForesightFlexAPIv3_Consultas_Especificacion_Tecnica.docx`, credenciales en `backend/.env` como `FORESIGHT_V3_URL`/`FORESIGHT_WSUSER`/`FORESIGHT_WSPASSWORD`): `GetCurrentUnitsStatus` (odómetro, IMEI, SIM, batería) y `wsGetVehiclesOdometer` (km por día). **Al 30/09 el usuario FULLPETRO.3108 solo ve 1 unidad (A09EN5P)**; las demás responden vacío. Lguerra va a pedirle al proveedor que asigne toda la flota a ese usuario (opción "A"). Rate limit ~10 consultas seguidas → la ficha cachea 15 min por placa. `usersearchplatform` (la API interna) NO trae odómetro.
+- Ojo validador: el tipo `'float'` de `queries.yaml` rechaza enteros (`!Number.isInteger`) — para números usar `'string|null'` + `::numeric` en el SQL.
+- La ruta `/fleet/:id` hereda el permiso de `/fleet` (`DETAIL_ROUTES` en `ProtectedRoute.jsx`).
+- Pendiente para completarlo (consejo recibido): catálogo Marca → Modelo → Versión, historial de lecturas de odómetro + "odómetro reemplazado el", "frente" de asignación, indicador de equipo parado > 90 días, catálogos editables (tipos de documento, estados), foto/registro de conductores.
+
 ### Reportes de Turno (`/tracker/report`)
 Ver la sección siguiente — **hay DOS formatos de reporte, no confundirlos.**
 

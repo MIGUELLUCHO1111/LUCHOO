@@ -19,3 +19,5 @@ export { default as HoursDailyEntry } from "./hours/dailyEntry.jsx";
 export { default as HoursCompanies } from "./hours/companies.jsx";
 export { default as HoursProjects } from "./hours/projects.jsx";
 export { default as HoursEquipment } from "./hours/equipment.jsx";
+export { default as FleetList } from "./fleet/fleetList.jsx";
+export { default as FleetDetail } from "./fleet/fleetDetail.jsx";

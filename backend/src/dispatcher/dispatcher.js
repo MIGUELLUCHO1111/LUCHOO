@@ -71,7 +71,10 @@ export default class Dispatcher {
       // y `assertProjectAccess` en `classes/projectAccess.js`); cualquier otro
       // método existente simplemente lo ignora al desestructurar sus propios
       // parámetros con nombre.
-      return await this.security.execute(txId, { ...parameters, caller_profile: profile });
+      // caller_user: nombre del usuario autenticado, para dejar quien hizo
+      // cada cambio en el historial de la Ficha de Vehiculos (fleet_unit_event).
+      const callerUser = request.user.username || request.user.name || null;
+      return await this.security.execute(txId, { ...parameters, caller_profile: profile, caller_user: callerUser });
 
     } catch (error) {
       console.error(error);

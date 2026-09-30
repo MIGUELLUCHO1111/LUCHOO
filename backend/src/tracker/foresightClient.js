@@ -18,6 +18,37 @@ export default class ForesightClient {
     this.reportIdComportamiento = process.env.FORESIGHT_REPORT_ID_COMPORTAMIENTO;
   }
 
+  // API oficial v3 (documento ForesightFlexAPIv3_Consultas_Especificacion_
+  // Tecnica, 30/09/2026) para la Ficha de Vehiculos: trae el odometro, el
+  // equipo GPS y la bateria, que usersearchplatform no trae. Ojo: al 30/09
+  // el usuario de servicio FULLPETRO.3108 solo tiene asignada 1 unidad
+  // (A09EN5P) -- las demas placas responden vacio hasta que el proveedor le
+  // asigne toda la flota -- y la API corta con "Rate limit excedido" tras
+  // ~10 consultas seguidas.
+  async postV3(method, extra) {
+    const url = process.env.FORESIGHT_V3_URL;
+    if (!url || !process.env.FORESIGHT_WSUSER) return [];
+    const data = await this.post({
+      method,
+      conncode: this.conncode,
+      wsuser: process.env.FORESIGHT_WSUSER,
+      wspassword: process.env.FORESIGHT_WSPASSWORD,
+      ...extra,
+    }, url);
+    return this.extractRows(data);
+  }
+
+  /** GetCurrentUnitsStatus: ultimo estado de una placa (o null si la API no la ve). */
+  async getEstadoActualV3(plate) {
+    const rows = await this.postV3('GetCurrentUnitsStatus', { plateno: plate });
+    return rows[0] || null;
+  }
+
+  /** wsGetVehiclesOdometer: una fila por dia con km del dia y odometro total. */
+  async getOdometroV3({ plate, startdate, enddate }) {
+    return this.postV3('wsGetVehiclesOdometer', { plateno: plate, startdate, enddate });
+  }
+
   async post(body, url) {
     const response = await axios.post(url, body, {
       auth: { username: this.basicUser, password: this.basicPassword },

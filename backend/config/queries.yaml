@@ -1400,5 +1400,100 @@
     query: 'SELECT p.id, p.name FROM public.project_profile_assignment ppa JOIN public.profile p ON p.id = ppa.profile_id WHERE ppa.project_id = $1 ORDER BY p.name;',
     structure_params: { project_id: 'int' },
     orderArray: ['project_id']
+  },
+
+  # ========== FLOTA: FICHAS DE VEHICULOS (043_fleet_ficha.sql) ==========
+  # fleetListUnits y fleetGetUnit comparten el mismo SELECT (la segunda solo
+  # agrega el filtro por id): si se cambia uno, cambiar el otro igual.
+  'fleetListUnits': {
+    query: "SELECT u.id, u.code, u.name, u.plate, u.driver_name, u.fleet_type, u.tank_capacity_liters, u.is_active, u.created_at, COALESCE(to_jsonb(p) - 'unit_id', '{}'::jsonb) AS profile, COALESCE(NULLIF(p.maint_interval_km, 0), (SELECT value::int FROM public.fleet_setting WHERE key = 'MAINT_INTERVAL_' || COALESCE(u.fleet_type, 'LIVIANA'))) AS maint_interval_effective, COALESCE(d.expired, 0)::int AS docs_expired, COALESCE(d.expiring, 0)::int AS docs_expiring, d.next_expiry::text AS next_expiry FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id LEFT JOIN LATERAL (SELECT COUNT(*) FILTER (WHERE expires_at < CURRENT_DATE) AS expired, COUNT(*) FILTER (WHERE expires_at >= CURRENT_DATE AND expires_at <= CURRENT_DATE + (SELECT value::int FROM public.fleet_setting WHERE key = 'DOC_ALERT_DAYS')) AS expiring, MIN(expires_at) FILTER (WHERE expires_at >= CURRENT_DATE) AS next_expiry FROM public.fleet_unit_document WHERE unit_id = u.id AND deleted_at IS NULL) d ON TRUE WHERE u.deleted_at IS NULL ORDER BY u.code;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetGetUnit': {
+    query: "SELECT u.id, u.code, u.name, u.plate, u.driver_name, u.fleet_type, u.tank_capacity_liters, u.is_active, u.created_at, COALESCE(to_jsonb(p) - 'unit_id', '{}'::jsonb) AS profile, COALESCE(NULLIF(p.maint_interval_km, 0), (SELECT value::int FROM public.fleet_setting WHERE key = 'MAINT_INTERVAL_' || COALESCE(u.fleet_type, 'LIVIANA'))) AS maint_interval_effective, COALESCE(d.expired, 0)::int AS docs_expired, COALESCE(d.expiring, 0)::int AS docs_expiring, d.next_expiry::text AS next_expiry FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id LEFT JOIN LATERAL (SELECT COUNT(*) FILTER (WHERE expires_at < CURRENT_DATE) AS expired, COUNT(*) FILTER (WHERE expires_at >= CURRENT_DATE AND expires_at <= CURRENT_DATE + (SELECT value::int FROM public.fleet_setting WHERE key = 'DOC_ALERT_DAYS')) AS expiring, MIN(expires_at) FILTER (WHERE expires_at >= CURRENT_DATE) AS next_expiry FROM public.fleet_unit_document WHERE unit_id = u.id AND deleted_at IS NULL) d ON TRUE WHERE u.deleted_at IS NULL AND u.id = $1;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'fleetUpdateUnitBasics': {
+    query: 'UPDATE public.fleet_unit SET driver_name = $2, fleet_type = $3, name = $4, tank_capacity_liters = $5::numeric WHERE id = $1 AND deleted_at IS NULL RETURNING id, code, driver_name, fleet_type, name, tank_capacity_liters;',
+    structure_params: { id: 'int', driver_name: 'string|null', fleet_type: 'string|null', name: 'string|null', tank_capacity_liters: 'string|null' },
+    orderArray: ['id', 'driver_name', 'fleet_type', 'name', 'tank_capacity_liters']
+  },
+
+  'fleetEnsureProfile': {
+    query: 'INSERT INTO public.fleet_unit_profile (unit_id) VALUES ($1) ON CONFLICT (unit_id) DO NOTHING;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  # patch = JSON con solo las columnas que cambian (ya filtradas en ficha.js):
+  # jsonb_populate_record(p, patch) conserva el valor actual de las que no vienen.
+  'fleetUpdateProfile': {
+    query: "UPDATE public.fleet_unit_profile p SET (operational_status, brand, model, model_year, vin, engine_serial, color, fuel_type, assigned_zone, driver_phone, driver_assigned_at, next_driver, change_plan, fleet_manager, avg_consumption_kml, odometer_km, odometer_at, maint_interval_km, last_maint_km, last_maint_at, order_date, registration_date, cancellation_date, first_contract_date, hp_tax, catalog_value, purchase_value, residual_value, tags) = (SELECT r.operational_status, r.brand, r.model, r.model_year, r.vin, r.engine_serial, r.color, r.fuel_type, r.assigned_zone, r.driver_phone, r.driver_assigned_at, r.next_driver, r.change_plan, r.fleet_manager, r.avg_consumption_kml, r.odometer_km, r.odometer_at, r.maint_interval_km, r.last_maint_km, r.last_maint_at, r.order_date, r.registration_date, r.cancellation_date, r.first_contract_date, r.hp_tax, r.catalog_value, r.purchase_value, r.residual_value, r.tags FROM jsonb_populate_record(p, $2::jsonb) r), updated_at = NOW() WHERE p.unit_id = $1 RETURNING p.unit_id;",
+    structure_params: { unit_id: 'int', patch: 'string' },
+    orderArray: ['unit_id', 'patch']
+  },
+
+  'fleetInsertEvent': {
+    query: 'INSERT INTO public.fleet_unit_event (unit_id, event_type, title, detail, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id;',
+    structure_params: { unit_id: 'int', event_type: 'string', title: 'string', detail: 'string|null', created_by: 'string|null' },
+    orderArray: ['unit_id', 'event_type', 'title', 'detail', 'created_by']
+  },
+
+  'fleetListEvents': {
+    query: 'SELECT id, event_type, title, detail, created_by, created_at FROM public.fleet_unit_event WHERE unit_id = $1 ORDER BY created_at DESC, id DESC LIMIT 150;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'fleetListDocuments': {
+    query: 'SELECT id, doc_type, name, number, provider, issued_at::text AS issued_at, expires_at::text AS expires_at, notes, (expires_at - CURRENT_DATE) AS days_left FROM public.fleet_unit_document WHERE unit_id = $1 AND deleted_at IS NULL ORDER BY expires_at NULLS LAST, id;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'fleetInsertDocument': {
+    query: 'INSERT INTO public.fleet_unit_document (unit_id, doc_type, name, number, provider, issued_at, expires_at, notes) VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8) RETURNING id;',
+    structure_params: { unit_id: 'int', doc_type: 'string', name: 'string', number: 'string|null', provider: 'string|null', issued_at: 'string|null', expires_at: 'string|null', notes: 'string|null' },
+    orderArray: ['unit_id', 'doc_type', 'name', 'number', 'provider', 'issued_at', 'expires_at', 'notes']
+  },
+
+  'fleetDeleteDocument': {
+    query: 'UPDATE public.fleet_unit_document SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id, unit_id, name;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'fleetListServices': {
+    query: 'SELECT id, service_at::text AS service_at, service_type, odometer_km, description, workshop, cost FROM public.fleet_unit_service WHERE unit_id = $1 AND deleted_at IS NULL ORDER BY service_at DESC, id DESC;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'fleetInsertService': {
+    query: 'INSERT INTO public.fleet_unit_service (unit_id, service_at, service_type, odometer_km, description, workshop, cost) VALUES ($1, $2::date, $3, $4::numeric, $5, $6, $7::numeric) RETURNING id;',
+    structure_params: { unit_id: 'int', service_at: 'string', service_type: 'string', odometer_km: 'string|null', description: 'string', workshop: 'string|null', cost: 'string|null' },
+    orderArray: ['unit_id', 'service_at', 'service_type', 'odometer_km', 'description', 'workshop', 'cost']
+  },
+
+  'fleetDeleteService': {
+    query: 'UPDATE public.fleet_unit_service SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id, unit_id, description;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'fleetGetSettings': {
+    query: 'SELECT key, value FROM public.fleet_setting ORDER BY key;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetSetSetting': {
+    query: 'UPDATE public.fleet_setting SET value = $2, updated_at = NOW() WHERE key = $1 RETURNING key, value;',
+    structure_params: { key: 'string', value: 'string' },
+    orderArray: ['key', 'value']
   }
 }

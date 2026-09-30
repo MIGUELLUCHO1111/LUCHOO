@@ -3,6 +3,8 @@ import { useNavigate, Outlet, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "@/context";
 import { AlertMessage } from "@/components";
 
+const DETAIL_ROUTES = [[/^\/fleet\/\d+$/, "/fleet"]];
+
 export const ProtectedRoute = () => {
   const { user, loading, allowedSections } = useAuth();
   const [showWarning, setShowWarning] = useState(false);
@@ -67,10 +69,13 @@ export const ProtectedRoute = () => {
   // /dashboard nunca se restringe (no está en el menú, es el aterrizaje).
   // allowedSections === null mientras se resuelve el perfil: no bloquea
   // todavía, para no redirigir de más antes de tener la respuesta.
+  // Pantallas de detalle (ej. /fleet/12, la ficha de un vehículo) heredan el
+  // permiso de su sección: en option solo existe la sección, no cada id.
+  const section = DETAIL_ROUTES.find(([re]) => re.test(location.pathname))?.[1] || location.pathname;
   const isRestricted =
     allowedSections &&
     location.pathname !== "/dashboard" &&
-    !allowedSections.includes(location.pathname);
+    !allowedSections.includes(section);
 
   if (isRestricted) {
     return <Navigate to="/dashboard" replace />;
