@@ -50,7 +50,31 @@ export const formatFecha = (fecha) => {
 // direccion completa del GPS (location_raw).
 const LARGA = 40;
 const STREET = /^(calle|avenida|av\.?|avda\.?|carretera|v[ií]a|autopista|prolongaci[oó]n|troncal)\b/i;
-export const resumirDireccion = (u) => {
+const ROUTE = /^[A-Z]{1,2}-\d+$/i; // rutas tipo R-90, T-3
+const kmEntre = (a, b) => {
+  const rad = (x) => (Number(x) * Math.PI) / 180;
+  const dLat = rad(b.latitude - a.latitude);
+  const dLng = rad(b.longitude - a.longitude);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+};
+// Sitio conocido mas cercano (Base, Campo u Oficina donde hay otra unidad), hasta 10 km.
+const sitioCercano = (u, todas) => {
+  if (u.latitude == null || u.longitude == null) return '';
+  let best = null;
+  for (const o of todas || []) {
+    if (o === u || o.location_category === 'OTRAS' || !o.location_text || o.latitude == null || o.longitude == null) continue;
+    const km = kmEntre(u, o);
+    if (km <= 10 && (!best || km < best.km)) best = { km, text: o.location_text.split(/ - |,/)[0].trim() };
+  }
+  if (!best) return '';
+  return best.km < 1 ? `CERCA DE ${best.text}` : `A ${Math.round(best.km)} KM DE ${best.text}`;
+};
+
+// Sin calle ni avenida (pedido de Lguerra, 01/10/2026): al menos un punto de
+// referencia -- carretera o ruta del GPS, un sitio con nombre, el sitio
+// conocido mas cercano o, si no, la parroquia. `todas` = unidades del reporte.
+export const resumirDireccion = (u, todas) => {
   const texto = String(u.location_text || '');
   if (u.location_category !== 'OTRAS' || !u.location_raw) return texto;
   if (texto.length <= LARGA && !/CERCA DE|^\s*,/i.test(texto)) return texto;
@@ -60,10 +84,18 @@ export const resumirDireccion = (u) => {
   const municipio = partes[iMun].replace(/^municipio\s+/i, '');
   const estado = partes.slice(iMun + 1).find((p) => !/^\d+$/.test(p) && !/^venezuela$/i.test(p)) || '';
   const antes = partes.slice(0, iMun).filter((p) => !/^parroquia\s+/i.test(p));
+  const parroquia = (partes.find((p) => /^parroquia\s+/i.test(p)) || '').replace(/^parroquia\s+/i, '');
+  const igual = (a, b) => a.toLowerCase() === b.toLowerCase();
   // Calle o avenida: primero la del texto que se muestra, si no la del GPS.
-  const delTexto = texto.split(/,| - |\. /).map((p) => p.trim()).filter(Boolean);
-  const calle = delTexto.find((p) => STREET.test(p)) || antes.find((p) => STREET.test(p))
-    || (antes[0] && antes[0].toLowerCase() !== municipio.toLowerCase() ? antes[0] : '');
+  // (el punto de "AV. 14A" no separa: es abreviatura)
+  const delTexto = texto.split(/,| - |(?<!\bAVDA|\bAV)\.\s/i).map((p) => p.trim()).filter(Boolean);
+  let calle = delTexto.find((p) => STREET.test(p)) || antes.find((p) => STREET.test(p) || ROUTE.test(p)) || '';
+  if (calle && ROUTE.test(calle)) calle = `CARRETERA ${calle}`;
+  if (!calle) {
+    const sitio = antes.find((p) => !igual(p, municipio) && !igual(p, estado) && !igual(p, parroquia));
+    calle = sitio ? `CERCA DE ${sitio}`
+      : sitioCercano(u, todas) || (parroquia && !igual(parroquia, municipio) ? `CERCA DE ${parroquia}` : '');
+  }
   const piezas = [calle, municipio, estado].filter(Boolean).filter((p, i, arr) => arr.findIndex((x) => x.toLowerCase() === p.toLowerCase()) === i);
   return piezas.length ? piezas.join(', ').toUpperCase() : texto;
 };
@@ -183,7 +215,7 @@ export function buildModeloInternoWorkbook(r) {
     u.unit_code || 'sin registrar',
     u.plate || '-',
     u.driver_name || '-',
-    resumirDireccion(u) || '-',
+    resumirDireccion(u, r.unidades) || '-',
     formatHora(u.fetched_at),
     u.status || '-',
   ]);
@@ -238,7 +270,7 @@ export function buildModeloInternoHtml(r, now = new Date()) {
     const estB = ESTADO_BORDER[u.status];
     return `<tr>
       <td>${esc(u.unit_code || 'sin registrar')}</td><td>${esc(u.plate || '-')}</td><td>${esc(u.driver_name || '-')}</td>
-      <td class="b" style="color:${hex(cat)};border-left:3px solid ${hex(catB)}${String(resumirDireccion(u)).length > 44 ? ';font-size:10px' : ''}">${esc(resumirDireccion(u) || '-')}</td>
+      <td class="b" style="color:${hex(cat)};border-left:3px solid ${hex(catB)}${String(resumirDireccion(u, r.unidades)).length > 44 ? ';font-size:10px' : ''}">${esc(resumirDireccion(u, r.unidades) || '-')}</td>
       <td>${esc(formatHora(u.fetched_at))}</td>
       <td class="b" style="color:${hex(est)};${estB ? `border-right:3px solid ${hex(estB)}` : ''}">${esc(u.status || '-')}</td>
     </tr>`;
