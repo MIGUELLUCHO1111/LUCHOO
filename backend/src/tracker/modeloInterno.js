@@ -71,10 +71,36 @@ const sitioCercano = (u, todas) => {
   return best.km < 1 ? `CERCA DE ${best.text}` : `A ${Math.round(best.km)} KM DE ${best.text}`;
 };
 
+// Direcciones largas: con "Reducir hasta ajustar" Excel las achicaba hasta
+// no poder leerlas (pedido de Lguerra, 01/10/2026). Se abrevian palabras
+// comunes, paso a paso, hasta que quepan; como ultimo recurso se quita el
+// estado (queda el municipio, que ya ubica el sitio).
+const MAX_DIR = 46;
+const ABREV = [
+  [/\bADMINISTRATIVA\s+/g, ''],
+  [/\bAVENIDA\b/g, 'AV.'],
+  [/\bCARRETERA\b/g, 'CARR.'],
+  [/\bURBANIZACI[OÓ]N\b/g, 'URB.'],
+  [/\bSECTOR\b/g, 'SECT.'],
+  [/\bREFINER[IÍ]A\b/g, 'REF.'],
+  [/\bPROLONGACI[OÓ]N\b/g, 'PROLONG.'],
+];
+export const acortarDireccion = (texto) => {
+  let t = String(texto || '').replace(/\s+/g, ' ').trim();
+  for (const [re, by] of ABREV) {
+    if (t.length <= MAX_DIR) return t;
+    t = t.replace(re, by).replace(/\s+/g, ' ').trim();
+  }
+  if (t.length > MAX_DIR && t.split(', ').length >= 3) t = t.split(', ').slice(0, -1).join(', ');
+  return t;
+};
+
 // Sin calle ni avenida (pedido de Lguerra, 01/10/2026): al menos un punto de
 // referencia -- carretera o ruta del GPS, un sitio con nombre, el sitio
 // conocido mas cercano o, si no, la parroquia. `todas` = unidades del reporte.
-export const resumirDireccion = (u, todas) => {
+export const resumirDireccion = (u, todas) =>
+  (u.location_category === 'OTRAS' ? acortarDireccion(resumirCompleta(u, todas)) : resumirCompleta(u, todas));
+const resumirCompleta = (u, todas) => {
   const texto = String(u.location_text || '');
   if (u.location_category !== 'OTRAS' || !u.location_raw) return texto;
   if (texto.length <= LARGA && !/CERCA DE|^\s*,/i.test(texto)) return texto;
@@ -122,7 +148,7 @@ export function buildModeloInternoWorkbook(r) {
     pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.25, right: 0.25, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 } },
   });
 
-  ws.columns = [{ width: 16 }, { width: 14 }, { width: 20 }, { width: 42 }, { width: 14 }, { width: 14 }];
+  ws.columns = [{ width: 16 }, { width: 14 }, { width: 20 }, { width: 50 }, { width: 14 }, { width: 14 }];
 
   const CENTER = { horizontal: 'center', vertical: 'middle' };
   // Bordes blancos en encabezado, indicadores y leyenda (pedido de Lguerra, 30/09/2026).
@@ -260,7 +286,7 @@ const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 /** HTML del modelo interno para imprimir a PDF (reportRenderer.renderReportOutputs). */
 export function buildModeloInternoHtml(r, now = new Date()) {
   const { total, activas, estacionadas } = contarModeloInterno(r);
-  const W = [16, 14, 20, 42, 14, 14];
+  const W = [16, 14, 20, 50, 14, 14];
   const sum = W.reduce((a, b) => a + b, 0);
   const cols = W.map((w) => `<col style="width:${((w / sum) * 100).toFixed(2)}%">`).join('');
   const filas = r.unidades.map((u) => {
