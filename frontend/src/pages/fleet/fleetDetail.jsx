@@ -19,7 +19,8 @@ import {
 } from "./fleetParts";
 import { categoryLabel, useFamilies } from "./fleetArt";
 import DocumentsPanel from "./fleetDocuments";
-import { fichaChecklist, docsState } from "./fleetCompleteness";
+import { fichaChecklist } from "./fleetCompleteness";
+import DocsBadge from "./fleetDocsBadge";
 import AssignManagersModal from "./fleetManagers";
 import ReadingsPanel, { SOURCE as READING_SOURCE } from "./fleetReadings";
 
@@ -789,16 +790,7 @@ const FleetDetail = () => {
               </span>
               <span title={full ? "Equipo del contrato PDVSA-Chevron" : "Documentos, km y encargado"} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${full ? "bg-brand-navy text-white" : "bg-slate-500/10 text-slate-600 dark:text-slate-300"}`}>{full ? "Ficha completa · contrato" : "Ficha básica"}</span>
               <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${live.cls}`}><span className={`h-2 w-2 rounded-full ${live.dot}`} />GPS: {live.label}</span>
-              {(() => {
-                const ds = docsState(unit);
-                return (
-                  <button type="button" title="Ir a Documentación y seguros"
-                    onClick={() => [...document.querySelectorAll("h3")].find((h) => /documentación y seguros/i.test(h.innerText))?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold shadow-md ${ds.cls} ${ds.ring}`}>
-                    <span className="inline-flex">{ds.key === "al_dia" ? <CheckCircle2 size={13} /> : <FileText size={13} />}</span> {ds.label}
-                  </button>
-                );
-              })()}
+              <DocsBadge unit={unit} size="lg" onClick={() => [...document.querySelectorAll("h3")].find((h) => /documentación y seguros/i.test(h.innerText))?.scrollIntoView({ behavior: "smooth", block: "start" })} />
             </div>
           </div>
           <div className="flex flex-col items-stretch lg:items-end gap-3">

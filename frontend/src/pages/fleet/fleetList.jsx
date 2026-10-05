@@ -12,6 +12,7 @@ import { STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, input
 import { useFamilies } from "./fleetArt";
 import { fichaChecklist, CHECK_LABELS, docsState } from "./fleetCompleteness";
 import AssignManagersModal from "./fleetManagers";
+import DocsBadge from "./fleetDocsBadge";
 
 const AjustesModal = ({ onClose }) => {
   const [form, setForm] = useState(null);
@@ -90,7 +91,6 @@ const UnitCard = ({ u, onOpen, i }) => {
   const gps = gpsState(u.gps);
   const p = u.profile || {};
   const modelo = u.model_name ? [u.brand_name, u.model_name, u.version_name].filter(Boolean).join(" ") : [p.brand, p.model].filter(Boolean).join(" ");
-  const docs = docsState(u);
 
   return (
     <motion.button
@@ -101,9 +101,9 @@ const UnitCard = ({ u, onOpen, i }) => {
       transition={{ delay: Math.min(i * 0.015, 0.3) }}
       whileHover={{ y: -4 }}
       onClick={onOpen}
-      className="group relative text-left rounded-3xl border border-slate-100 dark:border-white/5 bg-white/90 dark:bg-[#0f1115]/80 backdrop-blur-md p-5 overflow-hidden hover:shadow-xl hover:shadow-brand-navy/10 transition-shadow"
+      className="group relative text-left rounded-3xl border border-slate-100 dark:border-white/5 bg-white/90 dark:bg-[#0f1115]/80 backdrop-blur-md p-5 hover:z-20 hover:shadow-xl hover:shadow-brand-navy/10 transition-shadow"
     >
-      <span className={`absolute left-0 top-0 h-full w-1.5 ${st.bar}`} />
+      <span className={`absolute left-0 top-0 h-full w-1.5 rounded-l-3xl ${st.bar}`} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <PlateBadge plate={u.plate} size="sm" />
@@ -145,9 +145,7 @@ const UnitCard = ({ u, onOpen, i }) => {
         </span>
         <span className="h-6 w-6 rounded-lg flex items-center justify-center text-slate-300 group-hover:bg-brand-navy group-hover:text-white transition-colors"><ChevronRight size={14} /></span>
       </div>
-      <p className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold shadow-md ${docs.cls} ${docs.ring}`}>
-        <span className="inline-flex">{docs.key === "al_dia" ? <ShieldCheck size={15} /> : <FileWarning size={15} />}</span> {docs.label}
-      </p>
+      <span className="mt-3 block"><DocsBadge unit={u} /></span>
     </motion.button>
   );
 };
