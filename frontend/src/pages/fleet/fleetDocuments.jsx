@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldCheck, BadgeCheck, CarFront, Umbrella, ClipboardCheck, Construction, Weight, Zap, ScrollText, FilePlus2,
-  Upload, X, FileText, Image as ImageIcon, RefreshCw, Trash2, Paperclip, AlertTriangle, ChevronDown, Plus,
+  Upload, FileText, Image as ImageIcon, RefreshCw, Trash2, Paperclip, AlertTriangle, ChevronDown,
 } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { Button } from "@/components/ui/button";
@@ -237,8 +237,6 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, canEdit = tr
 
 // ---------- Panel ----------
 const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
-  const [extra, setExtra] = useState([]);
-  const [menu, setMenu] = useState(false);
   const required = useMemo(() => requiredFor(unit), [unit]);
 
   // Documentos agrupados por tipo, el mas reciente primero.
@@ -250,8 +248,9 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
     return g;
   }, [unit.documentos]);
 
-  const optionalTypes = [...new Set([...Object.keys(byType).filter((t) => !required.includes(t)), ...extra])];
-  const addable = Object.keys(DOC_DEFS).filter((t) => !required.includes(t) && !optionalTypes.includes(t));
+  // Los demas tipos van siempre como casillas fijas (opcionales: no cuentan en "al dia"),
+  // en vez de esconderlos en un menu "Agregar otro documento".
+  const optionalTypes = Object.keys(DOC_DEFS).filter((t) => !required.includes(t));
   const states = required.map((t) => stateOf(byType[t]?.[0], alertDays).key);
   const alDia = states.filter((s) => s === "vigente").length;
   const vencidos = states.filter((s) => s === "vencido").length;
@@ -281,30 +280,13 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
         {required.map((t) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} canEdit={canEdit} />)}
+      </div>
+
+      <p className="mt-6 mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Otros documentos <span className="normal-case tracking-normal font-medium">· opcionales, no cuentan en "al día"</span></p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
         {optionalTypes.map((t) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} optional canEdit={canEdit} />)}
       </div>
 
-      <div className={`relative mt-4 ${canEdit ? "" : "hidden"}`}>
-        <button type="button" onClick={() => setMenu(!menu)} className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-navy dark:text-sky-300 hover:opacity-80">
-          <Plus size={14} /> Agregar otro documento
-        </button>
-        <AnimatePresence>
-          {menu && (
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="absolute z-20 mt-2 w-64 rounded-2xl bg-white dark:bg-[#15171c] border border-slate-100 dark:border-white/10 shadow-2xl p-1.5">
-              {addable.map((t) => {
-                const D = DOC_DEFS[t].icon;
-                return (
-                  <button key={t} type="button" onClick={() => { setExtra((x) => [...x, t]); setMenu(false); }} className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5">
-                    <span className="inline-flex text-slate-400"><D size={16} /></span> {DOC_DEFS[t].label}
-                  </button>
-                );
-              })}
-              {!addable.length && <p className="px-3 py-2 text-xs text-slate-400">Ya están todos los tipos.</p>}
-              <button type="button" onClick={() => setMenu(false)} className="w-full mt-1 flex items-center justify-center gap-1 rounded-xl px-3 py-1.5 text-[11px] text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"><X size={12} /> Cerrar</button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
       <div className="mt-5 pt-4 border-t border-slate-100 dark:border-white/5">
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Documentos adicionales según el tipo de equipo</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -326,7 +308,7 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
             );
           })}
         </div>
-        <p className="text-[11px] text-slate-400 mt-2">Certificado del INTT, RCV y Permiso de circulación aplican a los vehículos (no a montacargas ni cargadores frontales). La póliza de seguro se agrega como opcional con "Agregar otro documento". Criterio acordado con Julio el 30/09/2026.</p>
+        <p className="text-[11px] text-slate-400 mt-2">Certificado del INTT, RCV y Permiso de circulación aplican a los vehículos (no a montacargas ni cargadores frontales). Los demás documentos (póliza, revisión técnica, título, etc.) aparecen siempre como opcionales. Criterio acordado con Julio el 30/09/2026.</p>
       </div>
     </Card>
   );

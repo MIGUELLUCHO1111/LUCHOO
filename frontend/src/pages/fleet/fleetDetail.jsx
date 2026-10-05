@@ -120,7 +120,7 @@ const EDIT_SECTIONS = [
     title: "ADN del vehículo",
     fields: [
       ["__model", "Modelo del catálogo", "catalog"], ["model_year", "Año", "number"], ["color", "Color"],
-      ["vin", "Serial de carrocería (chasis)"], ["engine_serial", "Serial de motor"], ["fuel_type", "Combustible", "fuel"], ["tank_capacity_liters", "Capacidad del tanque (L)", "number"],
+      ["engine_type", "Tipo de motor", "engine"], ["vin", "Serial de carrocería (chasis)"], ["engine_serial", "Serial de motor"], ["fuel_type", "Combustible", "fuel"], ["tank_capacity_liters", "Capacidad del tanque (L)", "number"],
     ],
   },
   {
@@ -142,6 +142,8 @@ const EDIT_SECTIONS = [
   },
 ];
 const UNIT_KEYS = ["name", "fleet_type", "driver_name", "tank_capacity_liters"];
+// Sugerencias para "Tipo de motor" (se puede escribir cualquier otro).
+const ENGINE_TYPES = ["3 cilindros", "4 cilindros", "4 cilindros turbo", "6 cilindros en línea", "V6", "V8", "Turbo diésel", "Diésel common rail", "Híbrido", "Eléctrico"];
 
 const valueOf = (unit, key) => {
   const v = UNIT_KEYS.includes(key) ? unit[key] : unit.profile?.[key];
@@ -225,6 +227,13 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
         <select value={form[k] || ""} onChange={(e) => set(e.target.value)} className={inputCls}>
           <option value="">Sin clasificar</option><option value="LIVIANA">Liviana</option><option value="PESADA">Pesada</option>
         </select>
+      );
+    if (t === "engine")
+      return (
+        <>
+          <input list="engine-types" value={form[k] ?? ""} onChange={(e) => set(e.target.value)} placeholder="Escribe o elige (ej. 4 cilindros, V6, turbo diésel)" className={inputCls} />
+          <datalist id="engine-types">{ENGINE_TYPES.map((x) => <option key={x} value={x} />)}</datalist>
+        </>
       );
     if (t === "fuel")
       return (
@@ -630,7 +639,8 @@ const FleetDetail = () => {
                 {unit.model_name && <Field label="Familia" value={unit.model_family_name || categoryLabel(unit.model_category)} />}
                 {unit.model_capacity && <Field label="Capacidad nominal" value={unit.model_capacity} />}
                 <Field label="Año" value={p.model_year} />
-                {full && <Field label="Color" value={p.color} />}
+                <Field label="Color" value={p.color} />
+                <Field label="Tipo de motor" value={p.engine_type} />
                 {!full && <Field label="Serial de carrocería" value={p.vin} />}
                 {full && <Field label="Serial de motor" value={p.engine_serial} />}
                 <Field label="Combustible" value={p.fuel_type} />

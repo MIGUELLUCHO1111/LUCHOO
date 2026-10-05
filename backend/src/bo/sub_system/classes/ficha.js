@@ -17,7 +17,7 @@ const STATUS_CODES = config.STATUS_CODES;
 // llega del formulario antes de armar el patch JSON de fleetUpdateProfile).
 const PROFILE_FIELDS = {
   operational_status: 'status', status_cause: 'text', short_code: 'text',
-  brand: 'text', model: 'text', model_year: 'int', vin: 'text', engine_serial: 'text', color: 'text', fuel_type: 'text',
+  brand: 'text', model: 'text', model_year: 'int', vin: 'text', engine_serial: 'text', engine_type: 'text', color: 'text', fuel_type: 'text',
   assigned_zone: 'text', driver_phone: 'text', driver_assigned_at: 'date', next_driver: 'text',
   change_plan: 'bool', fleet_manager: 'text', avg_consumption_kml: 'num',
   maint_interval_km: 'int', last_maint_km: 'num', last_maint_at: 'date',
