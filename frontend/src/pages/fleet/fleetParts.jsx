@@ -3,23 +3,25 @@
 // Condicion operativa de la politica FP-MTTO-PO-01 §4.1 (respuestas de Julio,
 // 30/09/2026). La cambiara Mantenimiento al abrir/cerrar una OT; mientras
 // tanto solo un admin la cambia a mano (el backend lo valida).
-// Colores (pedido de Lguerra, 05/10/2026): En contrato = amarillo Caterpillar,
-// Disponible = azul marino. "on" = color de letra sobre el fondo solido.
+// Colores (pedido de Lguerra, 05/10/2026, segunda version): En contrato verde,
+// Disponible naranja, Fuera de servicio rojo -- distintos del azul marino y el
+// amarillo Caterpillar de las tarjetas de Flota Liviana/Pesada. "on" = color
+// de letra sobre el fondo solido.
 export const STATUS = {
   OPERATIVO_CONTRATO: {
-    label: "Operativo en contrato", short: "En contrato", on: "text-slate-900",
-    dot: "bg-[#FFCD11]", badge: "bg-[#FFCD11]/20 text-[#7a5c00] dark:text-[#FFCD11] ring-[#FFCD11]/50",
-    bar: "bg-[#FFCD11]", glow: "from-[#FFCD11]/20", ring: "ring-[#FFCD11]/40", kpi: "text-[#a57c00] dark:text-[#FFCD11]",
+    label: "Operativo en contrato", short: "En contrato", on: "text-white",
+    dot: "bg-emerald-600", badge: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 ring-emerald-500/30",
+    bar: "bg-emerald-600", glow: "from-emerald-500/15", ring: "ring-emerald-500/30", kpi: "text-emerald-600",
   },
   DISPONIBLE: {
     label: "Disponible", short: "Disponible", on: "text-white",
-    dot: "bg-brand-navy", badge: "bg-brand-navy/10 text-brand-navy dark:text-sky-300 ring-brand-navy/30",
-    bar: "bg-brand-navy", glow: "from-brand-navy/15", ring: "ring-brand-navy/25", kpi: "text-brand-navy dark:text-sky-300",
+    dot: "bg-orange-500", badge: "bg-orange-500/10 text-orange-700 dark:text-orange-400 ring-orange-500/30",
+    bar: "bg-orange-500", glow: "from-orange-500/15", ring: "ring-orange-500/30", kpi: "text-orange-600",
   },
   FUERA_DE_SERVICIO: {
     label: "Fuera de servicio", short: "Fuera de servicio", on: "text-white",
-    dot: "bg-red-500", badge: "bg-red-500/10 text-red-600 dark:text-red-400 ring-red-500/30",
-    bar: "bg-red-500", glow: "from-red-500/15", ring: "ring-red-500/25", kpi: "text-red-600",
+    dot: "bg-red-600", badge: "bg-red-500/10 text-red-600 dark:text-red-400 ring-red-500/30",
+    bar: "bg-red-600", glow: "from-red-500/15", ring: "ring-red-500/25", kpi: "text-red-600",
   },
 };
 export const statusOf = (u) => STATUS[u?.profile?.operational_status] || STATUS.DISPONIBLE;

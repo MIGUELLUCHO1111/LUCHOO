@@ -155,8 +155,8 @@ const UnitCard = ({ u, onOpen, i }) => {
 // (/fleet?flota=liviana|pesada, tambien en el menu lateral).
 const FLEETS = {
   // Colores (pedido de Lguerra, 05/10/2026): Liviana azul marino, Pesada amarillo Caterpillar.
-  liviana: { type: "LIVIANA", title: "Flota Liviana", desc: "Camionetas, pickups y vehículos de pasajeros", grad: "from-[#1f4a6e] via-brand-navy to-[#0b2236]", glow: "shadow-brand-navy/30", text: "text-white", sub: "text-sky-100/80", contrato: "bg-[#FFCD11] text-slate-900", soft: "bg-white/15", dark: "bg-black/25" },
-  pesada: { type: "PESADA", title: "Flota Pesada", desc: "Grúas, montacargas, camiones y equipos del contrato", grad: "from-[#FFD84D] via-[#FFCD11] to-[#E6B400]", glow: "shadow-amber-400/40", text: "text-slate-900", sub: "text-slate-900/70", contrato: "bg-brand-navy text-white", soft: "bg-black/10", dark: "bg-black/15" },
+  liviana: { type: "LIVIANA", title: "Flota Liviana", desc: "Camionetas, pickups y vehículos de pasajeros", grad: "from-[#1f4a6e] via-brand-navy to-[#0b2236]", glow: "shadow-brand-navy/30", text: "text-white", sub: "text-sky-100/80", contrato: "bg-emerald-600 text-white", disp: "bg-orange-500 text-white", soft: "bg-white/15", dark: "bg-black/25" },
+  pesada: { type: "PESADA", title: "Flota Pesada", desc: "Grúas, montacargas, camiones y equipos del contrato", grad: "from-[#FFD84D] via-[#FFCD11] to-[#E6B400]", glow: "shadow-amber-400/40", text: "text-slate-900", sub: "text-slate-900/70", contrato: "bg-emerald-600 text-white", disp: "bg-orange-500 text-white", soft: "bg-black/10", dark: "bg-black/15" },
 };
 const fleetStats = (list) => ({
   total: list.length,
@@ -199,7 +199,7 @@ const FleetPortal = ({ units, onOpen }) => (
           </div>
           <div className="relative mt-5 flex flex-wrap gap-2 text-[11px] font-bold">
             <span className={`rounded-full px-2.5 py-1 ${f.contrato}`}>{s.contrato} en contrato</span>
-            <span className={`rounded-full px-2.5 py-1 ${f.soft}`}>{s.disponibles} disponibles</span>
+            <span className={`rounded-full px-2.5 py-1 ${f.disp}`}>{s.disponibles} disponibles</span>
             {s.fuera > 0 && <span className="rounded-full bg-red-600 text-white px-2.5 py-1">{s.fuera} fuera de servicio</span>}
             {s.docs > 0 && <span className="rounded-full bg-red-600 text-white px-2.5 py-1">{s.docs} con papel vencido</span>}
             <span className={`rounded-full px-2.5 py-1 ${f.dark}`}>{s.incompletas} ficha(s) incompleta(s)</span>
