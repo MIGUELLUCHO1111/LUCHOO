@@ -27,8 +27,8 @@ const PROFILE_FIELDS = {
 const UNIT_FIELDS = ['driver_name', 'fleet_type', 'name', 'tank_capacity_liters'];
 // Condicion operativa de la politica FP-MTTO-PO-01 §4.1 (047_fleet_policy_states.sql).
 // La cambiara Mantenimiento al abrir/cerrar una OT; mientras tanto, solo un admin.
-const STATUSES = ['OPERATIVO_CONTRATO', 'STANDBY', 'DISPONIBLE', 'FUERA_DE_SERVICIO'];
-const STATUS_LABEL = { OPERATIVO_CONTRATO: 'Operativo en contrato', STANDBY: 'Standby / back-up', DISPONIBLE: 'Disponible', FUERA_DE_SERVICIO: 'Fuera de servicio' };
+const STATUSES = ['OPERATIVO_CONTRATO', 'DISPONIBLE', 'FUERA_DE_SERVICIO']; // Standby se quito el 05/10/2026 (052)
+const STATUS_LABEL = { OPERATIVO_CONTRATO: 'Operativo en contrato', DISPONIBLE: 'Disponible', FUERA_DE_SERVICIO: 'Fuera de servicio' };
 const STATUS_EDITORS = ['admin'];
 const SETTING_KEYS = ['MAINT_INTERVAL_LIVIANA', 'MAINT_INTERVAL_PESADA', 'DOC_ALERT_DAYS'];
 

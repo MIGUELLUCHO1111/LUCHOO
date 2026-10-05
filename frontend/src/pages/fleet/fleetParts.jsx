@@ -9,11 +9,6 @@ export const STATUS = {
     dot: "bg-emerald-500", badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/30",
     bar: "bg-emerald-500", glow: "from-emerald-500/15", ring: "ring-emerald-500/25", kpi: "text-emerald-600",
   },
-  STANDBY: {
-    label: "Standby / back-up", short: "Standby",
-    dot: "bg-sky-500", badge: "bg-sky-500/10 text-sky-600 dark:text-sky-400 ring-sky-500/30",
-    bar: "bg-sky-500", glow: "from-sky-500/15", ring: "ring-sky-500/25", kpi: "text-sky-600",
-  },
   DISPONIBLE: {
     label: "Disponible", short: "Disponible",
     dot: "bg-amber-500", badge: "bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-500/30",

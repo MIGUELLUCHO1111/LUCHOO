@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck } from "lucide-react";
+import { Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { Card } from "@/components/ui/card";
@@ -13,16 +13,37 @@ import { useFamilies } from "./fleetArt";
 import { fichaChecklist, CHECK_LABELS } from "./fleetCompleteness";
 import AssignManagersModal from "./fleetManagers";
 
-const Kpi = ({ label, value, tone = "text-slate-900 dark:text-white", active, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`text-left rounded-2xl border px-4 py-3 transition-all ${active ? "border-brand-navy/40 bg-brand-navy/5 dark:bg-white/5" : "border-slate-100 dark:border-white/5 bg-white/70 dark:bg-[#0f1115]/70 hover:border-slate-200 dark:hover:border-white/10"}`}
-  >
-    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{label}</p>
-    <p className={`font-display text-2xl mt-0.5 ${tone}`}>{value}</p>
-  </button>
-);
+// Icono y color solido de cada indicador (pedido de Lguerra, 05/10/2026: que resalte).
+const KPI_ICON = { total: Truck, OPERATIVO_CONTRATO: Briefcase, DISPONIBLE: CircleCheck, FUERA_DE_SERVICIO: Ban, docs: FileWarning };
+const Kpi = ({ id, label, value, total, tile = "bg-brand-navy", tone = "text-brand-navy dark:text-white", active, onClick }) => {
+  const Icon = KPI_ICON[id] || Truck;
+  const pct = total ? Math.round((value / total) * 100) : 0;
+  return (
+    <motion.button
+      type="button"
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`text-left rounded-2xl border p-4 transition-colors ${active ? "border-brand-navy ring-2 ring-brand-navy/20 bg-white dark:bg-[#0f1115]" : "border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0f1115]/80 hover:border-slate-200 dark:hover:border-white/10"}`}
+    >
+      <div className="flex items-center gap-3">
+        <span className={`h-10 w-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md ${tile}`}><Icon size={18} /></span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">{label}</p>
+          <p className={`font-display text-2xl leading-tight ${tone}`}>{value}</p>
+        </div>
+      </div>
+      {id !== "total" && (
+        <div className="mt-3 flex items-center gap-2">
+          <span className="h-1.5 flex-1 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
+            <motion.span initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} className={`block h-full rounded-full ${tile}`} />
+          </span>
+          <span className="text-[10px] font-bold text-slate-500">{pct}%</span>
+        </div>
+      )}
+    </motion.button>
+  );
+};
 
 const AjustesModal = ({ onClose }) => {
   const [form, setForm] = useState(null);
@@ -88,6 +109,13 @@ const AjustesModal = ({ onClose }) => {
   );
 };
 
+const InfoRow = ({ icon: Icon, children, warn = false }) => (
+  <p className={`flex items-center gap-2 truncate ${warn ? "text-amber-600 font-bold" : "text-slate-700 dark:text-slate-200 font-medium"}`}>
+    <span className={`h-6 w-6 rounded-lg flex items-center justify-center shrink-0 ${warn ? "bg-amber-500/15 text-amber-600" : "bg-brand-navy/10 text-brand-navy dark:bg-white/10 dark:text-sky-300"}`}><Icon size={12} /></span>
+    <span className="truncate">{children}</span>
+  </p>
+);
+
 const UnitCard = ({ u, onOpen, i }) => {
   const st = statusOf(u);
   const ficha = fichaChecklist(u);
@@ -103,50 +131,55 @@ const UnitCard = ({ u, onOpen, i }) => {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(i * 0.015, 0.3) }}
+      whileHover={{ y: -4 }}
       onClick={onOpen}
-      className="group relative text-left rounded-3xl border border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-5 overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all"
+      className="group relative text-left rounded-3xl border border-slate-100 dark:border-white/5 bg-white/90 dark:bg-[#0f1115]/80 backdrop-blur-md p-5 overflow-hidden hover:shadow-xl hover:shadow-brand-navy/10 transition-shadow"
     >
-      <span className={`absolute left-0 top-0 h-full w-1 ${st.bar}`} />
+      <span className={`absolute left-0 top-0 h-full w-1.5 ${st.bar}`} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <PlateBadge plate={u.plate} size="sm" />
-          <p className="mt-2 font-display text-base text-slate-900 dark:text-white truncate">{u.code}</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{modelo || u.name || "Ficha técnica pendiente"}</p>
+          <p className="mt-2 font-display text-lg text-brand-navy dark:text-white truncate">{u.code}</p>
+          <p className={`text-xs truncate ${modelo || u.name ? "text-slate-600 dark:text-slate-300 font-semibold" : "text-amber-600 font-bold"}`}>{modelo || u.name || "Ficha técnica pendiente"}</p>
         </div>
         {u.model_photo ? (
           <img src={resolveFleetFileUrl(u.model_photo)} alt={modelo} loading="lazy" className="w-20 h-14 rounded-xl object-cover shrink-0 group-hover:scale-105 transition-transform" />
         ) : (
-          <VehicleIcon fleetType={u.fleet_type} className="w-14 h-10 text-brand-navy/70 dark:text-sky-300/70 shrink-0 group-hover:scale-105 transition-transform" />
+          <span className="h-14 w-20 rounded-xl bg-brand-navy/5 dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-brand-navy/10 transition-colors">
+            <VehicleIcon fleetType={u.fleet_type} className="w-14 h-10 text-brand-navy dark:text-sky-300 group-hover:scale-105 transition-transform" />
+          </span>
         )}
       </div>
 
       <div className="mt-4 space-y-1.5 text-xs">
-        <p className="flex items-center gap-2 text-slate-600 dark:text-slate-300 truncate"><User size={12} className="shrink-0 text-slate-400" />{u.driver_name || "Sin conductor"}</p>
-        <p className="flex items-center gap-2 text-slate-600 dark:text-slate-300 truncate"><MapPin size={12} className="shrink-0 text-slate-400" />{u.gps?.location_text || p.assigned_zone || "Sin ubicación"}</p>
-        <p className={`flex items-center gap-2 truncate ${u.encargado ? "text-slate-600 dark:text-slate-300" : "text-amber-600"}`}><UserCog size={12} className="shrink-0 text-slate-400" />{u.encargado ? `Encargado: ${u.encargado.nombre}` : "Sin encargado"}{u.soy_encargado && <span className="rounded-full bg-brand-gold/20 text-amber-800 dark:text-brand-gold px-1.5 text-[9px] font-bold">TUYA</span>}</p>
+        <InfoRow icon={User} warn={!u.driver_name}>{u.driver_name || "Sin conductor"}</InfoRow>
+        <InfoRow icon={MapPin}>{u.gps?.location_text || p.assigned_zone || "Sin ubicación"}</InfoRow>
+        <InfoRow icon={UserCog} warn={!u.encargado}>
+          {u.encargado ? `Encargado: ${u.encargado.nombre}` : "Sin encargado"}
+          {u.soy_encargado && <span className="ml-1.5 rounded-full bg-brand-gold/25 text-amber-800 dark:text-brand-gold px-1.5 text-[9px] font-black">TUYA</span>}
+        </InfoRow>
       </div>
 
-      <div className="mt-3" title={ficha.items.filter((x) => !x.ok).map((x) => x.detail || x.label).join(" · ") || "Ficha completa"}>
-        <div className="flex items-center justify-between text-[10px] font-bold mb-1">
-          <span className="text-slate-400 uppercase tracking-widest">Ficha</span>
-          <span className={ficha.complete ? "text-emerald-600" : "text-slate-500"}>{ficha.complete ? "Completa" : `${ficha.done} de ${ficha.total}`}</span>
+      <div className="mt-4" title={ficha.items.filter((x) => !x.ok).map((x) => x.detail || x.label).join(" · ") || "Ficha completa"}>
+        <div className="flex items-center justify-between text-[10px] font-extrabold mb-1">
+          <span className="text-brand-navy dark:text-sky-200 uppercase tracking-widest">Ficha</span>
+          <span className={`rounded-full px-1.5 py-0.5 ${ficha.complete ? "bg-emerald-500/15 text-emerald-700" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300"}`}>{ficha.complete ? "Completa" : `${ficha.done} de ${ficha.total}`}</span>
         </div>
-        <div className="h-1 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
-          <motion.div initial={{ width: 0 }} animate={{ width: `${ficha.pct}%` }} transition={{ duration: 0.6 }} className={`h-full rounded-full ${ficha.complete ? "bg-emerald-500" : ficha.pct >= 60 ? "bg-amber-500" : "bg-red-400"}`} />
+        <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
+          <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(ficha.pct, 3)}%` }} transition={{ duration: 0.6 }} className={`h-full rounded-full ${ficha.complete ? "bg-emerald-500" : ficha.pct >= 60 ? "bg-amber-500" : "bg-red-400"}`} />
         </div>
       </div>
 
-      <div className="mt-4 flex items-center justify-between gap-2">
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${st.badge}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />{st.short}
-        </span>
+      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold text-white ${st.dot}`}>{st.short}</span>
         <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${gps.cls}`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${gps.dot}`} />{gps.label}
+          <span className={`h-2 w-2 rounded-full ${gps.dot}`} />{gps.label}
         </span>
+        <span className="h-6 w-6 rounded-lg flex items-center justify-center text-slate-300 group-hover:bg-brand-navy group-hover:text-white transition-colors"><ChevronRight size={14} /></span>
       </div>
       {docAlert && (
-        <p className={`mt-3 flex items-center gap-1.5 text-[10px] font-bold ${docAlert === "vencido" ? "text-red-600" : "text-amber-600"}`}>
-          <FileWarning size={12} /> Documento {docAlert}
+        <p className={`mt-3 flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[11px] font-bold ${docAlert === "vencido" ? "bg-red-500/10 text-red-600" : "bg-amber-500/10 text-amber-700"}`}>
+          <FileWarning size={13} /> Documento {docAlert}
         </p>
       )}
     </motion.button>
@@ -167,23 +200,32 @@ const IncompleteBlock = ({ units, active, onFilter, onAssign }) => {
   const pct = units.length ? Math.round(((units.length - stats.incompletas) / units.length) * 100) : 0;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-5 mb-5">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-100 dark:border-white/5 bg-white/90 dark:bg-[#0f1115]/80 backdrop-blur-md p-5 mb-5 shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-5">
         <div className="flex items-center gap-4 min-w-0">
-          <svg viewBox="0 0 36 36" className="w-14 h-14 -rotate-90 shrink-0">
-            <circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" className="stroke-slate-100 dark:stroke-white/10" />
-            <motion.circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" strokeLinecap="round" className="stroke-emerald-500" strokeDasharray="94.2" initial={{ strokeDashoffset: 94.2 }} animate={{ strokeDashoffset: 94.2 - (94.2 * pct) / 100 }} transition={{ duration: 1 }} />
-          </svg>
+          <div className="relative w-16 h-16 shrink-0">
+            <span className="block w-16 h-16">
+              <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
+                <circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" className="stroke-slate-100 dark:stroke-white/10" />
+                <motion.circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" strokeLinecap="round" className={pct ? "stroke-emerald-500" : "stroke-transparent"} strokeDasharray="94.2" initial={{ strokeDashoffset: 94.2 }} animate={{ strokeDashoffset: 94.2 - (94.2 * pct) / 100 }} transition={{ duration: 1 }} />
+              </svg>
+            </span>
+            <span className="absolute inset-0 flex items-center justify-center font-display text-sm text-brand-navy dark:text-white">{pct}%</span>
+          </div>
           <div>
-            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400"><span className="inline-flex"><ClipboardList size={13} /></span> Fichas incompletas</p>
-            <p className="font-display text-2xl text-slate-900 dark:text-white">{stats.incompletas} <span className="text-sm text-slate-400 font-sans">de {units.length} unidades</span></p>
+            <p className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.12em] text-brand-navy dark:text-sky-200">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-brand-navy text-white dark:bg-sky-700"><ClipboardList size={13} /></span> Fichas incompletas
+            </p>
+            <p className="font-display text-2xl text-brand-navy dark:text-white mt-0.5">{stats.incompletas} <span className="text-sm text-slate-500 font-sans font-semibold">de {units.length} unidades · {units.length - stats.incompletas} completas</span></p>
           </div>
         </div>
         <div className="flex-1 flex flex-wrap gap-2">
           {Object.entries(CHECK_LABELS).filter(([k]) => stats.byKey[k]).map(([k, label]) => (
-            <button key={k} type="button" onClick={() => onFilter(active === k ? "" : k)} className={`rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${active === k ? "bg-brand-navy text-white" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 hover:bg-slate-200"}`}>
-              Sin {label.toLowerCase()} · {stats.byKey[k]}
-            </button>
+            <motion.button whileTap={{ scale: 0.96 }} key={k} type="button" onClick={() => onFilter(active === k ? "" : k)} title="Ver solo las unidades a las que les falta esto"
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold border transition-colors ${active === k ? "bg-brand-navy border-brand-navy text-white shadow-md shadow-brand-navy/20" : "bg-amber-500/[0.06] border-amber-500/25 text-slate-700 dark:text-slate-200 hover:border-brand-navy/40"}`}>
+              Sin {label.toLowerCase()}
+              <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${active === k ? "bg-white/20 text-white" : "bg-amber-500 text-white"}`}>{stats.byKey[k]}</span>
+            </motion.button>
           ))}
           {!stats.incompletas && <span className="text-sm text-emerald-600 font-bold">Todas las fichas están completas.</span>}
         </div>
@@ -253,26 +295,33 @@ const FleetList = () => {
           Tienes {units.filter((u) => u.soy_encargado).length} unidad(es) asignada(s). Puedes ver toda la flota, pero solo editar las tuyas.
         </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
-        <Kpi label="Unidades" value={counts.total} active={!status && !docsOnly} onClick={() => { setStatus(""); setDocsOnly(false); }} />
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-5">
+        <Kpi id="total" label="Unidades" value={counts.total} active={!status && !docsOnly} onClick={() => { setStatus(""); setDocsOnly(false); }} />
         {Object.entries(STATUS).map(([k, s]) => (
-          <Kpi key={k} label={s.label} value={counts[k]} tone={s.kpi} active={status === k} onClick={() => { setStatus(status === k ? "" : k); setDocsOnly(false); }} />
+          <Kpi key={k} id={k} label={s.label} value={counts[k]} total={counts.total} tile={s.dot} tone={s.kpi} active={status === k} onClick={() => { setStatus(status === k ? "" : k); setDocsOnly(false); }} />
         ))}
-        <Kpi label="Documentos por vencer" value={counts.docs} tone="text-amber-600" active={docsOnly} onClick={() => { setDocsOnly(!docsOnly); setStatus(""); }} />
+        <Kpi id="docs" label="Documentos por vencer" value={counts.docs} total={counts.total} tile="bg-orange-500" tone="text-orange-600" active={docsOnly} onClick={() => { setDocsOnly(!docsOnly); setStatus(""); }} />
       </div>
 
       <div className="flex flex-col md:flex-row gap-3 mb-6">
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por placa, código, conductor, marca o ubicación…" className={`${inputCls} pl-9 h-11`} />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-navy dark:text-sky-300"><Search size={16} /></span>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por placa, código, conductor, marca o ubicación…" className={`${inputCls} pl-9 h-11 shadow-sm`} />
+          {q && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-500">{shown.length} resultado(s)</span>}
         </div>
-        <div className="flex gap-2">
-          {[["", "Todas"], ["LIVIANA", "Liviana"], ["PESADA", "Pesada"]].map(([v, l]) => (
-            <button key={v} onClick={() => setFleet(v)} className={`h-11 px-4 rounded-xl text-sm font-bold transition-colors ${fleet === v ? "bg-brand-navy text-white" : "bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}>
-              {l}
-            </button>
-          ))}
-          <button onClick={() => setMine(!mine)} className={`h-11 px-4 rounded-xl text-sm font-bold transition-colors ${mine ? "bg-brand-gold text-slate-900" : "bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}>
+        <div className="flex flex-wrap gap-2">
+          <div className="flex h-11 p-1 rounded-xl bg-slate-100 dark:bg-white/5">
+            {[["", "Todas"], ["LIVIANA", "Liviana"], ["PESADA", "Pesada"]].map(([v, l]) => {
+              const n = v ? units.filter((u) => u.fleet_type === v).length : units.length;
+              return (
+                <button key={v} onClick={() => setFleet(v)} className={`relative px-3.5 rounded-lg text-sm font-extrabold transition-colors ${fleet === v ? "text-white" : "text-slate-600 dark:text-slate-300 hover:text-brand-navy"}`}>
+                  {fleet === v && <motion.span layoutId="fleet-type" className="absolute inset-0 rounded-lg bg-brand-navy shadow-md shadow-brand-navy/20" transition={{ type: "spring", stiffness: 400, damping: 32 }} />}
+                  <span className="relative">{l} <span className="opacity-70 text-xs">{n}</span></span>
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={() => setMine(!mine)} className={`h-11 px-4 rounded-xl text-sm font-extrabold transition-colors ${mine ? "bg-brand-gold text-slate-900 shadow-md shadow-brand-gold/30" : "bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-navy/40"}`}>
             Mis unidades
           </button>
           <Button variant="outline" onClick={() => navigate("/fleet/catalog")} className="h-11 rounded-xl gap-2" title="Catálogo de modelos">
