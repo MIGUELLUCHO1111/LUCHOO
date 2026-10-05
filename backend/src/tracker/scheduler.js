@@ -118,8 +118,10 @@ export function startTrackerScheduler() {
 
   // Aviso diario de documentos de la flota vencidos o por vencer (pedido de
   // Lguerra, 05/10/2026), ver src/fleet/docsAlert.js. Independiente de los
-  // demas interruptores; FLEET_DOCS_ALERT_CRON=off lo apaga.
-  const docsAlertExpression = process.env.FLEET_DOCS_ALERT_CRON || '0 9 * * *';
+  // demas interruptores. EN PAUSA (05/10/2026): Lguerra espera autorizacion;
+  // apagado salvo que FLEET_DOCS_ALERT_CRON tenga un horario. Si se aprueba,
+  // NO debe ser diario: un horario especifico y prudente (a definir con el).
+  const docsAlertExpression = process.env.FLEET_DOCS_ALERT_CRON || 'off';
   if (docsAlertExpression === 'off') {
     console.log('[Flota] Aviso diario de documentos por Telegram desactivado (FLEET_DOCS_ALERT_CRON=off)');
   } else if (cron.validate(docsAlertExpression)) {
