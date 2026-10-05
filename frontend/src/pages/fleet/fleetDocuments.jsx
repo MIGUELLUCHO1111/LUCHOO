@@ -49,11 +49,11 @@ const MAX_MB = 10;
 const OK_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 const stateOf = (doc, alertDays) => {
-  if (!doc) return { key: "falta", label: "Falta cargar", chip: "bg-slate-500/10 text-slate-500", icon: "bg-slate-100 dark:bg-white/5 text-slate-400", ring: "border-dashed border-slate-200 dark:border-white/10" };
+  if (!doc) return { key: "falta", label: "Falta cargar", chip: "bg-slate-500/10 text-slate-500", icon: "bg-brand-navy text-white shadow-md shadow-brand-navy/25 dark:bg-sky-700", ring: "border-dashed border-slate-300 dark:border-white/15" };
   const d = doc.days_left;
-  if (d != null && d < 0) return { key: "vencido", label: `Vencido hace ${Math.abs(d)} d`, chip: "bg-red-500/10 text-red-600 dark:text-red-400", icon: "bg-red-500/10 text-red-600", ring: "border-red-500/30" };
-  if (d != null && d <= alertDays) return { key: "por_vencer", label: d === 0 ? "Vence hoy" : `Vence en ${d} d`, chip: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: "bg-amber-500/10 text-amber-600", ring: "border-amber-500/30" };
-  return { key: "vigente", label: d == null ? "Cargado" : "Vigente", chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", icon: "bg-emerald-500/10 text-emerald-600", ring: "border-slate-100 dark:border-white/5" };
+  if (d != null && d < 0) return { key: "vencido", label: `Vencido hace ${Math.abs(d)} d`, chip: "bg-red-500/10 text-red-600 dark:text-red-400", icon: "bg-red-600 text-white shadow-md shadow-red-600/25", ring: "border-red-500/40" };
+  if (d != null && d <= alertDays) return { key: "por_vencer", label: d === 0 ? "Vence hoy" : `Vence en ${d} d`, chip: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: "bg-amber-500 text-white shadow-md shadow-amber-500/25", ring: "border-amber-500/40" };
+  return { key: "vigente", label: d == null ? "Cargado" : "Vigente", chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", icon: "bg-emerald-600 text-white shadow-md shadow-emerald-600/25", ring: "border-emerald-500/30" };
 };
 
 // ---------- Formulario de un documento (con su archivo) ----------
@@ -172,14 +172,14 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, compact = fa
       className={`group rounded-2xl border bg-white/70 dark:bg-white/[0.02] transition-shadow hover:shadow-lg hover:shadow-brand-navy/5 ${small ? "p-3" : "p-4"} ${open ? "col-span-full" : ""} ${st.ring}`}
     >
       <div className="flex items-start gap-3">
-        <motion.span whileHover={{ rotate: -8, scale: 1.08 }} className={`${small ? "h-10 w-10 rounded-xl" : "h-12 w-12 rounded-2xl"} flex items-center justify-center shrink-0 transition-colors ${st.icon} ${!current ? "group-hover:bg-brand-navy/10 group-hover:text-brand-navy dark:group-hover:text-sky-300" : ""}`}>
+        <motion.span whileHover={{ rotate: -8, scale: 1.08 }} className={`${small ? "h-10 w-10 rounded-xl" : "h-12 w-12 rounded-2xl"} flex items-center justify-center shrink-0 transition-colors ${st.icon}`}>
           <Icon size={small ? 18 : 22} />
         </motion.span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className={`${small ? "text-[13px]" : "text-sm"} font-bold leading-snug text-slate-900 dark:text-white`}>{type === "OTRO" && current ? current.name : def.label}</p>
-              <p className="text-[11px] text-slate-400 line-clamp-2">{current ? [current.number, current.provider].filter(Boolean).join(" · ") || def.long : def.long}</p>
+              <p className={`${small ? "text-sm" : "text-[15px]"} font-extrabold leading-snug text-brand-navy dark:text-white`}>{type === "OTRO" && current ? current.name : def.label}</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">{current ? [current.number, current.provider].filter(Boolean).join(" · ") || def.long : def.long}</p>
             </div>
           </div>
 
@@ -291,7 +291,7 @@ const RulesLegend = ({ unit, required }) => {
     <div className="mt-6 rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/60 dark:bg-white/[0.02] overflow-hidden">
       <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-100/60 dark:hover:bg-white/[0.03] transition-colors">
         <span className="min-w-0">
-          <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">¿Qué documentos pide cada equipo?</span>
+          <span className="block text-xs font-extrabold uppercase tracking-[0.12em] text-brand-navy dark:text-sky-200">¿Qué documentos pide cada equipo?</span>
           <span className="block text-xs text-slate-600 dark:text-slate-300 mt-0.5">
             <b className="text-slate-900 dark:text-white">{famName} ({fam})</b>: {required.length ? `pide ${resumen}.` : "no lleva documentos obligatorios (no circula por vía pública)."}
           </span>
@@ -340,6 +340,17 @@ const RulesLegend = ({ unit, required }) => {
   );
 };
 
+// ---------- Titulo de seccion ----------
+const SectionHead = ({ children, count, note, className = "" }) => (
+  <div className={`mb-3 flex items-center gap-2.5 ${className}`}>
+    <span className="h-5 w-1.5 rounded-full bg-brand-gold" />
+    <span className="text-[13px] font-extrabold uppercase tracking-[0.12em] text-brand-navy dark:text-sky-200">{children}</span>
+    <span className="rounded-full bg-brand-navy text-white dark:bg-sky-700 px-2 py-0.5 text-[10px] font-black">{count}</span>
+    {note && <span className="hidden sm:inline text-xs font-semibold text-slate-500 dark:text-slate-400">· {note}</span>}
+    <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
+  </div>
+);
+
 // ---------- Panel ----------
 const FILTERS = [
   { key: "todos", label: "Todos" },
@@ -379,8 +390,8 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
         <div className="flex items-center gap-4">
           <Ring value={alDia} total={required.length} />
           <div>
-            <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-              <span className="inline-flex"><ShieldCheck size={14} className="text-brand-navy dark:text-sky-300" /></span> Documentación y seguros
+            <h3 className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.14em] text-brand-navy dark:text-sky-200">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-brand-navy text-white dark:bg-sky-700"><ShieldCheck size={14} /></span> Documentación y seguros
             </h3>
             <p className="font-display text-2xl text-slate-900 dark:text-white mt-0.5">
               {required.length ? <>{alDia} de {required.length} <span className="text-sm text-slate-400 font-sans">obligatorios al día</span></> : <span className="text-base">Sin documentos obligatorios</span>}
@@ -399,9 +410,7 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
 
       {reqShown.length > 0 && (
         <>
-          <p className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-            Obligatorios para esta unidad <span className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
-          </p>
+          <SectionHead count={reqShown.length}>Obligatorios para esta unidad</SectionHead>
           <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
             <AnimatePresence>{reqShown.map((t) => slot(t))}</AnimatePresence>
           </motion.div>
@@ -410,9 +419,7 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
 
       {optShown.length > 0 && (
         <>
-          <p className={`${reqShown.length ? "mt-6" : ""} mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400`}>
-            Otros documentos <span className="normal-case tracking-normal font-medium">· opcionales, no cuentan en el avance</span> <span className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
-          </p>
+          <SectionHead count={optShown.length} note="opcionales, no cuentan en el avance" className={reqShown.length ? "mt-7" : ""}>Otros documentos</SectionHead>
           <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 items-start">
             <AnimatePresence>{optShown.map((t) => slot(t, { optional: true, compact: true }))}</AnimatePresence>
           </motion.div>
