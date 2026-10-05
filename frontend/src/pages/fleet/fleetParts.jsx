@@ -112,15 +112,61 @@ export const docTone = (daysLeft, alertDays = 30) => {
 };
 
 /** Placa con aspecto de matricula (tipografia ancha, borde, franja superior). */
+// Placa venezolana (pedido de Lguerra, 05/10/2026): blanca con la bandera
+// ondeando, "REPUBLICA BOLIVARIANA DE VENEZUELA" arriba y la placa en azul.
+// Sin ciudad abajo: no se tiene registrado el estado de cada placa.
+// Formatos reales: carga A47DC3J (letra, 2 numeros, 2 letras, numero, letra)
+// y particular AB278RI (2 letras, 3 numeros, 2 letras). Lo demas (FPCBA06,
+// GQ001, 279971...) es un codigo interno: va en gris como "sin placa".
+const REAL_PLATE = [/^[A-Z]\d{2}[A-Z]{2}\d[A-Z]$/, /^[A-Z]{2}\d{3}[A-Z]{2}$/];
+export const isRealPlate = (plate) => REAL_PLATE.some((re) => re.test(String(plate || "").replace(/[\s-]/g, "").toUpperCase()));
+
+const PLATE_SIZE = {
+  lg: { box: "w-[190px] h-[92px] rounded-xl border-[3px]", top: "text-[7.5px] pt-[11px]", num: "text-[30px]", hole: "w-4 h-1.5" },
+  sm: { box: "w-[124px] h-[60px] rounded-lg border-2", top: "text-[5px] pt-[7px]", num: "text-[19px]", hole: "w-2.5 h-1" },
+};
+
 export const PlateBadge = ({ plate, size = "lg" }) => {
-  const big = size === "lg";
+  const z = PLATE_SIZE[size] || PLATE_SIZE.lg;
+  const real = isRealPlate(plate);
+  const holes = (
+    <>
+      <span className={`absolute left-1/2 -translate-x-1/2 top-[3px] rounded-full bg-slate-300/80 ${z.hole}`} />
+      <span className={`absolute left-1/2 -translate-x-1/2 bottom-[3px] rounded-full bg-slate-300/80 ${z.hole}`} />
+    </>
+  );
+
+  if (!real) {
+    return (
+      <div title={plate ? `Código interno ${plate}: la unidad no tiene placa registrada en el GPS` : "Sin placa"}
+        className={`relative inline-flex flex-col items-center overflow-hidden border-dashed border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5 shrink-0 ${z.box}`}>
+        {holes}
+        <span className={`font-black uppercase tracking-wider text-slate-400 ${z.top}`}>Sin placa registrada</span>
+        <span className={`flex-1 flex items-center font-mono font-black tracking-wide text-slate-500 dark:text-slate-400 leading-none ${size === "lg" ? "text-2xl" : "text-sm"}`}>{plate || "SIN PLACA"}</span>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className={`inline-flex flex-col items-center rounded-lg border-2 border-slate-800/80 dark:border-white/60 bg-white dark:bg-slate-900 shadow-sm ${big ? "px-4 pt-0.5 pb-1" : "px-2 pb-0.5"}`}
-    >
-      <span className={`font-bold uppercase tracking-[0.3em] text-brand-navy dark:text-sky-300 ${big ? "text-[8px]" : "text-[6px]"}`}>Venezuela</span>
-      <span className={`font-mono font-black tracking-[0.12em] text-slate-900 dark:text-white leading-none ${big ? "text-3xl" : "text-sm"}`}>
-        {plate || "SIN PLACA"}
+    <div title={`Placa ${plate}`} className={`relative inline-flex flex-col items-center overflow-hidden border-slate-400/70 bg-white shadow-md shrink-0 ${z.box}`}>
+      <span className="absolute inset-0">
+        <svg viewBox="0 0 200 100" preserveAspectRatio="none" className="w-full h-full">
+          <path d="M0 40 C55 22 110 62 200 38 L200 55 C110 79 55 39 0 57 Z" fill="#FFCC00" fillOpacity="0.55" />
+          <path d="M0 57 C55 39 110 79 200 55 L200 72 C110 96 55 56 0 74 Z" fill="#0033A0" fillOpacity="0.45" />
+          <path d="M0 74 C55 56 110 96 200 72 L200 90 C110 114 55 74 0 92 Z" fill="#CF142B" fillOpacity="0.45" />
+          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+            const t = (i - 3.5) / 3.5;
+            return <circle key={i} cx={100 + t * 30} cy={64 - 7 * (1 - t * t)} r="1.6" fill="#fff" />;
+          })}
+        </svg>
+      </span>
+      {holes}
+      <span className={`relative font-black uppercase tracking-wide text-[#0b3a8c] whitespace-nowrap ${z.top}`}>República Bolivariana de Venezuela</span>
+      <span
+        className={`relative flex-1 flex items-center font-display font-black tracking-wide text-[#0b2a6b] leading-none ${z.num}`}
+        style={{ textShadow: "0 0 3px rgba(255,255,255,0.9), 0 0 1px #fff" }}
+      >
+        <span className="inline-block" style={{ transform: "scaleY(1.25)" }}>{plate}</span>
       </span>
     </div>
   );
