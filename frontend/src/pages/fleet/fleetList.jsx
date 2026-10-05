@@ -154,15 +154,16 @@ const UnitCard = ({ u, onOpen, i }) => {
 // Dos tarjetas grandes en "Todas"; al tocar una se abre la vista de esa flota
 // (/fleet?flota=liviana|pesada, tambien en el menu lateral).
 const FLEETS = {
-  liviana: { type: "LIVIANA", title: "Flota Liviana", desc: "Camionetas, pickups y vehículos de pasajeros", grad: "from-sky-500 via-sky-600 to-brand-navy", glow: "shadow-sky-600/30" },
-  pesada: { type: "PESADA", title: "Flota Pesada", desc: "Grúas, montacargas, camiones y equipos del contrato", grad: "from-orange-500 via-orange-600 to-amber-700", glow: "shadow-orange-600/30" },
+  // Colores (pedido de Lguerra, 05/10/2026): Liviana azul marino, Pesada amarillo Caterpillar.
+  liviana: { type: "LIVIANA", title: "Flota Liviana", desc: "Camionetas, pickups y vehículos de pasajeros", grad: "from-[#1f4a6e] via-brand-navy to-[#0b2236]", glow: "shadow-brand-navy/30", text: "text-white", sub: "text-sky-100/80", contrato: "bg-[#FFCD11] text-slate-900", soft: "bg-white/15", dark: "bg-black/25" },
+  pesada: { type: "PESADA", title: "Flota Pesada", desc: "Grúas, montacargas, camiones y equipos del contrato", grad: "from-[#FFD84D] via-[#FFCD11] to-[#E6B400]", glow: "shadow-amber-400/40", text: "text-slate-900", sub: "text-slate-900/70", contrato: "bg-brand-navy text-white", soft: "bg-black/10", dark: "bg-black/15" },
 };
 const fleetStats = (list) => ({
   total: list.length,
   contrato: list.filter((u) => statusKeyOf(u) === "OPERATIVO_CONTRATO").length,
   disponibles: list.filter((u) => statusKeyOf(u) === "DISPONIBLE").length,
   fuera: list.filter((u) => statusKeyOf(u) === "FUERA_DE_SERVICIO").length,
-  docs: list.filter((u) => u.docs_expired > 0).length,
+  docs: list.filter((u) => docsState(u).key === "vencido").length,
   incompletas: list.filter((u) => !fichaChecklist(u).complete).length,
 });
 
@@ -181,27 +182,27 @@ const FleetPortal = ({ units, onOpen }) => (
           transition={{ delay: i * 0.08 }}
           whileHover={{ y: -4 }}
           whileTap={{ scale: 0.99 }}
-          className={`group relative overflow-hidden text-left rounded-3xl bg-gradient-to-br ${f.grad} text-white p-6 shadow-xl ${f.glow}`}
+          className={`group relative overflow-hidden text-left rounded-3xl bg-gradient-to-br ${f.grad} ${f.text} p-6 shadow-xl ${f.glow}`}
         >
           <span className="absolute -right-6 -bottom-8 opacity-20 group-hover:opacity-30 group-hover:-translate-x-2 transition-all duration-500">
-            <VehicleIcon fleetType={f.type} className="w-64 h-40 text-white" />
+            <VehicleIcon fleetType={f.type} className={`w-64 h-40 ${f.text}`} />
           </span>
           <div className="relative flex items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/80">{f.desc}</p>
+              <p className={`text-[11px] font-extrabold uppercase tracking-[0.18em] ${f.sub}`}>{f.desc}</p>
               <p className="font-display text-3xl mt-1">{f.title}</p>
             </div>
             <div className="text-right">
               <p className="font-display text-5xl leading-none">{s.total}</p>
-              <p className="text-xs font-bold text-white/80">unidades</p>
+              <p className={`text-xs font-bold ${f.sub}`}>unidades</p>
             </div>
           </div>
           <div className="relative mt-5 flex flex-wrap gap-2 text-[11px] font-bold">
-            <span className="rounded-full bg-[#FFCD11] text-slate-900 px-2.5 py-1">{s.contrato} en contrato</span>
-            <span className="rounded-full bg-white/20 px-2.5 py-1">{s.disponibles} disponibles</span>
-            {s.fuera > 0 && <span className="rounded-full bg-red-600 px-2.5 py-1">{s.fuera} fuera de servicio</span>}
-            {s.docs > 0 && <span className="rounded-full bg-red-600/90 px-2.5 py-1">{s.docs} con papel vencido</span>}
-            <span className="rounded-full bg-black/20 px-2.5 py-1">{s.incompletas} ficha(s) incompleta(s)</span>
+            <span className={`rounded-full px-2.5 py-1 ${f.contrato}`}>{s.contrato} en contrato</span>
+            <span className={`rounded-full px-2.5 py-1 ${f.soft}`}>{s.disponibles} disponibles</span>
+            {s.fuera > 0 && <span className="rounded-full bg-red-600 text-white px-2.5 py-1">{s.fuera} fuera de servicio</span>}
+            {s.docs > 0 && <span className="rounded-full bg-red-600 text-white px-2.5 py-1">{s.docs} con papel vencido</span>}
+            <span className={`rounded-full px-2.5 py-1 ${f.dark}`}>{s.incompletas} ficha(s) incompleta(s)</span>
           </div>
           <span className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-white text-slate-900 px-4 py-2 text-sm font-extrabold shadow-md group-hover:gap-3 transition-all">
             Ver {f.title.toLowerCase()} <span className="inline-flex"><ArrowRight size={16} /></span>
@@ -283,8 +284,8 @@ const FleetList = () => {
             <ArrowLeft size={16} /> Toda la flota
           </motion.button>
           {fleet !== "NONE" && (
-            <div className={`inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${FLEETS[flotaKey].grad} text-white px-4 h-10 text-sm font-extrabold`}>
-              <VehicleIcon fleetType={fleet} className="w-8 h-5 text-white" /> {FLEETS[flotaKey].title} · {scoped.length} unidades
+            <div className={`inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${FLEETS[flotaKey].grad} ${FLEETS[flotaKey].text} px-4 h-10 text-sm font-extrabold shadow-md`}>
+              <VehicleIcon fleetType={fleet} className={`w-8 h-5 ${FLEETS[flotaKey].text}`} /> {FLEETS[flotaKey].title} · {scoped.length} unidades
             </div>
           )}
           {fleet === "NONE" && <p className="text-sm text-slate-600 dark:text-slate-300">Estas unidades no tienen tipo de flota: ábrelas y elige <b>Liviana</b> o <b>Pesada</b> en "Editar ficha".</p>}
