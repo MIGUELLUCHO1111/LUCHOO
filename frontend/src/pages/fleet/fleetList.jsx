@@ -142,8 +142,8 @@ const UnitCard = ({ u, onOpen, i }) => {
           <p className="mt-2 font-display text-lg text-brand-navy dark:text-white truncate">{u.code}</p>
           <p className={`text-xs truncate ${modelo || u.name ? "text-slate-600 dark:text-slate-300 font-semibold" : "text-amber-600 font-bold"}`}>{modelo || u.name || "Ficha técnica pendiente"}</p>
         </div>
-        {u.model_photo ? (
-          <img src={resolveFleetFileUrl(u.model_photo)} alt={modelo} loading="lazy" className="w-20 h-14 rounded-xl object-cover shrink-0 group-hover:scale-105 transition-transform" />
+        {p.photo_url || u.model_photo ? (
+          <img src={resolveFleetFileUrl(p.photo_url || u.model_photo)} alt={modelo || u.code} loading="lazy" className="w-24 h-16 rounded-xl object-cover shrink-0 shadow-sm group-hover:scale-105 transition-transform" />
         ) : (
           <span className="h-14 w-20 rounded-xl bg-brand-navy/5 dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-brand-navy/10 transition-colors">
             <VehicleIcon fleetType={u.fleet_type} className="w-14 h-10 text-brand-navy dark:text-sky-300 group-hover:scale-105 transition-transform" />

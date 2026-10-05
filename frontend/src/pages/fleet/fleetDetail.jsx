@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ArrowLeft, Pencil, Gauge, User, MapPin, Phone, FileText, Wrench, StickyNote, Activity,
   Radio, Plus, X, Fingerprint, UserCog, CheckCircle2, Circle, Lock, Fuel, Cpu, Repeat, History,
-  Factory, Car, Layers, Weight, CalendarDays, Palette, Cog, Hash, ScanBarcode, Container, Check, Receipt, Send,
+  Factory, Car, Layers, Weight, CalendarDays, Palette, Cog, Hash, ScanBarcode, Container, Check, Receipt, Send, Camera,
 } from "lucide-react";
+import { useConfirm } from "@/context";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { Card } from "@/components/ui/card";
@@ -103,6 +104,85 @@ const BatteryBar = ({ value }) => {
         <span className={`text-sm font-extrabold ${txt}`}>{b}%</span>
       </div>
       {b <= 15 && <p className="text-[10px] font-bold text-red-600 mt-0.5">Batería agotada: revisar alimentación</p>}
+    </div>
+  );
+};
+
+// ---------- Foto propia de la unidad (053_fleet_unit_photo.sql) ----------
+// Pedido de Lguerra (05/10/2026): cada ficha con su foto, cargada desde aqui
+// (clic o arrastrar). Si no tiene foto propia se muestra la del modelo del
+// catalogo con la marca "Foto del modelo".
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const UnitPhoto = ({ unit, onChanged }) => {
+  const confirm = useConfirm();
+  const ref = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [drag, setDrag] = useState(false);
+  const own = unit.profile?.photo_url;
+  const src = own || unit.model_photo;
+  const can = !!unit.puede_editar;
+
+  const pick = async (file) => {
+    if (!file) return;
+    if (!PHOTO_TYPES.includes(file.type)) return setError("Solo fotos JPG, PNG o WEBP.");
+    if (file.size > 8 * 1024 * 1024) return setError("La foto pesa más de 8 MB.");
+    setBusy(true);
+    setError(null);
+    try {
+      await fleetService.subirFotoUnidad(unit.id, file);
+      await onChanged();
+    } catch (e) {
+      setError(e.response?.data?.message || e.message);
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = "";
+    }
+  };
+  const quitar = async () => {
+    if (!(await confirm("¿Quitar la foto de esta unidad?", { title: "Quitar foto", confirmText: "Quitar foto" }))) return;
+    setBusy(true);
+    try {
+      await fleetService.quitarFotoUnidad(unit.id);
+      await onChanged();
+    } catch (e) {
+      setError(e.response?.data?.message || e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="shrink-0 flex flex-col items-center gap-1.5">
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        onClick={() => (can ? ref.current?.click() : src && window.open(resolveFleetFileUrl(src), "_blank"))}
+        onDragOver={(e) => { if (can) { e.preventDefault(); setDrag(true); } }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { if (can) { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files?.[0]); } }}
+        title={can ? (own ? "Cambiar la foto del vehículo" : "Cargar la foto del vehículo") : src ? "Ver la foto" : ""}
+        className={`group relative h-32 w-48 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner transition-colors ${can || src ? "cursor-pointer" : ""} ${src ? "bg-slate-900/5" : can ? "border-2 border-dashed border-brand-navy/30 bg-brand-navy/[0.03] hover:border-brand-navy hover:bg-brand-navy/5" : "bg-slate-50 dark:bg-white/5"} ${drag ? "ring-4 ring-brand-gold" : ""}`}
+      >
+        {src ? (
+          <motion.img key={src} initial={{ scale: 1.08, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} src={resolveFleetFileUrl(src)} alt={`Foto de ${unit.code}`} className="w-full h-full object-cover" />
+        ) : (
+          <span className="flex flex-col items-center gap-1.5 text-center px-3">
+            <VehicleIcon fleetType={unit.fleet_type} className="w-20 h-12 text-brand-navy/60 dark:text-sky-300/60" />
+            {can && <span className="inline-flex items-center gap-1 rounded-lg bg-brand-navy text-white px-2.5 py-1 text-[11px] font-extrabold shadow-md shadow-brand-navy/20"><Camera size={12} /> Cargar foto</span>}
+          </span>
+        )}
+        {src && !own && <span className="absolute left-1.5 top-1.5 rounded-md bg-black/55 text-white text-[9px] font-bold px-1.5 py-0.5">Foto del modelo</span>}
+        {can && src && (
+          <span className="absolute inset-0 bg-brand-navy/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-extrabold">
+            <Camera size={20} /> {own ? "Cambiar foto" : "Cargar foto propia"}
+            <span className="text-[10px] font-semibold text-sky-100/80">clic o arrastra aquí</span>
+          </span>
+        )}
+        {busy && <span className="absolute inset-0 bg-white/80 dark:bg-black/60 flex items-center justify-center text-xs font-extrabold text-brand-navy dark:text-white">Guardando…</span>}
+      </motion.div>
+      {can && own && !busy && <button type="button" onClick={quitar} className="text-[10px] font-bold text-slate-400 hover:text-red-600">Quitar foto</button>}
+      {error && <p className="text-[10px] font-bold text-red-600 max-w-[12rem] text-center">{error}</p>}
+      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
     </div>
   );
 };
@@ -689,13 +769,7 @@ const FleetDetail = () => {
           <button onClick={() => navigate("/fleet")} className="self-start h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5" title="Volver a la flota">
             <ArrowLeft size={16} />
           </button>
-          <div className={`${unit.model_photo ? "h-28 w-44" : "h-24 w-32"} rounded-2xl bg-slate-50 dark:bg-white/5 flex items-center justify-center shrink-0 overflow-hidden shadow-inner`}>
-            {unit.model_photo ? (
-              <motion.img initial={{ scale: 1.1, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} src={resolveFleetFileUrl(unit.model_photo)} alt={modelo} className="w-full h-full object-cover" />
-            ) : (
-              <VehicleIcon fleetType={unit.fleet_type} className="w-24 h-16 text-brand-navy dark:text-sky-300" />
-            )}
-          </div>
+          <UnitPhoto unit={unit} onChanged={load} />
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <PlateBadge plate={unit.plate} />

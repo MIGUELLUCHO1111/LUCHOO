@@ -112,6 +112,19 @@ const fleetService = {
   registrarLectura: (unit_id, lectura) => call(TX.LECTURA_REGISTRAR, { unit_id, ...lectura }),
   reemplazarMedidor: (unit_id, lectura) => call(TX.LECTURA_REEMPLAZO, { unit_id, ...lectura }),
   anularLectura: (id, reason) => call(TX.LECTURA_ANULAR, { id, reason }),
+  /** Foto propia de una unidad (se ve en su ficha y en la lista). */
+  subirFotoUnidad: async (unitId, file) => {
+    const formData = new FormData();
+    formData.append("unit_id", unitId);
+    formData.append("profile", getCurrentProfile());
+    formData.append("photo", file);
+    const res = await api.post("/fleet/units/photo", formData, { headers: { "Content-Type": undefined } });
+    return res?.data?.data;
+  },
+  quitarFotoUnidad: async (unitId) => {
+    const res = await api.delete("/fleet/units/photo", { params: { unit_id: unitId, profile: getCurrentProfile() } });
+    return res?.data?.data;
+  },
   subirFotoModelo: async (modelId, file) => {
     const formData = new FormData();
     formData.append("model_id", modelId);

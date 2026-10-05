@@ -1437,6 +1437,19 @@
     orderArray: ['unit_id', 'patch']
   },
 
+  # Foto propia de la unidad (053_fleet_unit_photo.sql, ruta /fleet/units/photo).
+  'fleetGetUnitPhoto': {
+    query: 'SELECT u.id, p.photo_url FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id WHERE u.id = $1 AND u.deleted_at IS NULL;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'fleetSetUnitPhoto': {
+    query: 'INSERT INTO public.fleet_unit_profile (unit_id, photo_url) VALUES ($1, $2) ON CONFLICT (unit_id) DO UPDATE SET photo_url = EXCLUDED.photo_url, updated_at = NOW() RETURNING unit_id;',
+    structure_params: { unit_id: 'int', photo_url: 'string|null' },
+    orderArray: ['unit_id', 'photo_url']
+  },
+
   'fleetInsertEvent': {
     query: 'INSERT INTO public.fleet_unit_event (unit_id, event_type, title, detail, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id;',
     structure_params: { unit_id: 'int', event_type: 'string', title: 'string', detail: 'string|null', created_by: 'string|null' },
