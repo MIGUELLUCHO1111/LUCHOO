@@ -155,9 +155,9 @@ export const VehicleIcon = ({ fleetType, className = "w-16 h-16" }) =>
 
 export const Field = ({ label, value, strong = false, hint }) => (
   <div className="min-w-0">
-    <dt className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">{label}</dt>
-    <dd className={`mt-0.5 truncate ${strong ? "text-base font-bold text-slate-900 dark:text-white" : "text-sm text-slate-700 dark:text-slate-200"}`} title={typeof value === "string" ? value : undefined}>
-      {value == null || value === "" ? <span className="text-slate-300 dark:text-slate-600">—</span> : value}
+    <dt className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">{label}</dt>
+    <dd className={`mt-0.5 truncate ${strong ? "text-base font-extrabold text-brand-navy dark:text-white" : "text-sm font-semibold text-slate-800 dark:text-slate-100"}`} title={typeof value === "string" ? value : undefined}>
+      {value == null || value === "" || value === "—" ? <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">Sin dato</span> : value}
     </dd>
     {hint && <p className="text-[10px] text-slate-400 mt-0.5">{hint}</p>}
   </div>

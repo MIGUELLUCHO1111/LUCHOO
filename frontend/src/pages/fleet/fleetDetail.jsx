@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ArrowLeft, Pencil, Gauge, User, MapPin, Phone, FileText, Wrench, StickyNote, Activity,
   Radio, Plus, X, Fingerprint, UserCog, CheckCircle2, Circle, Lock, Fuel, Cpu, Repeat, History,
+  Factory, Car, Layers, Weight, CalendarDays, Palette, Cog, Hash, ScanBarcode, Container,
 } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
@@ -33,8 +34,8 @@ const EVENT_TONE = {
 
 const SectionTitle = ({ icon: Icon, children, right }) => (
   <div className="flex items-center justify-between mb-4">
-    <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-      <Icon size={14} className="text-brand-navy dark:text-sky-300" />
+    <h3 className="flex items-center gap-2.5 text-[13px] font-extrabold uppercase tracking-[0.12em] text-brand-navy dark:text-sky-200">
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand-navy text-white shadow-md shadow-brand-navy/20 dark:bg-sky-700"><Icon size={14} /></span>
       {children}
     </h3>
     {right}
@@ -44,6 +45,67 @@ const SectionTitle = ({ icon: Icon, children, right }) => (
 const Panel = ({ children, className = "" }) => (
   <Card className={`p-6 rounded-3xl shadow-sm ${className}`}>{children}</Card>
 );
+
+// ---------- ADN del vehiculo: un cajetin por dato ----------
+// Pedido de Lguerra (05/10/2026): que se note cada dato. Los vacios dicen
+// "Por completar" y, si se puede editar, abren el formulario al hacer clic.
+const COLOR_HEX = {
+  BLANCO: "#f8fafc", NEGRO: "#0f172a", GRIS: "#94a3b8", PLATA: "#cbd5e1", PLATEADO: "#cbd5e1", ROJO: "#dc2626",
+  AZUL: "#2563eb", VERDE: "#16a34a", AMARILLO: "#facc15", NARANJA: "#f97316", MARRON: "#92400e", BEIGE: "#e7d7b1",
+  VINOTINTO: "#7f1d1d", DORADO: "#d99b0a", BRONCE: "#a16207",
+};
+const colorHex = (c) => COLOR_HEX[String(c || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().split(/\s+/)[0]];
+const isEmpty = (v) => v == null || v === "" || v === "—";
+
+const AdnTile = ({ icon: Icon, label, value, hint, swatch, onEdit, mono = false }) => {
+  const empty = isEmpty(value);
+  const click = empty && onEdit;
+  const Tag = click ? motion.button : motion.div;
+  return (
+    <Tag
+      type={click ? "button" : undefined}
+      onClick={click ? onEdit : undefined}
+      whileHover={{ y: -2 }}
+      title={click ? `Agregar ${label.toLowerCase()}` : undefined}
+      className={`group flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors ${empty ? "border-dashed border-slate-300 dark:border-white/15 hover:border-brand-navy/50 hover:bg-brand-navy/[0.03]" : "border-slate-100 dark:border-white/5 bg-white/80 dark:bg-white/[0.02] hover:shadow-md hover:shadow-brand-navy/5"}`}
+    >
+      <span className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${empty ? "bg-slate-100 text-slate-400 dark:bg-white/5 group-hover:bg-brand-navy group-hover:text-white" : "bg-brand-navy text-white shadow-md shadow-brand-navy/20 dark:bg-sky-700"}`}>
+        <Icon size={16} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</span>
+        {empty ? (
+          <span className="block text-xs font-bold text-amber-600 dark:text-amber-400 truncate">Por completar</span>
+        ) : (
+          <span className={`flex items-center gap-1.5 text-sm font-extrabold text-brand-navy dark:text-white ${mono ? "font-mono" : ""}`} title={String(value)}>
+            {swatch && <span className="h-3.5 w-3.5 rounded-full border border-slate-300 dark:border-white/20 shrink-0" style={{ background: swatch }} />}
+            <span className="truncate">{value}</span>
+          </span>
+        )}
+        {hint && !empty && <span className="block text-[10px] text-slate-400 truncate">{hint}</span>}
+      </span>
+      {click && <span className="h-6 w-6 rounded-lg flex items-center justify-center shrink-0 text-slate-300 group-hover:bg-brand-navy group-hover:text-white transition-colors"><Plus size={13} /></span>}
+    </Tag>
+  );
+};
+
+const BatteryBar = ({ value }) => {
+  const b = Math.max(0, Math.min(100, Number(value)));
+  const tone = b <= 15 ? "bg-red-500" : b <= 40 ? "bg-amber-500" : "bg-emerald-500";
+  const txt = b <= 15 ? "text-red-600" : b <= 40 ? "text-amber-600" : "text-emerald-600";
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Batería del equipo</p>
+      <div className="mt-1 flex items-center gap-2">
+        <span className="h-2 flex-1 rounded-full bg-slate-200 dark:bg-white/10 overflow-hidden">
+          <motion.span initial={{ width: 0 }} animate={{ width: `${Math.max(b, 3)}%` }} transition={{ duration: 0.8 }} className={`block h-full rounded-full ${tone}`} />
+        </span>
+        <span className={`text-sm font-extrabold ${txt}`}>{b}%</span>
+      </div>
+      {b <= 15 && <p className="text-[10px] font-bold text-red-600 mt-0.5">Batería agotada: revisar alimentación</p>}
+    </div>
+  );
+};
 
 // ---------- Conductor con micro-tarjeta al pasar el cursor ----------
 const DriverChip = ({ unit }) => {
@@ -56,7 +118,7 @@ const DriverChip = ({ unit }) => {
           {initials(unit.driver_name)}
         </span>
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Conductor</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Conductor</p>
           <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{unit.driver_name || "Sin asignar"}</p>
         </div>
       </div>
@@ -94,7 +156,7 @@ const KmSparkline = ({ dias }) => {
   return (
     <div>
       <div className="flex items-end justify-between mb-1.5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Km por día · últimos {last.length} días</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Km por día · últimos {last.length} días</p>
         <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{fmtKm(total)}</p>
       </div>
       <div className="flex items-end gap-[3px] h-12">
@@ -257,7 +319,7 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
       >
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-white/5">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Editar ficha</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Editar ficha</p>
             <h3 className="font-display text-xl text-slate-900 dark:text-white">{unit.code} · {unit.plate || "sin placa"}</h3>
           </div>
           <button onClick={onClose} className="h-9 w-9 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"><X size={18} /></button>
@@ -394,7 +456,7 @@ const Timeline = ({ unit }) => {
       <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
         {items.map((g) => (
           <div key={g.day}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">{g.day}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">{g.day}</p>
             <ol className="relative border-l border-slate-100 dark:border-white/10 ml-3 space-y-4">
               {g.items.map((it) => {
                 const Icon = EVENT_ICON[it.event_type] || Activity;
@@ -455,7 +517,7 @@ const ManagerRow = ({ unit, onChanged }) => {
     <div className="sm:col-span-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-white/5 p-3">
       <span className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${e ? "bg-brand-gold/20 text-amber-800 dark:text-brand-gold" : "bg-slate-100 dark:bg-white/5 text-slate-400"}`}>{e ? initials(e.nombre) : <UserCog size={16} />}</span>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Encargado de la unidad</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Encargado de la unidad</p>
         <p className={`text-sm font-bold truncate ${e ? "text-slate-900 dark:text-white" : "text-amber-600"}`}>{e ? e.nombre : "Sin encargado asignado"}</p>
         {e?.desde && <p className="text-[10px] text-slate-400">Desde {fmtDate(String(e.desde).slice(0, 10))}</p>}
       </div>
@@ -504,7 +566,7 @@ const StatusControl = ({ unit, onSaved }) => {
 
   return (
     <div className="flex flex-col items-stretch lg:items-end gap-1.5">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Condición operativa</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Condición operativa</p>
       {isAdmin ? (
         <div className="flex flex-wrap rounded-2xl bg-slate-100 dark:bg-white/5 p-1">
           {Object.entries(STATUS).map(([k, s]) => (
@@ -626,37 +688,65 @@ const FleetDetail = () => {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* ===== ADN ===== */}
             <Panel>
-              <SectionTitle icon={Fingerprint}>ADN del vehículo</SectionTitle>
-              {full && (
-                <div className="grid grid-cols-2 gap-4 rounded-2xl bg-orange-500/5 border border-orange-500/15 p-4 mb-5">
-                  <Field label="Serial de carrocería" value={p.vin} strong />
-                  <Field label="Impuesto caballos de fuerza" value={fmtMoney(p.hp_tax)} strong />
-                </div>
-              )}
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-                <Field label="Marca" value={unit.brand_name || p.brand} />
-                <Field label="Modelo" value={unit.model_name ? [unit.model_name, unit.version_name].filter(Boolean).join(" · ") : p.model} hint={unit.model_name ? "Del catálogo" : p.model || p.brand ? "Texto libre (elige el modelo del catálogo)" : null} />
-                {unit.model_name && <Field label="Familia" value={unit.model_family_name || categoryLabel(unit.model_category)} />}
-                {unit.model_capacity && <Field label="Capacidad nominal" value={unit.model_capacity} />}
-                <Field label="Año" value={p.model_year} />
-                <Field label="Color" value={p.color} />
-                <Field label="Tipo de motor" value={p.engine_type} />
-                {!full && <Field label="Serial de carrocería" value={p.vin} />}
-                {full && <Field label="Serial de motor" value={p.engine_serial} />}
-                <Field label="Combustible" value={p.fuel_type} />
-                {full && <Field label="Capacidad del tanque" value={unit.tank_capacity_liters ? `${Number(unit.tank_capacity_liters)} L` : null} />}
-              </dl>
-              <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/5">
-                <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3"><Cpu size={12} /> Equipo GPS</p>
+              {(() => {
+                const onEdit = unit.puede_editar ? () => setEditing(true) : null;
+                const tiles = [
+                  { icon: Factory, label: "Marca", value: unit.brand_name || p.brand },
+                  { icon: Car, label: "Modelo", value: unit.model_name ? [unit.model_name, unit.version_name].filter(Boolean).join(" · ") : p.model, hint: unit.model_name ? "Del catálogo" : p.model || p.brand ? "Texto libre: elige el modelo del catálogo" : null },
+                  unit.model_name && { icon: Layers, label: "Familia", value: unit.model_family_name || categoryLabel(unit.model_category) },
+                  unit.model_capacity && { icon: Weight, label: "Capacidad nominal", value: unit.model_capacity },
+                  { icon: CalendarDays, label: "Año", value: p.model_year },
+                  { icon: Palette, label: "Color", value: p.color, swatch: colorHex(p.color) },
+                  { icon: Cog, label: "Tipo de motor", value: p.engine_type },
+                  full && { icon: Hash, label: "Serial de motor", value: p.engine_serial, mono: true },
+                  !full && { icon: ScanBarcode, label: "Serial de carrocería", value: p.vin, mono: true },
+                  { icon: Fuel, label: "Combustible", value: p.fuel_type },
+                  full && { icon: Container, label: "Capacidad del tanque", value: unit.tank_capacity_liters ? `${Number(unit.tank_capacity_liters)} L` : null },
+                ].filter(Boolean);
+                const destacados = full ? [["Serial de carrocería", p.vin, true], ["Impuesto caballos de fuerza", p.hp_tax != null && p.hp_tax !== "" ? fmtMoney(p.hp_tax) : null, false]] : [];
+                const all = [...tiles.map((t) => t.value), ...destacados.map((d) => d[1])];
+                const llenos = all.filter((v) => !isEmpty(v)).length;
+                return (
+                  <>
+                    <SectionTitle icon={Fingerprint} right={
+                      <span className="flex items-center gap-2">
+                        <span className="h-1.5 w-16 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden"><motion.span initial={{ width: 0 }} animate={{ width: `${(llenos / all.length) * 100}%` }} className={`block h-full rounded-full ${llenos === all.length ? "bg-emerald-500" : "bg-brand-gold"}`} /></span>
+                        <span className="text-[11px] font-bold text-slate-500">{llenos} de {all.length}</span>
+                      </span>
+                    }>ADN del vehículo</SectionTitle>
+                    {full && (
+                      <div className="grid grid-cols-2 gap-3 rounded-2xl bg-gradient-to-br from-brand-navy to-[#1f4a6e] text-white p-4 mb-3 shadow-lg shadow-brand-navy/20">
+                        {destacados.map(([l, v, mono]) => (
+                          <div key={l} className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-sky-200/80">{l}</p>
+                            {isEmpty(v) ? (
+                              <button type="button" disabled={!onEdit} onClick={onEdit || undefined} className="mt-0.5 inline-flex items-center gap-1 text-xs font-bold text-amber-300 hover:text-amber-200">Por completar{onEdit && <Plus size={12} />}</button>
+                            ) : (
+                              <p className={`mt-0.5 text-base font-extrabold truncate ${mono ? "font-mono" : ""}`} title={String(v)}>{v}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {tiles.map((t) => <AdnTile key={t.label} {...t} onEdit={onEdit} />)}
+                    </div>
+                  </>
+                );
+              })()}
+              <div className="mt-5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 p-4">
+                <p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.12em] text-brand-navy dark:text-sky-200 mb-3">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-brand-navy text-white dark:bg-sky-700"><Cpu size={13} /></span> Equipo GPS
+                </p>
                 {gps.disponible ? (
                   <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
                     <Field label="Tipo en el GPS" value={gps.tipo_vehiculo} />
-                    <Field label="Batería del equipo" value={gps.bateria != null ? `${gps.bateria}%` : null} />
-                    <Field label="IMEI" value={gps.imei} />
-                    <Field label="SIM" value={gps.sim} />
+                    {gps.bateria != null ? <BatteryBar value={gps.bateria} /> : <Field label="Batería del equipo" value={null} />}
+                    <Field label="IMEI" value={gps.imei ? <span className="font-mono">{gps.imei}</span> : null} />
+                    <Field label="SIM" value={gps.sim ? <span className="font-mono">{gps.sim}</span> : null} />
                   </dl>
                 ) : (
-                  <p className="text-xs text-slate-400">{gps.motivo || "Sin datos del equipo GPS."}</p>
+                  <p className="text-xs text-slate-500">{gps.motivo || "Sin datos del equipo GPS."}</p>
                 )}
               </div>
             </Panel>
@@ -666,7 +756,7 @@ const FleetDetail = () => {
               <SectionTitle icon={Gauge}>Estado operativo</SectionTitle>
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Odómetro</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Odómetro</p>
                   <p className="font-display text-4xl text-slate-900 dark:text-white leading-none mt-1">{odo ? Number(odo.km).toLocaleString("es-VE", { maximumFractionDigits: 0 }) : "—"}<span className="text-base text-slate-400 ml-1">km</span></p>
                 </div>
                 {odo && (
@@ -698,7 +788,7 @@ const FleetDetail = () => {
               <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DriverChip unit={unit} />
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Zona asignada</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Zona asignada</p>
                   <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{p.assigned_zone || "Sin zona"}</p>
                 </div>
                 <ManagerRow unit={unit} onChanged={load} />
