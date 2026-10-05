@@ -1481,6 +1481,27 @@
   },
 
   # Foto propia de la unidad (053_fleet_unit_photo.sql, ruta /fleet/units/photo).
+  # Alta manual de unidades: SOLO desde Flota -> Fichas de Vehiculos (pedido de
+  # Lguerra, 05/10/2026). Las demas secciones ya no crean unidades; el GPS
+  # sigue dando de alta las nuevas solo (createTrackerUnit en snapshot.js).
+  'fleetFindUnitByCode': {
+    query: 'SELECT id, code, deleted_at FROM public.fleet_unit WHERE upper(code) = upper($1) LIMIT 1;',
+    structure_params: { code: 'string' },
+    orderArray: ['code']
+  },
+
+  'fleetFindUnitByPlate': {
+    query: "SELECT id, code, plate FROM public.fleet_unit WHERE deleted_at IS NULL AND regexp_replace(upper(plate), '[^A-Z0-9]', '', 'g') = $1 LIMIT 1;",
+    structure_params: { plate_norm: 'string' },
+    orderArray: ['plate_norm']
+  },
+
+  'fleetCreateUnit': {
+    query: 'INSERT INTO public.fleet_unit (code, name, plate, driver_name, fleet_type, tank_capacity_liters) VALUES ($1, $2, $3, $4, $5, $6::numeric) RETURNING id, code;',
+    structure_params: { code: 'string', name: 'string|null', plate: 'string|null', driver_name: 'string|null', fleet_type: 'string|null', tank_capacity_liters: 'string|null' },
+    orderArray: ['code', 'name', 'plate', 'driver_name', 'fleet_type', 'tank_capacity_liters']
+  },
+
   'fleetGetUnitPhoto': {
     query: 'SELECT u.id, p.photo_url FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id WHERE u.id = $1 AND u.deleted_at IS NULL;',
     structure_params: { unit_id: 'int' },

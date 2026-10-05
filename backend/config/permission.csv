@@ -193,3 +193,4 @@ id;sub_system;class;method;profile
 208;Flota;Lectura;anularLectura;admin
 184;Horas;Registro;guardarPtoDiario;admin
 185;Horas;Registro;getPtoDelDia;admin
+209;Flota;Ficha;crearUnidad;admin
