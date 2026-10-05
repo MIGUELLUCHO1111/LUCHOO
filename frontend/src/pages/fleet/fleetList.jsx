@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, inputCls } from "./fleetParts";
 import { useFamilies } from "./fleetArt";
-import { fichaChecklist, CHECK_LABELS, docsState } from "./fleetCompleteness";
+import { fichaChecklist, CHECK_LABELS, docsState, docsDetalle } from "./fleetCompleteness";
 import AssignManagersModal from "./fleetManagers";
 import NewUnitModal from "./fleetNewUnit";
 import DocsBadge from "./fleetDocsBadge";
@@ -168,6 +168,24 @@ const fleetStats = (list) => ({
   incompletas: list.filter((u) => !fichaChecklist(u).complete).length,
 });
 
+// Una etiqueta de resumen que lleva a esa flota ya filtrada (pedido de
+// Lguerra, 05/10/2026). Es <span role=button> porque va dentro del boton de
+// la tarjeta.
+const Chip = ({ cls, onGo, title, children }) => (
+  <motion.span
+    role="button"
+    tabIndex={0}
+    title={title}
+    whileHover={{ y: -2, scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+    onClick={(e) => { e.stopPropagation(); onGo(); }}
+    onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onGo(); } }}
+    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 cursor-pointer shadow-sm hover:shadow-md ring-0 hover:ring-2 hover:ring-white/70 transition-shadow ${cls}`}
+  >
+    {children} <span className="opacity-70">›</span>
+  </motion.span>
+);
+
 const FleetPortal = ({ units, onOpen }) => (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
     {Object.entries(FLEETS).map(([key, f], i) => {
@@ -199,11 +217,11 @@ const FleetPortal = ({ units, onOpen }) => (
             </div>
           </div>
           <div className="relative mt-5 flex flex-wrap gap-2 text-[11px] font-bold">
-            <span className={`rounded-full px-2.5 py-1 ${f.contrato}`}>{s.contrato} en contrato</span>
-            <span className={`rounded-full px-2.5 py-1 ${f.disp}`}>{s.disponibles} disponibles</span>
-            {s.fuera > 0 && <span className="rounded-full bg-red-600 text-white px-2.5 py-1">{s.fuera} fuera de servicio</span>}
-            {s.docs > 0 && <span className="rounded-full bg-red-600 text-white px-2.5 py-1">{s.docs} con papel vencido</span>}
-            <span className={`rounded-full px-2.5 py-1 ${f.dark}`}>{s.incompletas} ficha(s) incompleta(s)</span>
+            <Chip cls={f.contrato} title="Ver las unidades en contrato" onGo={() => onOpen(key, { estado: "OPERATIVO_CONTRATO" })}>{s.contrato} en contrato</Chip>
+            <Chip cls={f.disp} title="Ver las unidades disponibles" onGo={() => onOpen(key, { estado: "DISPONIBLE" })}>{s.disponibles} disponibles</Chip>
+            {s.fuera > 0 && <Chip cls="bg-red-600 text-white" title="Ver las unidades fuera de servicio" onGo={() => onOpen(key, { estado: "FUERA_DE_SERVICIO" })}>{s.fuera} fuera de servicio</Chip>}
+            {s.docs > 0 && <Chip cls="bg-red-600 text-white" title="Ver las unidades con documentos vencidos (la más vencida primero)" onGo={() => onOpen(key, { ver: "doc_vencido" })}>{s.docs} con papel vencido</Chip>}
+            <Chip cls={f.dark} title="Ver las fichas incompletas (las que menos datos tienen primero)" onGo={() => onOpen(key, { ver: "incompleta" })}>{s.incompletas} ficha(s) incompleta(s)</Chip>
           </div>
           <span className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-white text-slate-900 px-4 py-2 text-sm font-extrabold shadow-md group-hover:gap-3 transition-all">
             Ver {f.title.toLowerCase()} <span className="inline-flex"><ArrowRight size={16} /></span>
@@ -229,10 +247,18 @@ const FleetList = () => {
     const key = Object.keys(FLEETS).find((k) => FLEETS[k].type === v) || (v === "NONE" ? "sin-clasificar" : "");
     setParams(key ? { flota: key } : {});
   };
+  // Filtros que vienen de las etiquetas de las tarjetas (o del selector "Ver todas").
+  const estado = params.get("estado") || "";
+  const missing = params.get("ver") || "";
+  const setFiltro = (name, value) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(name, value); else next.delete(name);
+    setParams(next);
+  };
+  const setMissing = (v) => setFiltro("ver", v);
   const [showAjustes, setShowAjustes] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [showNew, setShowNew] = useState(false);
-  const [missing, setMissing] = useState("");
   const [mine, setMine] = useState(!isAdmin);
 
   const load = () =>
@@ -254,13 +280,30 @@ const FleetList = () => {
     const term = q.trim().toLowerCase();
     return scoped.filter((u) => {
       if (mine && !u.soy_encargado) return false;
+      if (estado && statusKeyOf(u) !== estado) return false;
       if (missing.startsWith("doc_")) { if (docsState(u).key !== missing.slice(4)) return false; }
+      else if (missing === "incompleta") { if (fichaChecklist(u).complete) return false; }
       else if (missing && fichaChecklist(u).items.some((x) => x.key === missing && x.ok)) return false;
       if (!term) return true;
       const p = u.profile || {};
       return [u.code, u.plate, u.driver_name, u.name, p.brand, p.model, u.brand_name, u.model_name, u.gps?.location_text].some((v) => String(v || "").toLowerCase().includes(term));
     });
-  }, [scoped, q, mine, missing]);
+  }, [scoped, q, mine, missing, estado]);
+
+  // Orden segun lo que se esta mirando: lo mas urgente primero.
+  const ordered = useMemo(() => {
+    const minDias = (u, st) => Math.min(...docsDetalle(u).filter((x) => x.state === st).map((x) => x.days_left ?? Infinity), Infinity);
+    const list = shown.slice();
+    if (missing === "doc_vencido") list.sort((a, b) => minDias(a, "vencido") - minDias(b, "vencido"));
+    else if (missing === "doc_por_vencer") list.sort((a, b) => minDias(a, "por_vencer") - minDias(b, "por_vencer"));
+    else if (missing && !missing.startsWith("doc_")) list.sort((a, b) => fichaChecklist(a).pct - fichaChecklist(b).pct || String(a.code).localeCompare(String(b.code)));
+    return list;
+  }, [shown, missing]);
+  const ORDEN = { doc_vencido: "la más vencida primero", doc_por_vencer: "la que vence antes primero", incompleta: "las que menos datos tienen primero" };
+  const filtroActivo = [
+    estado && STATUS[estado]?.label,
+    missing && (missing === "incompleta" ? "Fichas incompletas" : missing.startsWith("doc_") ? { doc_vencido: "Con documentos vencidos", doc_por_vencer: "Con documentos por vencer", doc_faltan: "Con documentos por cargar", doc_al_dia: "Con documentos al día" }[missing] : `Sin ${(CHECK_LABELS[missing] || missing).toLowerCase()}`),
+  ].filter(Boolean).join(" · ");
 
   // Opciones del filtro "Ver solo…" con su cantidad (en la flota que se esta viendo).
   const filtros = useMemo(() => {
@@ -294,7 +337,7 @@ const FleetList = () => {
         </div>
       ) : (
         <>
-          <FleetPortal units={units} onOpen={(key) => setParams({ flota: key })} />
+          <FleetPortal units={units} onOpen={(key, extra = {}) => setParams({ flota: key, ...extra })} />
           {sinClasificar > 0 && (
             <button type="button" onClick={() => setFleet("NONE")} className="mb-5 w-full flex items-center gap-2 rounded-2xl border border-dashed border-amber-400/60 bg-amber-500/[0.06] px-4 py-2.5 text-left text-sm font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10">
               <AlertTriangle size={16} /> {sinClasificar} unidad(es) sin tipo de flota (ni Liviana ni Pesada) · Ver y clasificar <ArrowRight size={14} className="ml-auto" />
@@ -368,6 +411,7 @@ const FleetList = () => {
               <option value="doc_faltan">Con documentos por cargar ({filtros.docs.faltan})</option>
               <option value="doc_al_dia">Con documentos al día ({filtros.docs.al_dia})</option>
             </optgroup>
+            <option value="incompleta">Fichas incompletas ({scoped.filter((u) => !fichaChecklist(u).complete).length})</option>
             <optgroup label="Ficha incompleta: le falta">
               {Object.entries(CHECK_LABELS).filter(([k]) => filtros.falta[k]).map(([k, label]) => <option key={k} value={k}>{label} ({filtros.falta[k]})</option>)}
             </optgroup>
@@ -388,6 +432,16 @@ const FleetList = () => {
         </div>
       </div>
 
+      {filtroActivo && (
+        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl bg-brand-navy text-white px-4 py-3 shadow-md shadow-brand-navy/20">
+          <span className="text-sm font-extrabold">Mostrando: {filtroActivo}</span>
+          <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-black">{ordered.length} unidad(es)</span>
+          {ORDEN[missing] && <span className="text-xs text-sky-100/80">Ordenadas: {ORDEN[missing]}</span>}
+          <button type="button" onClick={() => { const next = new URLSearchParams(params); next.delete("estado"); next.delete("ver"); setParams(next); }} className="ml-auto inline-flex items-center gap-1 rounded-xl bg-white text-brand-navy px-3 py-1.5 text-xs font-extrabold hover:bg-sky-50">
+            <span className="inline-flex"><X size={13} /></span> Quitar filtro
+          </button>
+        </motion.div>
+      )}
       {error && <Card className="p-6 text-sm text-red-600">{error}</Card>}
       {loading ? (
         <p className="text-center text-slate-400 py-16">Cargando flota…</p>
@@ -395,7 +449,7 @@ const FleetList = () => {
         <p className="text-center text-slate-400 py-16">{mine ? "No tienes unidades asignadas con ese filtro." : "No hay unidades con ese filtro."}</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-8">
-          {shown.map((u, i) => (
+          {ordered.map((u, i) => (
             <UnitCard key={u.id} u={u} i={i} onOpen={() => navigate(`/fleet/${u.id}`)} />
           ))}
         </div>
