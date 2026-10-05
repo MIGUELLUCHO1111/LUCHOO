@@ -131,7 +131,9 @@ const DocForm = ({ unitId, type, onCancel, onSaved }) => {
 };
 
 // ---------- Una casilla por tipo de documento ----------
-const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, canEdit = true }) => {
+// compact = mosaico chico para los opcionales; al abrir el formulario la
+// casilla ocupa todo el ancho de la grilla.
+const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, compact = false, canEdit = true }) => {
   const confirm = useConfirm();
   const attachRef = useRef(null);
   const def = DOC_DEFS[type] || DOC_DEFS.OTRO;
@@ -141,6 +143,7 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, canEdit = tr
   const [open, setOpen] = useState(false);
   const [showPrev, setShowPrev] = useState(false);
   const [busy, setBusy] = useState(false);
+  const small = compact && !open;
 
   const remove = async (d) => {
     if (!(await confirm(`¿Eliminar "${d.name}"${d.expires_at ? ` (vence ${fmtDate(d.expires_at)})` : ""}?`, { title: "Eliminar documento" }))) return;
@@ -159,24 +162,31 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, canEdit = tr
   };
 
   return (
-    <motion.div layout className={`rounded-2xl border bg-white/60 dark:bg-white/[0.02] p-4 transition-colors ${st.ring}`}>
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      whileHover={open ? undefined : { y: -3 }}
+      transition={{ type: "spring", stiffness: 320, damping: 28 }}
+      className={`group rounded-2xl border bg-white/70 dark:bg-white/[0.02] transition-shadow hover:shadow-lg hover:shadow-brand-navy/5 ${small ? "p-3" : "p-4"} ${open ? "col-span-full" : ""} ${st.ring}`}
+    >
       <div className="flex items-start gap-3">
-        <motion.span whileHover={{ rotate: -6, scale: 1.05 }} className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${st.icon}`}>
-          <Icon size={22} />
+        <motion.span whileHover={{ rotate: -8, scale: 1.08 }} className={`${small ? "h-10 w-10 rounded-xl" : "h-12 w-12 rounded-2xl"} flex items-center justify-center shrink-0 transition-colors ${st.icon} ${!current ? "group-hover:bg-brand-navy/10 group-hover:text-brand-navy dark:group-hover:text-sky-300" : ""}`}>
+          <Icon size={small ? 18 : 22} />
         </motion.span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{type === "OTRO" && current ? current.name : def.label}</p>
-              <p className="text-[11px] text-slate-400 truncate">{current ? [current.number, current.provider].filter(Boolean).join(" · ") || def.long : def.long}{optional && !current ? " · opcional" : ""}</p>
+              <p className={`${small ? "text-[13px]" : "text-sm"} font-bold leading-snug text-slate-900 dark:text-white`}>{type === "OTRO" && current ? current.name : def.label}</p>
+              <p className="text-[11px] text-slate-400 line-clamp-2">{current ? [current.number, current.provider].filter(Boolean).join(" · ") || def.long : def.long}</p>
             </div>
-            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold ${st.chip}`}>{st.label}</span>
           </div>
 
           {current && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               {current.file_url ? (
-                <a href={resolveFleetFileUrl(current.file_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-white/5 px-2.5 py-1 text-[11px] font-bold text-brand-navy dark:text-sky-300 hover:bg-brand-navy/10 max-w-[220px]">
+                <a href={resolveFleetFileUrl(current.file_url)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-white/5 px-2.5 py-1 text-[11px] font-bold text-brand-navy dark:text-sky-300 hover:bg-brand-navy/10 max-w-[200px]">
                   {current.file_mime === "application/pdf" ? <FileText size={12} /> : <ImageIcon size={12} />}
                   <span className="truncate">{current.file_name || "Ver archivo"}</span>
                 </a>
@@ -188,27 +198,28 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, canEdit = tr
                 </button>
               )}
               <input ref={attachRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => attach(e.target.files?.[0])} />
-              {current.expires_at && <span className="text-[11px] text-slate-400">Vence {fmtDate(current.expires_at)}</span>}
+              {current.expires_at && !small && <span className="text-[11px] text-slate-400">Vence {fmtDate(current.expires_at)}</span>}
             </div>
           )}
         </div>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
+      <div className={`${small ? "mt-2.5" : "mt-3"} flex items-center justify-between gap-2`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`truncate rounded-full px-2 py-0.5 text-[10px] font-bold ${st.chip}`}>{st.label}</span>
           {previous.length > 0 && (
-            <button type="button" onClick={() => setShowPrev(!showPrev)} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-slate-600">
+            <button type="button" onClick={() => setShowPrev(!showPrev)} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-slate-600 shrink-0">
               <ChevronDown size={12} className={`transition-transform ${showPrev ? "rotate-180" : ""}`} /> {previous.length} anterior{previous.length === 1 ? "" : "es"}
             </button>
           )}
           {current && canEdit && (
-            <button type="button" onClick={() => remove(current)} className="text-slate-300 hover:text-red-500" title="Eliminar"><Trash2 size={13} /></button>
+            <button type="button" onClick={() => remove(current)} className="text-slate-300 hover:text-red-500 shrink-0" title="Eliminar"><Trash2 size={13} /></button>
           )}
         </div>
         {!open && canEdit && (
-          <button type="button" onClick={() => setOpen(true)} className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-colors ${current ? "text-brand-navy dark:text-sky-300 hover:bg-brand-navy/5" : "bg-brand-navy text-white hover:bg-brand-navy-light"}`}>
-            {current ? <><RefreshCw size={13} /> Renovar</> : <><Upload size={13} /> Cargar</>}
-          </button>
+          <motion.button whileTap={{ scale: 0.94 }} type="button" onClick={() => setOpen(true)} className={`shrink-0 inline-flex items-center gap-1.5 rounded-xl font-bold transition-colors ${small ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"} ${current ? "text-brand-navy dark:text-sky-300 hover:bg-brand-navy/5" : optional ? "border border-brand-navy/20 text-brand-navy dark:text-sky-300 hover:bg-brand-navy hover:text-white" : "bg-brand-navy text-white hover:bg-brand-navy-light"}`}>
+            {current ? <><RefreshCw size={12} /> Renovar</> : <><Upload size={12} /> Cargar</>}
+          </motion.button>
         )}
       </div>
 
@@ -235,9 +246,112 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, canEdit = tr
   );
 };
 
+// ---------- Anillo de avance de los obligatorios ----------
+const Ring = ({ value, total }) => {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const pct = total ? value / total : 1;
+  return (
+    <div className="relative h-16 w-16 shrink-0">
+      <span className="block h-16 w-16">
+        <svg viewBox="0 0 64 64" className="h-16 w-16 -rotate-90">
+          <circle cx="32" cy="32" r={r} strokeWidth="6" className="fill-none stroke-slate-100 dark:stroke-white/5" />
+          <motion.circle
+            cx="32" cy="32" r={r} strokeWidth="6" strokeLinecap="round" strokeDasharray={c}
+            initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - pct) }} transition={{ duration: 0.9, ease: "easeOut" }}
+            className={`fill-none ${pct === 1 ? "stroke-emerald-500" : pct === 0 ? "stroke-transparent" : "stroke-brand-navy dark:stroke-sky-300"}`}
+          />
+        </svg>
+      </span>
+      <span className="absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span className="font-display text-lg text-slate-900 dark:text-white">{value}/{total}</span>
+      </span>
+    </div>
+  );
+};
+
+// ---------- Leyenda unica: que documento pide cada tipo de equipo ----------
+// Sale de las mismas reglas que requiredFor (VEHICLE_DOCS, NO_VEHICLE_DOCS,
+// EXTRA_RULES), asi la leyenda y las casillas nunca dicen cosas distintas.
+const LEGEND = [
+  { docs: VEHICLE_DOCS, why: "Circulan por vía pública" },
+  { docs: ["IZAMIENTO"], why: "Equipos que levantan carga" },
+  { docs: ["PRUEBA_CARGA"], why: "Comprueba la capacidad del equipo de izaje" },
+  { docs: ["DIELECTRICA"], why: "Trabajo en altura cerca de líneas eléctricas" },
+];
+const familiesFor = (doc) => [...new Set(EXTRA_RULES.filter((r) => r.docs.includes(doc)).flatMap((r) => r.families))];
+
+const RulesLegend = ({ unit, required }) => {
+  const [open, setOpen] = useState(false);
+  const fam = familyOfUnit(unit);
+  const famName = categoryLabel(fam);
+  const lista = required.map(docLabel);
+  const resumen = lista.length > 1 ? `${lista.slice(0, -1).join(", ")} y ${lista[lista.length - 1]}` : lista[0];
+  return (
+    <div className="mt-6 rounded-2xl border border-slate-100 dark:border-white/5 bg-slate-50/60 dark:bg-white/[0.02] overflow-hidden">
+      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-slate-100/60 dark:hover:bg-white/[0.03] transition-colors">
+        <span className="min-w-0">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">¿Qué documentos pide cada equipo?</span>
+          <span className="block text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+            <b className="text-slate-900 dark:text-white">{famName} ({fam})</b>: {required.length ? `pide ${resumen}.` : "no lleva documentos obligatorios (no circula por vía pública)."}
+          </span>
+        </span>
+        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-brand-navy dark:text-sky-300">
+          {open ? "Ocultar" : "Ver detalle"} <ChevronDown size={13} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <div className="px-4 pb-4 space-y-2">
+              {LEGEND.map((row, i) => {
+                const vehiculo = row.docs === VEHICLE_DOCS;
+                const fams = vehiculo ? [] : familiesFor(row.docs[0]);
+                const aplica = row.docs.every((d) => required.includes(d));
+                return (
+                  <motion.div key={row.docs.join()} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }}
+                    className={`grid grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)_130px] items-center gap-2 md:gap-4 rounded-xl px-3 py-2.5 border ${aplica ? "border-brand-gold/50 bg-brand-gold/5" : "border-transparent bg-white/70 dark:bg-white/[0.02]"}`}>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      {row.docs.map((d) => {
+                        const D = DOC_DEFS[d].icon;
+                        return <span key={d} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"><span className="inline-flex text-brand-navy dark:text-sky-300"><D size={14} /></span>{DOC_DEFS[d].label}</span>;
+                      })}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      <span className="block font-bold text-slate-600 dark:text-slate-300">{row.why}</span>
+                      {vehiculo ? (
+                        <span>Todos los vehículos, <b>excepto</b> {NO_VEHICLE_DOCS.map((c) => `${categoryLabel(c)} (${c})`).join(" y ")}</span>
+                      ) : (
+                        <span className="flex flex-wrap gap-1 mt-0.5">
+                          {fams.map((c) => <span key={c} className={`rounded-md px-1.5 py-0.5 font-bold ${c === fam ? "bg-brand-gold/25 text-amber-800 dark:text-brand-gold" : "bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300"}`}>{categoryLabel(c)} ({c})</span>)}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`justify-self-start md:justify-self-end rounded-full px-2.5 py-0.5 text-[10px] font-bold ${aplica ? "bg-brand-gold/20 text-amber-700 dark:text-brand-gold" : "bg-slate-500/10 text-slate-400"}`}>{aplica ? "Aplica a esta unidad" : "No aplica"}</span>
+                  </motion.div>
+                );
+              })}
+              <p className="text-[11px] text-slate-400 px-1 pt-1">Los demás (póliza de seguro, revisión técnica, título de propiedad u otro) son opcionales para cualquier equipo. Criterio acordado con Julio el 30/09/2026.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 // ---------- Panel ----------
+const FILTERS = [
+  { key: "todos", label: "Todos" },
+  { key: "falta", label: "Por cargar" },
+  { key: "vigente", label: "Vigentes" },
+  { key: "por_vencer", label: "Por vencer" },
+  { key: "vencido", label: "Vencidos" },
+];
+
 const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
   const required = useMemo(() => requiredFor(unit), [unit]);
+  const [filter, setFilter] = useState("todos");
 
   // Documentos agrupados por tipo, el mas reciente primero.
   const byType = useMemo(() => {
@@ -248,68 +362,66 @@ const DocumentsPanel = ({ unit, alertDays = 30, onChange, canEdit = true }) => {
     return g;
   }, [unit.documentos]);
 
-  // Los demas tipos van siempre como casillas fijas (opcionales: no cuentan en "al dia"),
-  // en vez de esconderlos en un menu "Agregar otro documento".
+  // Los demas tipos van siempre como casillas fijas (opcionales: no cuentan en "al dia").
   const optionalTypes = Object.keys(DOC_DEFS).filter((t) => !required.includes(t));
-  const states = required.map((t) => stateOf(byType[t]?.[0], alertDays).key);
+  const stateKey = (t) => stateOf(byType[t]?.[0], alertDays).key;
+  const states = required.map(stateKey);
   const alDia = states.filter((s) => s === "vigente").length;
-  const vencidos = states.filter((s) => s === "vencido").length;
-  const porVencer = states.filter((s) => s === "por_vencer").length;
-  const faltan = states.filter((s) => s === "falta").length;
+  const counts = Object.fromEntries(FILTERS.map((f) => [f.key, f.key === "todos" ? required.length + optionalTypes.length : [...required, ...optionalTypes].filter((t) => stateKey(t) === f.key).length]));
+  const pass = (t) => filter === "todos" || stateKey(t) === filter;
+  const reqShown = required.filter(pass);
+  const optShown = optionalTypes.filter(pass);
+  const slot = (t, extra) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} canEdit={canEdit} {...extra} />;
 
   return (
     <Card className="p-6 rounded-3xl shadow-sm">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-5">
-        <div>
-          <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            <span className="inline-flex"><ShieldCheck size={14} className="text-brand-navy dark:text-sky-300" /></span> Documentación y seguros
-          </h3>
-          <p className="font-display text-2xl text-slate-900 dark:text-white mt-1">{alDia} de {required.length} <span className="text-sm text-slate-400 font-sans">al día</span></p>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+        <div className="flex items-center gap-4">
+          <Ring value={alDia} total={required.length} />
+          <div>
+            <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              <span className="inline-flex"><ShieldCheck size={14} className="text-brand-navy dark:text-sky-300" /></span> Documentación y seguros
+            </h3>
+            <p className="font-display text-2xl text-slate-900 dark:text-white mt-0.5">
+              {required.length ? <>{alDia} de {required.length} <span className="text-sm text-slate-400 font-sans">obligatorios al día</span></> : <span className="text-base">Sin documentos obligatorios</span>}
+            </p>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2 text-[11px] font-bold">
-          {vencidos > 0 && <span className="rounded-full bg-red-500/10 text-red-600 px-2.5 py-1">{vencidos} vencido{vencidos === 1 ? "" : "s"}</span>}
-          {porVencer > 0 && <span className="rounded-full bg-amber-500/10 text-amber-700 px-2.5 py-1">{porVencer} por vencer</span>}
-          {faltan > 0 && <span className="rounded-full bg-slate-500/10 text-slate-500 px-2.5 py-1">{faltan} por cargar</span>}
+        <div className="flex flex-wrap gap-1.5">
+          {FILTERS.filter((f) => f.key === "todos" || counts[f.key] > 0).map((f) => (
+            <button key={f.key} type="button" onClick={() => setFilter(f.key)} className={`relative rounded-full px-3 py-1.5 text-[11px] font-bold transition-colors ${filter === f.key ? "text-white" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-100/70 dark:bg-white/5"}`}>
+              {filter === f.key && <motion.span layoutId="doc-filter" className="absolute inset-0 rounded-full bg-brand-navy" transition={{ type: "spring", stiffness: 400, damping: 32 }} />}
+              <span className="relative">{f.label} <span className="opacity-70">{counts[f.key]}</span></span>
+            </button>
+          ))}
         </div>
-      </div>
-      <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden mb-5 flex">
-        {states.map((s, i) => (
-          <motion.span key={i} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.05 * i }} style={{ originX: 0 }} className={`h-full flex-1 ${i ? "ml-0.5" : ""} ${s === "vigente" ? "bg-emerald-500" : s === "por_vencer" ? "bg-amber-500" : s === "vencido" ? "bg-red-500" : "bg-transparent"}`} />
-        ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-        {required.map((t) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} canEdit={canEdit} />)}
-      </div>
+      {reqShown.length > 0 && (
+        <>
+          <p className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+            Obligatorios para esta unidad <span className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
+          </p>
+          <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
+            <AnimatePresence>{reqShown.map((t) => slot(t))}</AnimatePresence>
+          </motion.div>
+        </>
+      )}
 
-      <p className="mt-6 mb-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Otros documentos <span className="normal-case tracking-normal font-medium">· opcionales, no cuentan en "al día"</span></p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-        {optionalTypes.map((t) => <DocSlot key={t} unit={unit} type={t} docs={byType[t] || []} alertDays={alertDays} onChange={onChange} optional canEdit={canEdit} />)}
-      </div>
+      {optShown.length > 0 && (
+        <>
+          <p className={`${reqShown.length ? "mt-6" : ""} mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400`}>
+            Otros documentos <span className="normal-case tracking-normal font-medium">· opcionales, no cuentan en el avance</span> <span className="h-px flex-1 bg-slate-100 dark:bg-white/5" />
+          </p>
+          <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 items-start">
+            <AnimatePresence>{optShown.map((t) => slot(t, { optional: true, compact: true }))}</AnimatePresence>
+          </motion.div>
+        </>
+      )}
 
-      <div className="mt-5 pt-4 border-t border-slate-100 dark:border-white/5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2">Documentos adicionales según el tipo de equipo</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {EXTRA_RULES.map((rule) => {
-            const applies = rule.families.includes(familyOfUnit(unit));
-            return (
-              <div key={rule.docs.join()} className={`rounded-2xl p-3 border ${applies ? "border-brand-gold/50 bg-brand-gold/5" : "border-slate-100 dark:border-white/5"}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {rule.docs.map((d) => {
-                      const D = DOC_DEFS[d].icon;
-                      return <span key={d} className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-100"><span className="inline-flex text-brand-navy dark:text-sky-300"><D size={14} /></span>{DOC_DEFS[d].label}</span>;
-                    })}
-                  </div>
-                  {applies && <span className="shrink-0 rounded-full bg-brand-gold/20 text-amber-700 dark:text-brand-gold px-2 py-0.5 text-[10px] font-bold">Aplica a esta unidad</span>}
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1.5">{rule.why}: {rule.families.map((c) => `${categoryLabel(c)} (${c})`).join(", ")}.</p>
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-[11px] text-slate-400 mt-2">Certificado del INTT, RCV y Permiso de circulación aplican a los vehículos (no a montacargas ni cargadores frontales). Los demás documentos (póliza, revisión técnica, título, etc.) aparecen siempre como opcionales. Criterio acordado con Julio el 30/09/2026.</p>
-      </div>
+      {!reqShown.length && !optShown.length && <p className="text-center text-sm text-slate-400 py-8">No hay documentos en este estado.</p>}
+
+      <RulesLegend unit={unit} required={required} />
     </Card>
   );
 };
