@@ -161,20 +161,25 @@ const UnitPhoto = ({ unit, onChanged }) => {
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { if (can) { e.preventDefault(); setDrag(false); pick(e.dataTransfer.files?.[0]); } }}
         title={can ? (own ? "Cambiar la foto del vehículo" : "Cargar la foto del vehículo") : src ? "Ver la foto" : ""}
-        className={`group relative h-32 w-48 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner transition-colors ${can || src ? "cursor-pointer" : ""} ${src ? "bg-slate-900/5" : can ? "border-2 border-dashed border-brand-navy/30 bg-brand-navy/[0.03] hover:border-brand-navy hover:bg-brand-navy/5" : "bg-slate-50 dark:bg-white/5"} ${drag ? "ring-4 ring-brand-gold" : ""}`}
+        className={`group relative w-full sm:w-[24rem] aspect-[16/10] rounded-3xl overflow-hidden flex items-center justify-center shadow-lg transition-colors ${can || src ? "cursor-pointer" : ""} ${src ? "bg-slate-900/5" : can ? "border-2 border-dashed border-brand-navy/30 bg-brand-navy/[0.03] hover:border-brand-navy hover:bg-brand-navy/5" : "bg-slate-50 dark:bg-white/5"} ${drag ? "ring-4 ring-brand-gold" : ""}`}
       >
         {src ? (
           <motion.img key={src} initial={{ scale: 1.08, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} src={resolveFleetFileUrl(src)} alt={`Foto de ${unit.code}`} className="w-full h-full object-cover" />
         ) : (
           <span className="flex flex-col items-center gap-1.5 text-center px-3">
-            <VehicleIcon fleetType={unit.fleet_type} className="w-20 h-12 text-brand-navy/60 dark:text-sky-300/60" />
-            {can && <span className="inline-flex items-center gap-1 rounded-lg bg-brand-navy text-white px-2.5 py-1 text-[11px] font-extrabold shadow-md shadow-brand-navy/20"><Camera size={12} /> Cargar foto</span>}
+            <VehicleIcon fleetType={unit.fleet_type} className="w-36 h-24 text-brand-navy/50 dark:text-sky-300/50" />
+            {can && <span className="inline-flex items-center gap-1.5 rounded-xl bg-brand-navy text-white px-3.5 py-2 text-xs font-extrabold shadow-md shadow-brand-navy/20"><Camera size={14} /> Cargar foto del vehículo</span>}
+            {can && <span className="text-[11px] text-slate-500">o arrastra la imagen aquí · JPG, PNG o WEBP hasta 8 MB</span>}
           </span>
         )}
-        {src && !own && <span className="absolute left-1.5 top-1.5 rounded-md bg-black/55 text-white text-[9px] font-bold px-1.5 py-0.5">Foto del modelo</span>}
+        {src && !own && <span className="absolute left-2.5 top-2.5 rounded-lg bg-black/55 text-white text-[10px] font-bold px-2 py-0.5">Foto del modelo</span>}
+        {src && can && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); window.open(resolveFleetFileUrl(src), "_blank"); }} title="Ver en tamaño completo"
+            className="absolute right-2.5 top-2.5 z-10 rounded-lg bg-black/55 hover:bg-black/75 text-white text-[10px] font-bold px-2 py-1">Ver en grande</button>
+        )}
         {can && src && (
           <span className="absolute inset-0 bg-brand-navy/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-extrabold">
-            <Camera size={20} /> {own ? "Cambiar foto" : "Cargar foto propia"}
+            <Camera size={26} /> {own ? "Cambiar foto" : "Cargar foto propia"}
             <span className="text-[10px] font-semibold text-sky-100/80">clic o arrastra aquí</span>
           </span>
         )}
@@ -766,7 +771,7 @@ const FleetDetail = () => {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`relative overflow-hidden rounded-3xl border border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-6 mb-6 ring-1 ${st.ring}`}>
         <div className={`absolute inset-0 bg-gradient-to-r ${st.glow} to-transparent pointer-events-none`} />
         <div className="relative flex flex-col lg:flex-row lg:items-center gap-6">
-          <button onClick={() => navigate("/fleet")} className="self-start h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5" title="Volver a la flota">
+          <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/fleet"))} className="self-start h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5" title="Volver a la flota">
             <ArrowLeft size={16} />
           </button>
           <UnitPhoto unit={unit} onChanged={load} />

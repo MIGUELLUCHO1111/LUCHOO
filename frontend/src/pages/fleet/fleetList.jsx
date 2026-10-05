@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, AlertTriangle, Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { Card } from "@/components/ui/card";
@@ -186,6 +186,68 @@ const UnitCard = ({ u, onOpen, i }) => {
   );
 };
 
+// ---------- Accesos a cada flota (pedido de Lguerra, 05/10/2026) ----------
+// Dos tarjetas grandes en "Todas"; al tocar una se abre la vista de esa flota
+// (/fleet?flota=liviana|pesada, tambien en el menu lateral).
+const FLEETS = {
+  liviana: { type: "LIVIANA", title: "Flota Liviana", desc: "Camionetas, pickups y vehículos de pasajeros", grad: "from-sky-500 via-sky-600 to-brand-navy", glow: "shadow-sky-600/30" },
+  pesada: { type: "PESADA", title: "Flota Pesada", desc: "Grúas, montacargas, camiones y equipos del contrato", grad: "from-orange-500 via-orange-600 to-amber-700", glow: "shadow-orange-600/30" },
+};
+const fleetStats = (list) => ({
+  total: list.length,
+  contrato: list.filter((u) => statusKeyOf(u) === "OPERATIVO_CONTRATO").length,
+  disponibles: list.filter((u) => statusKeyOf(u) === "DISPONIBLE").length,
+  fuera: list.filter((u) => statusKeyOf(u) === "FUERA_DE_SERVICIO").length,
+  docs: list.filter((u) => u.docs_expired > 0).length,
+  incompletas: list.filter((u) => !fichaChecklist(u).complete).length,
+});
+
+const FleetPortal = ({ units, onOpen }) => (
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+    {Object.entries(FLEETS).map(([key, f], i) => {
+      const list = units.filter((u) => u.fleet_type === f.type);
+      const s = fleetStats(list);
+      return (
+        <motion.button
+          key={key}
+          type="button"
+          onClick={() => onOpen(key)}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.08 }}
+          whileHover={{ y: -4 }}
+          whileTap={{ scale: 0.99 }}
+          className={`group relative overflow-hidden text-left rounded-3xl bg-gradient-to-br ${f.grad} text-white p-6 shadow-xl ${f.glow}`}
+        >
+          <span className="absolute -right-6 -bottom-8 opacity-20 group-hover:opacity-30 group-hover:-translate-x-2 transition-all duration-500">
+            <VehicleIcon fleetType={f.type} className="w-64 h-40 text-white" />
+          </span>
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-white/80">{f.desc}</p>
+              <p className="font-display text-3xl mt-1">{f.title}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-display text-5xl leading-none">{s.total}</p>
+              <p className="text-xs font-bold text-white/80">unidades</p>
+            </div>
+          </div>
+          <div className="relative mt-5 flex flex-wrap gap-2 text-[11px] font-bold">
+            <span className="rounded-full bg-[#FFCD11] text-slate-900 px-2.5 py-1">{s.contrato} en contrato</span>
+            <span className="rounded-full bg-white/20 px-2.5 py-1">{s.disponibles} disponibles</span>
+            {s.fuera > 0 && <span className="rounded-full bg-red-600 px-2.5 py-1">{s.fuera} fuera de servicio</span>}
+            {s.docs > 0 && <span className="rounded-full bg-red-600/90 px-2.5 py-1">{s.docs} con papel vencido</span>}
+            <span className="rounded-full bg-black/20 px-2.5 py-1">{s.incompletas} ficha(s) incompleta(s)</span>
+          </div>
+          <span className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-white text-slate-900 px-4 py-2 text-sm font-extrabold shadow-md group-hover:gap-3 transition-all">
+            Ver {f.title.toLowerCase()} <span className="inline-flex"><ArrowRight size={16} /></span>
+          </span>
+        </motion.button>
+      );
+    })}
+  </div>
+);
+
 const IncompleteBlock = ({ units, active, onFilter, onAssign }) => {
   const stats = useMemo(() => {
     const byKey = {};
@@ -243,7 +305,13 @@ const FleetList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [q, setQ] = useState("");
-  const [fleet, setFleet] = useState("");
+  const [params, setParams] = useSearchParams();
+  const flotaKey = (params.get("flota") || "").toLowerCase();
+  const fleet = FLEETS[flotaKey]?.type || (flotaKey === "sin-clasificar" ? "NONE" : "");
+  const setFleet = (v) => {
+    const key = Object.keys(FLEETS).find((k) => FLEETS[k].type === v) || (v === "NONE" ? "sin-clasificar" : "");
+    setParams(key ? { flota: key } : {});
+  };
   const [status, setStatus] = useState("");
   const [docsOnly, setDocsOnly] = useState(false);
   const [showAjustes, setShowAjustes] = useState(false);
@@ -262,33 +330,63 @@ const FleetList = () => {
     load();
   }, []);
 
+  // Unidades de la flota elegida (todo lo de la pagina se calcula sobre ellas).
+  const scoped = useMemo(() => (fleet === "NONE" ? units.filter((u) => !u.fleet_type) : fleet ? units.filter((u) => u.fleet_type === fleet) : units), [units, fleet]);
+  const sinClasificar = units.filter((u) => !u.fleet_type).length;
+
   const counts = useMemo(() => {
-    const c = { total: units.length, docs: 0, ...Object.fromEntries(Object.keys(STATUS).map((k) => [k, 0])) };
-    units.forEach((u) => {
+    const c = { total: scoped.length, docs: 0, ...Object.fromEntries(Object.keys(STATUS).map((k) => [k, 0])) };
+    scoped.forEach((u) => {
       c[statusKeyOf(u)] += 1;
       if (u.docs_expired > 0 || u.docs_expiring > 0) c.docs += 1;
     });
     return c;
-  }, [units]);
+  }, [scoped]);
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return units.filter((u) => {
+    return scoped.filter((u) => {
       if (mine && !u.soy_encargado) return false;
       if (missing && fichaChecklist(u).items.some((x) => x.key === missing && x.ok)) return false;
-      if (fleet && u.fleet_type !== fleet) return false;
       if (status && statusKeyOf(u) !== status) return false;
       if (docsOnly && !(u.docs_expired > 0 || u.docs_expiring > 0)) return false;
       if (!term) return true;
       const p = u.profile || {};
       return [u.code, u.plate, u.driver_name, u.name, p.brand, p.model, u.brand_name, u.model_name, u.gps?.location_text].some((v) => String(v || "").toLowerCase().includes(term));
     });
-  }, [units, q, fleet, status, docsOnly, mine, missing]);
+  }, [scoped, q, status, docsOnly, mine, missing]);
 
   return (
-    <PageLayout icon={Truck} title="Fichas de Vehículos" subtitle={`FLOTA FULLPETRO • ${units.length} UNIDADES`} accentColor="navy">
+    <PageLayout
+      icon={Truck}
+      title={FLEETS[flotaKey]?.title || (fleet === "NONE" ? "Unidades sin clasificar" : "Fichas de Vehículos")}
+      subtitle={`FLOTA FULLPETRO • ${scoped.length} UNIDADES`}
+      accentColor="navy"
+    >
+      {fleet ? (
+        <div className="flex flex-wrap items-center gap-3 mb-5">
+          <motion.button whileHover={{ x: -3 }} type="button" onClick={() => setFleet("")} className="inline-flex items-center gap-2 rounded-xl bg-brand-navy text-white px-4 h-10 text-sm font-extrabold shadow-md shadow-brand-navy/20">
+            <ArrowLeft size={16} /> Toda la flota
+          </motion.button>
+          {fleet !== "NONE" && (
+            <div className={`inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${FLEETS[flotaKey].grad} text-white px-4 h-10 text-sm font-extrabold`}>
+              <VehicleIcon fleetType={fleet} className="w-8 h-5 text-white" /> {FLEETS[flotaKey].title} · {scoped.length} unidades
+            </div>
+          )}
+          {fleet === "NONE" && <p className="text-sm text-slate-600 dark:text-slate-300">Estas unidades no tienen tipo de flota: ábrelas y elige <b>Liviana</b> o <b>Pesada</b> en "Editar ficha".</p>}
+        </div>
+      ) : (
+        <>
+          <FleetPortal units={units} onOpen={(key) => setParams({ flota: key })} />
+          {sinClasificar > 0 && (
+            <button type="button" onClick={() => setFleet("NONE")} className="mb-5 w-full flex items-center gap-2 rounded-2xl border border-dashed border-amber-400/60 bg-amber-500/[0.06] px-4 py-2.5 text-left text-sm font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10">
+              <AlertTriangle size={16} /> {sinClasificar} unidad(es) sin tipo de flota (ni Liviana ni Pesada) · Ver y clasificar <ArrowRight size={14} className="ml-auto" />
+            </button>
+          )}
+        </>
+      )}
       {isAdmin ? (
-        <IncompleteBlock units={units} active={missing} onFilter={setMissing} onAssign={() => setShowAssign(true)} />
+        <IncompleteBlock units={scoped} active={missing} onFilter={setMissing} onAssign={() => setShowAssign(true)} />
       ) : (
         <div className="rounded-2xl bg-brand-navy/5 dark:bg-white/5 border border-brand-navy/10 px-4 py-3 mb-5 text-sm text-slate-700 dark:text-slate-200 flex items-center gap-2">
           <span className="inline-flex text-brand-navy dark:text-sky-300"><ShieldCheck size={16} /></span>

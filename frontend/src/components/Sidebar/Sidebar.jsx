@@ -141,7 +141,8 @@ export const Sidebar = () => {
 
   // allowedSections === null mientras se resuelve el perfil: no restringe
   // todavía (evita un parpadeo de "menú vacío" al cargar).
-  const canSee = (url) => !allowedSections || allowedSections.includes(url);
+  // Los accesos con filtro (/fleet?flota=pesada) usan el permiso de su ruta base.
+  const canSee = (url) => !allowedSections || allowedSections.includes(url.split("?")[0]);
 
   const rawMenuConfig = [
     {
@@ -178,6 +179,8 @@ export const Sidebar = () => {
       label: "Flota",
       children: [
         { title: "Fichas de Vehículos", url: "/fleet" },
+        { title: "Flota Liviana", url: "/fleet?flota=liviana" },
+        { title: "Flota Pesada", url: "/fleet?flota=pesada" },
         { title: "Catálogo de Modelos", url: "/fleet/catalog" },
       ],
     },
