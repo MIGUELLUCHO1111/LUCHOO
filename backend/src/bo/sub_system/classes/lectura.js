@@ -16,6 +16,7 @@ const STATUS_CODES = config.STATUS_CODES;
 // Nombres de metodo unicos a proposito (los permisos van por nombre).
 
 const METERS = ['KM', 'HORAS'];
+const gpsLocks = new Map(); // unit_id -> promesa de la lectura GPS en curso
 const UNIT_LABEL = { KM: 'km', HORAS: 'h' };
 const badRequest = (message) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.BAD_REQUEST }));
 const notFound = (message) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.NOT_FOUND }));
@@ -143,11 +144,26 @@ class Lectura {
   };
 
   /** Guarda la lectura del GPS como maximo una vez al dia (la llama Ficha.obtener). */
-  registrarLecturaGps = async (unit_id, km, fechaGps) => {
+  // Una sola lectura del GPS por unidad y por dia. Al abrir la ficha la
+  // pagina puede pedirla dos veces casi a la vez: se encadenan por unidad
+  // (gpsLocks) para que la segunda vea la que guardo la primera. Cuenta
+  // cualquier lectura que haya guardado el GPS hoy (created_by 'GPS'), sea
+  // BASE o GPS -- antes solo miraba source 'GPS' y la BASE no contaba.
+  registrarLecturaGps = (unit_id, km, fechaGps) => {
+    const key = Number(unit_id);
+    const prev = gpsLocks.get(key) || Promise.resolve();
+    const next = prev.catch(() => {}).then(() => this.registrarLecturaGpsUnaVez(unit_id, km, fechaGps));
+    gpsLocks.set(key, next);
+    next.finally(() => { if (gpsLocks.get(key) === next) gpsLocks.delete(key); }).catch(() => {});
+    return next;
+  };
+
+  registrarLecturaGpsUnaVez = async (unit_id, km, fechaGps) => {
     if (!km) return;
     const vivas = (await this.query('fleetListReadings', { unit_id: Number(unit_id) })).filter((r) => r.meter === 'KM' && !r.voided_at);
     const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
-    if (vivas.some((r) => r.source === 'GPS' && new Date(r.read_at).toLocaleDateString('en-CA', { timeZone: 'America/Caracas' }) === hoy)) return;
+    const diaDe = (v) => new Date(v).toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+    if (vivas.some((r) => r.created_by === 'GPS' && (diaDe(r.created_at || r.read_at) === hoy || diaDe(r.read_at) === hoy))) return;
     const { ultima } = await this.ultimaDeSerie(unit_id, 'KM');
     if (ultima && Number(km) < Number(ultima.value)) return; // no romper la serie con un dato menor
     const fecha = toIso(fechaGps ? `${String(fechaGps).slice(0, 19)}-04:00` : null) || new Date().toISOString();

@@ -34,17 +34,25 @@ const SeriesChart = ({ puntos, unit }) => {
   const sx = (x) => P + ((x - x0) / Math.max(1, x1 - x0)) * (W - 2 * P);
   const sy = (y) => H - P - ((y - y0) / Math.max(1, y1 - y0)) * (H - 2 * P);
   const d = puntos.map((p, i) => `${i ? "L" : "M"}${sx(new Date(p.read_at).getTime()).toFixed(1)},${sy(p.value).toFixed(1)}`).join(" ");
+  const area = `${d} L${sx(x1).toFixed(1)},${H - P} L${sx(x0).toFixed(1)},${H - P} Z`;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-28" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="lect-area" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#144763" stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#144763" stopOpacity="0" />
+        </linearGradient>
+      </defs>
       <line x1={P} x2={W - P} y1={H - P} y2={H - P} className="stroke-slate-200 dark:stroke-white/10" strokeWidth="1" />
+      <motion.path d={area} fill="url(#lect-area)" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.6 }} />
       <motion.path d={d} fill="none" className="stroke-brand-navy dark:stroke-sky-300" strokeWidth="2.5" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.9 }} />
       {puntos.map((p) => (
         <circle key={p.id} cx={sx(new Date(p.read_at).getTime())} cy={sy(p.value)} r="4" fill={SOURCE[p.source]?.dot || "#64748b"} stroke="white" strokeWidth="1.5">
           <title>{`${num(p.value)} ${unit} · ${SOURCE[p.source]?.label || p.source} · ${fmtDateTime(p.read_at)}`}</title>
         </circle>
       ))}
-      <text x={P} y={12} className="fill-slate-400 text-[10px]">{num(y1)} {unit}</text>
-      <text x={P} y={H - 4} className="fill-slate-400 text-[10px]">{num(y0)} {unit}</text>
+      <text x={P} y={12} className="fill-slate-500 text-[10px] font-bold">{num(y1)} {unit}</text>
+      <text x={P} y={H - 4} className="fill-slate-500 text-[10px] font-bold">{num(y0)} {unit}</text>
     </svg>
   );
 };
@@ -149,24 +157,30 @@ const ReadingsPanel = ({ unit, canEdit, isAdmin, onChange }) => {
           const a = lect.actual[m];
           const M = METER[m];
           return (
-            <button type="button" key={m} onClick={() => setFiltro(m)} className={`text-left rounded-2xl border p-4 transition-colors ${filtro === m ? "border-brand-navy/30 bg-brand-navy/5 dark:bg-white/5" : "border-slate-100 dark:border-white/5"}`}>
-              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400"><span className="inline-flex"><M.icon size={12} /></span> {M.label}</p>
+            <motion.button whileHover={{ y: -2 }} type="button" key={m} onClick={() => setFiltro(m)} className={`text-left rounded-2xl border p-4 transition-colors ${filtro === m ? "border-transparent bg-gradient-to-br from-brand-navy to-[#1f4a6e] text-white shadow-lg shadow-brand-navy/20" : "border-slate-200 dark:border-white/10 hover:border-brand-navy/40"}`}>
+              <p className={`flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-widest ${filtro === m ? "text-sky-200" : "text-brand-navy dark:text-sky-200"}`}>
+                <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${filtro === m ? "bg-white/15" : "bg-brand-navy text-white dark:bg-sky-700"}`}><M.icon size={14} /></span> {M.label}
+              </p>
               {a ? (
                 <>
-                  <p className="font-display text-3xl text-slate-900 dark:text-white mt-1">{num(a.valor)} <span className="text-sm text-slate-400">{M.unit}</span></p>
-                  <p className="text-[11px] text-slate-500 mt-1"><span className={`rounded-full px-2 py-0.5 font-bold ${SOURCE[a.fuente]?.cls}`}>{SOURCE[a.fuente]?.label || a.fuente}</span> · {fmtDateTime(a.fecha)}</p>
-                  {a.base && <p className="text-[11px] text-slate-400 mt-1">{a.base.reemplazo ? "Tablero reemplazado" : "Lectura base"}: {num(a.base.valor)} {M.unit} · {fmtDateTime(a.base.fecha)}</p>}
-                  {a.estimado && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mt-1">Con Control de Horas: ≈ {num(a.estimado.valor)} h (+{num(a.estimado.horas)} h en {a.estimado.dias} día(s), hasta {a.estimado.hasta})</p>}
+                  <p className={`font-display text-3xl mt-2 ${filtro === m ? "text-white" : "text-brand-navy dark:text-white"}`}>{num(a.valor)} <span className={`text-sm ${filtro === m ? "text-sky-200/80" : "text-slate-400"}`}>{M.unit}</span></p>
+                  <p className={`text-[11px] mt-1 ${filtro === m ? "text-sky-100/90" : "text-slate-500"}`}><span className={`rounded-full px-2 py-0.5 font-bold ${filtro === m ? "bg-white/15 text-white" : SOURCE[a.fuente]?.cls}`}>{SOURCE[a.fuente]?.label || a.fuente}</span> · {fmtDateTime(a.fecha)}</p>
+                  {a.base && <p className={`text-[11px] mt-1 ${filtro === m ? "text-sky-100/70" : "text-slate-400"}`}>{a.base.reemplazo ? "Tablero reemplazado" : "Lectura base"}: {num(a.base.valor)} {M.unit} · {fmtDateTime(a.base.fecha)}</p>}
+                  {a.estimado && <p className={`text-[11px] font-bold mt-1 ${filtro === m ? "text-amber-300" : "text-amber-700 dark:text-amber-400"}`}>Con Control de Horas: ≈ {num(a.estimado.valor)} h (+{num(a.estimado.horas)} h en {a.estimado.dias} día(s), hasta {a.estimado.hasta})</p>}
                 </>
               ) : (
-                <p className="text-sm text-slate-400 mt-2">Sin lecturas. La primera que registres será la <b>lectura base</b>.</p>
+                <p className={`text-sm mt-2 ${filtro === m ? "text-sky-100" : "text-slate-500"}`}>Sin lecturas. La primera que registres será la <b>lectura base</b>.</p>
               )}
-            </button>
+            </motion.button>
           );
         })}
       </div>
 
-      {serie.length >= 2 && <div className="rounded-2xl border border-slate-100 dark:border-white/5 px-2 pt-2"><SeriesChart puntos={serie} unit={METER[filtro]?.unit} /></div>}
+      {serie.length >= 2 ? (
+        <div className="rounded-2xl border border-slate-100 dark:border-white/5 px-2 pt-2"><SeriesChart puntos={serie} unit={METER[filtro]?.unit} /></div>
+      ) : serie.length === 1 ? (
+        <p className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 px-4 py-3 text-xs text-slate-500">Con la próxima lectura aparecerá aquí la curva del {METER[filtro]?.label.toLowerCase()}.</p>
+      ) : null}
 
       {canEdit && (
         <div className="flex flex-wrap gap-2">
@@ -179,21 +193,27 @@ const ReadingsPanel = ({ unit, canEdit, isAdmin, onChange }) => {
       </AnimatePresence>
 
       <div>
-        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-2"><span className="inline-flex"><History size={13} /></span> Historial de {METER[filtro]?.label.toLowerCase()}</p>
+        <p className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.12em] text-brand-navy dark:text-sky-200 mb-3">
+          <span className="h-5 w-1.5 rounded-full bg-brand-gold" />
+          <span className="inline-flex"><History size={14} /></span> Historial de {METER[filtro]?.label.toLowerCase()}
+          <span className="rounded-full bg-brand-navy text-white dark:bg-sky-700 px-2 py-0.5 text-[10px] font-black">{historial.length}</span>
+        </p>
         {historial.length === 0 ? (
           <p className="text-sm text-slate-400 py-4 text-center">Todavía no hay lecturas.</p>
         ) : (
-          <ul className="divide-y divide-slate-100 dark:divide-white/5">
-            {historial.map((h) => (
-              <li key={h.id} className={`group py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 ${h.voided_at ? "opacity-50" : ""}`}>
-                <span className={`font-mono text-sm font-bold w-28 ${h.voided_at ? "line-through text-slate-400" : "text-slate-900 dark:text-white"}`}>{num(h.value)} {METER[h.meter]?.unit}</span>
+          <ul className="space-y-1.5">
+            {historial.map((h, i) => (
+              <motion.li key={h.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i, 12) * 0.03 }}
+                className={`group rounded-xl border border-slate-100 dark:border-white/5 px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 hover:bg-slate-50 dark:hover:bg-white/[0.03] hover:border-slate-200 transition-colors ${h.voided_at ? "opacity-50" : ""}`}>
+                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: SOURCE[h.source]?.dot || "#64748b" }} />
+                <span className={`font-mono text-sm font-bold w-28 ${h.voided_at ? "line-through text-slate-400" : "text-brand-navy dark:text-white"}`}>{num(h.value)} {METER[h.meter]?.unit}</span>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${SOURCE[h.source]?.cls}`}>{SOURCE[h.source]?.label || h.source}</span>
-                {h.diff != null && <span className="text-[11px] font-bold text-emerald-600">+{num(h.diff)}</span>}
-                <span className="text-[11px] text-slate-400">{fmtDateTime(h.read_at)}{h.created_by && h.created_by !== "GPS" ? ` · ${h.created_by}` : ""}</span>
+                {h.diff != null && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-600">+{num(h.diff)}</span>}
+                <span className="text-[11px] text-slate-500">{fmtDateTime(h.read_at)}{h.created_by && h.created_by !== "GPS" ? ` · ${h.created_by}` : ""}</span>
                 {h.note && <span className="text-[11px] text-slate-500 truncate max-w-[260px]" title={h.note}>{h.note}</span>}
                 {h.voided_at && <span className="text-[11px] text-red-600">Anulada: {h.void_reason}</span>}
                 <span className="ml-auto">{isAdmin && !h.voided_at && !h.derived && <VoidButton reading={h} onDone={onChange} />}</span>
-              </li>
+              </motion.li>
             ))}
           </ul>
         )}

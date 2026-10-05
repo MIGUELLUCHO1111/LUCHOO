@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ArrowLeft, Pencil, Gauge, User, MapPin, Phone, FileText, Wrench, StickyNote, Activity,
   Radio, Plus, X, Fingerprint, UserCog, CheckCircle2, Circle, Lock, Fuel, Cpu, Repeat, History,
-  Factory, Car, Layers, Weight, CalendarDays, Palette, Cog, Hash, ScanBarcode, Container,
+  Factory, Car, Layers, Weight, CalendarDays, Palette, Cog, Hash, ScanBarcode, Container, Check, Receipt, Send,
 } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
@@ -27,9 +27,9 @@ const EVENT_ICON = {
   DOCUMENTO: FileText, NOTA: StickyNote, EDICION: Pencil, GPS: Radio, CREADO: Plus,
 };
 const EVENT_TONE = {
-  CONDUCTOR: "bg-sky-500/10 text-sky-600", ESTADO: "bg-amber-500/10 text-amber-600", UBICACION: "bg-teal-500/10 text-teal-600",
-  ODOMETRO: "bg-indigo-500/10 text-indigo-600", MANTENIMIENTO: "bg-orange-500/10 text-orange-600", DOCUMENTO: "bg-violet-500/10 text-violet-600",
-  NOTA: "bg-slate-500/10 text-slate-600", EDICION: "bg-slate-500/10 text-slate-500", GPS: "bg-emerald-500/10 text-emerald-600", CREADO: "bg-brand-navy/10 text-brand-navy",
+  CONDUCTOR: "bg-sky-600 text-white", ESTADO: "bg-amber-500 text-white", UBICACION: "bg-teal-600 text-white",
+  ODOMETRO: "bg-indigo-600 text-white", MANTENIMIENTO: "bg-orange-500 text-white", DOCUMENTO: "bg-violet-600 text-white",
+  NOTA: "bg-brand-gold text-white", EDICION: "bg-slate-500 text-white", GPS: "bg-emerald-600 text-white", CREADO: "bg-brand-navy text-white",
 };
 
 const SectionTitle = ({ icon: Icon, children, right }) => (
@@ -119,7 +119,7 @@ const DriverChip = ({ unit }) => {
         </span>
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Conductor</p>
-          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{unit.driver_name || "Sin asignar"}</p>
+          <p className={`text-sm font-extrabold truncate ${unit.driver_name ? "text-brand-navy dark:text-white" : "text-amber-600"}`}>{unit.driver_name || "Sin asignar"}</p>
         </div>
       </div>
       <AnimatePresence>
@@ -153,15 +153,27 @@ const KmSparkline = ({ dias }) => {
   const last = dias.slice(-30);
   const max = Math.max(...last.map((d) => d.km), 1);
   const total = last.reduce((s, d) => s + d.km, 0);
+  const conMov = last.filter((d) => d.km > 0).length;
   return (
-    <div>
-      <div className="flex items-end justify-between mb-1.5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Km por día · últimos {last.length} días</p>
-        <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{fmtKm(total)}</p>
+    <div className="rounded-2xl border border-slate-100 dark:border-white/5 p-3">
+      <div className="flex items-end justify-between mb-2 gap-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Km por día · últimos {last.length} días</p>
+          <p className="text-[11px] text-slate-500">{conMov} día(s) con movimiento · promedio {fmtKm(conMov ? total / conMov : 0)}/día</p>
+        </div>
+        <p className="font-display text-lg text-brand-navy dark:text-white leading-none">{fmtKm(total)}</p>
       </div>
-      <div className="flex items-end gap-[3px] h-12">
-        {last.map((d) => (
-          <div key={d.fecha} title={`${fmtDate(d.fecha)}: ${fmtKm(d.km)}`} className="flex-1 rounded-t bg-brand-navy/70 dark:bg-sky-400/70 hover:bg-brand-gold transition-colors" style={{ height: `${Math.max(4, (d.km / max) * 100)}%`, opacity: d.km ? 1 : 0.25 }} />
+      <div className="flex items-end gap-[3px] h-14">
+        {last.map((d, i) => (
+          <motion.div
+            key={d.fecha}
+            initial={{ height: 0 }}
+            animate={{ height: `${Math.max(4, (d.km / max) * 100)}%` }}
+            transition={{ delay: i * 0.015, duration: 0.4 }}
+            title={`${fmtDate(d.fecha)}: ${fmtKm(d.km)}`}
+            className={`flex-1 rounded-t cursor-default transition-colors ${d.km === max ? "bg-brand-gold" : "bg-gradient-to-t from-brand-navy to-sky-500 hover:from-brand-gold hover:to-brand-gold"}`}
+            style={{ opacity: d.km ? 1 : 0.2 }}
+          />
         ))}
       </div>
     </div>
@@ -360,6 +372,8 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
 // solo en la ficha completa (equipos del contrato PDVSA-Chevron).
 const tabsFor = (full) => (full ? [["lecturas", "Lecturas"], ["fiscal", "Datos fiscales y contrato"], ["notas", "Notas"]] : [["lecturas", "Lecturas"], ["notas", "Notas"]]);
 
+const TAB_ICON = { lecturas: Gauge, fiscal: Receipt, notas: StickyNote };
+
 const TabsPanel = ({ unit, full, onChange, canEdit = true }) => {
   const TABS = tabsFor(full);
   const [tab, setTab] = useState(TABS[0][0]);
@@ -378,12 +392,19 @@ const TabsPanel = ({ unit, full, onChange, canEdit = true }) => {
   return (
     <Panel className="p-0 overflow-hidden">
       <div className="flex gap-1 px-4 pt-4 border-b border-slate-100 dark:border-white/5 overflow-x-auto overflow-y-hidden">
-        {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`relative px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors ${tab === k ? "text-brand-navy dark:text-white" : "text-slate-400 hover:text-slate-600"}`}>
-            {l}
-            {tab === k && <motion.span layoutId="fleet-tab" className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-brand-gold" />}
-          </button>
-        ))}
+        {TABS.map(([k, l]) => {
+          const TI = TAB_ICON[k] || FileText;
+          const count = k === "notas" ? notas.length : k === "lecturas" ? (unit.lecturas?.historial || []).filter((h) => !h.voided_at).length : null;
+          const on = tab === k;
+          return (
+            <button key={k} onClick={() => setTab(k)} className={`relative inline-flex items-center gap-2 px-4 py-3 text-sm font-extrabold whitespace-nowrap transition-colors ${on ? "text-brand-navy dark:text-white" : "text-slate-500 hover:text-brand-navy dark:hover:text-slate-200"}`}>
+              <span className={`inline-flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${on ? "bg-brand-navy text-white shadow-md shadow-brand-navy/20 dark:bg-sky-700" : "bg-slate-100 dark:bg-white/5"}`}><TI size={14} /></span>
+              {l}
+              {count != null && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${on ? "bg-brand-gold/25 text-amber-800 dark:text-brand-gold" : "bg-slate-100 dark:bg-white/5 text-slate-500"}`}>{count}</span>}
+              {on && <motion.span layoutId="fleet-tab" className="absolute left-2 right-2 -bottom-px h-1 rounded-full bg-brand-gold" />}
+            </button>
+          );
+        })}
       </div>
       <AnimatePresence mode="wait">
         <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }} className="p-6">
@@ -407,19 +428,37 @@ const TabsPanel = ({ unit, full, onChange, canEdit = true }) => {
 
           {tab === "notas" && (
             <div>
-              <form onSubmit={addNota} className={`flex gap-2 mb-5 ${canEdit ? "" : "hidden"}`}>
-                <input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Escribe una nota sobre la unidad…" className={inputCls} />
-                <Button type="submit" className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">Agregar</Button>
+              <form onSubmit={addNota} className={`rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.02] p-3 mb-5 transition-shadow focus-within:ring-2 focus-within:ring-brand-navy/20 focus-within:shadow-md ${canEdit ? "" : "hidden"}`}>
+                <textarea
+                  rows={2}
+                  value={nota}
+                  onChange={(e) => setNota(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addNota(e); }}
+                  placeholder="Escribe una nota sobre la unidad: un hallazgo, un pendiente, un acuerdo…"
+                  className="w-full resize-none bg-transparent text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 outline-none"
+                />
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="text-[11px] text-slate-400">Ctrl + Enter para guardar</span>
+                  <Button type="submit" disabled={!nota.trim()} className="rounded-xl h-9 gap-1.5 bg-brand-navy hover:bg-brand-navy-light text-white"><Send size={14} /> Agregar nota</Button>
+                </div>
               </form>
               {notas.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">Sin notas.</p>
+                <div className="flex flex-col items-center text-center py-8">
+                  <span className="h-12 w-12 rounded-2xl bg-brand-navy text-white flex items-center justify-center mb-3 shadow-md shadow-brand-navy/20"><StickyNote size={20} /></span>
+                  <p className="text-sm font-extrabold text-brand-navy dark:text-white">Aún no hay notas</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Cada nota queda guardada con la fecha y quién la escribió.</p>
+                </div>
               ) : (
                 <ul className="space-y-3">
-                  {notas.map((n) => (
-                    <li key={n.id} className="rounded-2xl border border-slate-100 dark:border-white/5 p-4">
-                      <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap">{n.detail || n.title}</p>
-                      <p className="text-[10px] text-slate-400 mt-2">{n.created_by || "—"} · {fmtDateTime(n.created_at)}</p>
-                    </li>
+                  {notas.map((n, i) => (
+                    <motion.li key={n.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                      className="flex gap-3 rounded-2xl border border-slate-100 dark:border-white/5 border-l-4 border-l-brand-gold bg-white/80 dark:bg-white/[0.02] p-4 hover:shadow-md hover:shadow-brand-navy/5 transition-shadow">
+                      <span className="h-9 w-9 rounded-full bg-brand-navy text-white text-xs font-bold flex items-center justify-center shrink-0">{initials(n.created_by || "?")}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs"><b className="text-brand-navy dark:text-white">{n.created_by || "—"}</b> <span className="text-slate-400">· {haceCuanto(n.created_at)} · {fmtDateTime(n.created_at)}</span></p>
+                        <p className="text-sm text-slate-800 dark:text-slate-100 whitespace-pre-wrap mt-1">{n.detail || n.title}</p>
+                      </div>
+                    </motion.li>
                   ))}
                 </ul>
               )}
@@ -456,16 +495,16 @@ const Timeline = ({ unit }) => {
       <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
         {items.map((g) => (
           <div key={g.day}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">{g.day}</p>
-            <ol className="relative border-l border-slate-100 dark:border-white/10 ml-3 space-y-4">
+            <p className="inline-flex rounded-full bg-brand-navy/10 text-brand-navy dark:bg-white/10 dark:text-sky-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider mb-3">{g.day}</p>
+            <ol className="relative border-l-2 border-slate-100 dark:border-white/10 ml-3 space-y-3">
               {g.items.map((it) => {
                 const Icon = EVENT_ICON[it.event_type] || Activity;
                 return (
-                  <li key={it.id} className="ml-5">
-                    <span className={`absolute -left-3 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-white dark:ring-[#0f1115] ${EVENT_TONE[it.event_type] || EVENT_TONE.EDICION}`}>
+                  <li key={it.id} className="ml-5 rounded-xl px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
+                    <span className={`absolute -left-[14px] flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-white dark:ring-[#0f1115] shadow-sm ${EVENT_TONE[it.event_type] || EVENT_TONE.EDICION}`}>
                       <Icon size={12} />
                     </span>
-                    <p className="text-[13px] leading-snug text-slate-800 dark:text-slate-100">{it.title}</p>
+                    <p className="text-[13px] leading-snug font-semibold text-slate-800 dark:text-slate-100">{it.title}</p>
                     {it.detail && it.event_type !== "NOTA" && <p className="text-xs text-slate-500">{it.detail}</p>}
                     <p className="text-[10px] text-slate-400 mt-0.5">{haceCuanto(it.at)}{it.created_by ? ` · ${it.created_by}` : ""}</p>
                   </li>
@@ -484,22 +523,27 @@ const ChecklistCard = ({ unit }) => {
   const f = fichaChecklist(unit);
   return (
     <Panel>
-      <div className="flex items-center justify-between mb-3">
-        <SectionTitle icon={CheckCircle2}>Ficha</SectionTitle>
-        <span className={`-mt-4 text-xs font-bold ${f.complete ? "text-emerald-600" : "text-slate-500"}`}>{f.complete ? "Completa" : `${f.done} de ${f.total}`}</span>
-      </div>
-      <div className="h-1.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden mb-4">
+      <SectionTitle icon={CheckCircle2} right={
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-black ${f.complete ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : "bg-brand-navy text-white dark:bg-sky-700"}`}>{f.complete ? "Completa" : `${f.done} de ${f.total}`}</span>
+      }>Ficha</SectionTitle>
+      <div className="h-2 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
         <motion.div initial={{ width: 0 }} animate={{ width: `${f.pct}%` }} transition={{ duration: 0.7 }} className={`h-full rounded-full ${f.complete ? "bg-emerald-500" : f.pct >= 60 ? "bg-amber-500" : "bg-red-400"}`} />
       </div>
-      <ul className="space-y-2">
-        {f.items.map((it) => (
-          <li key={it.key} className="flex items-start gap-2 text-sm">
-            <span className={`inline-flex mt-0.5 ${it.ok ? "text-emerald-500" : "text-slate-300 dark:text-slate-600"}`}>{it.ok ? <CheckCircle2 size={15} /> : <Circle size={15} />}</span>
+      <p className="text-[11px] font-bold text-slate-500 mt-1.5 mb-3">{f.complete ? "Todo completo." : `Faltan ${f.total - f.done} para completarla.`}</p>
+      <ul className="space-y-1.5">
+        {f.items.map((it, i) => (
+          <motion.li key={it.key} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
+            className={`flex items-start gap-2.5 rounded-xl px-2.5 py-2 text-sm ${it.ok ? "" : "bg-amber-500/[0.06] border border-amber-500/20"}`}>
+            {it.ok ? (
+              <span className="mt-0.5 h-5 w-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0"><Check size={12} strokeWidth={3} /></span>
+            ) : (
+              <span className="mt-0.5 h-5 w-5 rounded-full border-2 border-amber-400 shrink-0" />
+            )}
             <span className="min-w-0">
-              <span className={it.ok ? "text-slate-500 dark:text-slate-400" : "font-bold text-slate-800 dark:text-slate-100"}>{it.label}</span>
-              {it.detail && !it.ok && <span className="block text-[11px] text-slate-400">{it.detail}</span>}
+              <span className={it.ok ? "text-slate-500 dark:text-slate-400" : "font-extrabold text-brand-navy dark:text-white"}>{it.label}</span>
+              {it.detail && !it.ok && <span className="block text-[11px] text-slate-500">{it.detail}</span>}
             </span>
-          </li>
+          </motion.li>
         ))}
       </ul>
     </Panel>
@@ -514,11 +558,11 @@ const ManagerRow = ({ unit, onChanged }) => {
     onChanged();
   };
   return (
-    <div className="sm:col-span-2 flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-white/5 p-3">
-      <span className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${e ? "bg-brand-gold/20 text-amber-800 dark:text-brand-gold" : "bg-slate-100 dark:bg-white/5 text-slate-400"}`}>{e ? initials(e.nombre) : <UserCog size={16} />}</span>
+    <div className={`sm:col-span-2 flex items-center gap-3 rounded-2xl border p-3 ${e ? "border-slate-100 dark:border-white/5" : "border-dashed border-amber-400/60 bg-amber-500/[0.04]"}`}>
+      <span className={`h-10 w-10 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${e ? "bg-brand-gold text-white" : "bg-amber-500 text-white shadow-md shadow-amber-500/20"}`}>{e ? initials(e.nombre) : <UserCog size={16} />}</span>
       <div className="min-w-0 flex-1">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Encargado de la unidad</p>
-        <p className={`text-sm font-bold truncate ${e ? "text-slate-900 dark:text-white" : "text-amber-600"}`}>{e ? e.nombre : "Sin encargado asignado"}</p>
+        <p className={`text-sm font-extrabold truncate ${e ? "text-brand-navy dark:text-white" : "text-amber-600"}`}>{e ? e.nombre : "Sin encargado asignado"}</p>
         {e?.desde && <p className="text-[10px] text-slate-400">Desde {fmtDate(String(e.desde).slice(0, 10))}</p>}
       </div>
       {unit.es_admin && (
@@ -754,62 +798,75 @@ const FleetDetail = () => {
             {/* ===== Estado operativo ===== */}
             <Panel>
               <SectionTitle icon={Gauge}>Estado operativo</SectionTitle>
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Odómetro</p>
-                  <p className="font-display text-4xl text-slate-900 dark:text-white leading-none mt-1">{odo ? Number(odo.km).toLocaleString("es-VE", { maximumFractionDigits: 0 }) : "—"}<span className="text-base text-slate-400 ml-1">km</span></p>
+              <div className="rounded-2xl bg-gradient-to-br from-brand-navy to-[#1f4a6e] text-white p-4 shadow-lg shadow-brand-navy/20">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-sky-200/80">Odómetro</p>
+                    <p className="font-display text-4xl leading-none mt-1">{odo ? Number(odo.km).toLocaleString("es-VE", { maximumFractionDigits: 0 }) : "—"}<span className="text-base text-sky-200/80 ml-1">km</span></p>
+                  </div>
+                  {odo && (
+                    <span className="text-[10px] font-bold rounded-full px-2.5 py-1 bg-white/15 text-white whitespace-nowrap">
+                      {odo.fuente === "GPS" ? "Leído del GPS" : `Lectura ${(READING_SOURCE[odo.fuente]?.label || "manual").toLowerCase()}`} · {haceCuanto(odo.fecha)}
+                    </span>
+                  )}
                 </div>
-                {odo && (
-                  <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${READING_SOURCE[odo.fuente]?.cls || "bg-slate-500/10 text-slate-500"}`}>
-                    {odo.fuente === "GPS" ? "Leído del GPS" : `Lectura ${(READING_SOURCE[odo.fuente]?.label || "manual").toLowerCase()}`} · {haceCuanto(odo.fecha)}
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-4">
-                {mp ? (
-                  <>
-                    <div className="h-2.5 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
-                      <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, mp.pct * 100)}%` }} transition={{ duration: 0.8, ease: "easeOut" }} className={`h-full rounded-full ${TONE[mp.tone].bar}`} />
-                    </div>
-                    <p className={`text-xs font-bold mt-1.5 ${TONE[mp.tone].text}`}>
-                      {mp.remaining > 0 ? `Faltan ${fmtKm(mp.remaining)} para el mantenimiento (a los ${fmtKm(mp.next)})` : `Mantenimiento vencido hace ${fmtKm(-mp.remaining)}`}
+                <div className="mt-4">
+                  {mp ? (
+                    <>
+                      <div className="h-2.5 rounded-full bg-white/15 overflow-hidden">
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, mp.pct * 100)}%` }} transition={{ duration: 0.8, ease: "easeOut" }} className={`h-full rounded-full ${TONE[mp.tone].bar}`} />
+                      </div>
+                      <p className="text-xs font-bold mt-1.5 text-white">
+                        <Wrench size={12} className="inline -mt-0.5 mr-1" />
+                        {mp.remaining > 0 ? `Faltan ${fmtKm(mp.remaining)} para el mantenimiento (a los ${fmtKm(mp.next)})` : `Mantenimiento vencido hace ${fmtKm(-mp.remaining)}`}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-sky-100/80">
+                      <Wrench size={12} className="inline -mt-0.5 mr-1" />
+                      {odo ? "Registra el último mantenimiento preventivo para ver cuánto falta para el próximo." : "Sin lectura de odómetro todavía."} Intervalo: <b className="text-white">{fmtKm(interval)}</b>.
                     </p>
-                  </>
-                ) : (
-                  <p className="text-xs text-slate-400">
-                    {odo ? "Registra el último mantenimiento preventivo para ver cuánto falta para el próximo." : "Sin lectura de odómetro todavía."} Intervalo: {fmtKm(interval)}.
-                  </p>
-                )}
+                  )}
+                </div>
               </div>
 
               {gps.km_por_dia?.length > 0 && <div className="mt-5"><KmSparkline dias={gps.km_por_dia} /></div>}
 
               <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DriverChip unit={unit} />
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Zona asignada</p>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{p.assigned_zone || "Sin zona"}</p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="h-10 w-10 rounded-xl bg-brand-navy text-white flex items-center justify-center shrink-0 shadow-md shadow-brand-navy/20 dark:bg-sky-700"><MapPin size={16} /></span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Zona asignada</p>
+                    <p className={`text-sm font-extrabold truncate ${p.assigned_zone ? "text-brand-navy dark:text-white" : "text-amber-600"}`}>{p.assigned_zone || "Sin zona"}</p>
+                  </div>
                 </div>
                 <ManagerRow unit={unit} onChanged={load} />
-                <div className="sm:col-span-2 flex items-start gap-2 rounded-2xl bg-slate-50 dark:bg-white/[0.03] p-3">
-                  <MapPin size={14} className="text-slate-400 mt-0.5 shrink-0" />
+                <div className="sm:col-span-2 flex items-center gap-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 p-3">
+                  <span className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 text-white ${live.dot.replace(" animate-pulse", "")}`}><Radio size={16} /></span>
                   <div className="min-w-0">
-                    <p className="text-sm text-slate-800 dark:text-slate-100 truncate">{unit.snapshot?.location_text || "Sin ubicación del GPS"}</p>
-                    <p className="text-[10px] text-slate-400">{unit.snapshot?.last_report_at ? `Último reporte ${haceCuanto(unit.snapshot.last_report_at)} · ${fmtDateTime(unit.snapshot.last_report_at)}` : ""}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Última ubicación del GPS</p>
+                    <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate" title={unit.snapshot?.location_text || ""}>{unit.snapshot?.location_text || "Sin ubicación del GPS"}</p>
+                    <p className="text-[10px] text-slate-500">{unit.snapshot?.last_report_at ? `Último reporte ${haceCuanto(unit.snapshot.last_report_at)} · ${fmtDateTime(unit.snapshot.last_report_at)}` : ""}</p>
                   </div>
                 </div>
               </div>
 
               {!pesada && (
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-2xl bg-sky-500/5 border border-sky-500/15 p-3">
-                    <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-sky-700 dark:text-sky-300"><Fuel size={11} /> Consumo promedio</p>
-                    <p className="font-display text-xl text-slate-900 dark:text-white mt-1">{p.avg_consumption_kml ? `${Number(p.avg_consumption_kml)} km/L` : "—"}</p>
+                  <div className="flex items-center gap-3 rounded-2xl bg-sky-500/5 border border-sky-500/15 p-3">
+                    <span className="h-10 w-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-sky-600/20"><Fuel size={16} /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-sky-700 dark:text-sky-300">Consumo promedio</p>
+                      <p className={`font-display text-xl leading-tight ${p.avg_consumption_kml ? "text-brand-navy dark:text-white" : "text-slate-400 text-sm font-sans font-bold"}`}>{p.avg_consumption_kml ? `${Number(p.avg_consumption_kml)} km/L` : "Sin dato"}</p>
+                    </div>
                   </div>
-                  <div className={`rounded-2xl p-3 border ${p.change_plan ? "bg-amber-500/5 border-amber-500/20" : "bg-slate-50 dark:bg-white/[0.03] border-transparent"}`}>
-                    <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500"><Repeat size={11} /> Plan de cambio</p>
-                    <p className={`font-display text-xl mt-1 ${p.change_plan ? "text-amber-600" : "text-slate-400"}`}>{p.change_plan ? "Sí, en plan" : "No"}</p>
+                  <div className={`flex items-center gap-3 rounded-2xl p-3 border ${p.change_plan ? "bg-amber-500/5 border-amber-500/20" : "bg-slate-50 dark:bg-white/[0.03] border-slate-100 dark:border-white/5"}`}>
+                    <span className={`h-10 w-10 rounded-xl text-white flex items-center justify-center shrink-0 ${p.change_plan ? "bg-amber-500 shadow-md shadow-amber-500/20" : "bg-slate-400"}`}><Repeat size={16} /></span>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Plan de cambio</p>
+                      <p className={`font-display text-xl leading-tight ${p.change_plan ? "text-amber-600" : "text-slate-500"}`}>{p.change_plan ? "Sí, en plan" : "No"}</p>
+                    </div>
                   </div>
                 </div>
               )}
