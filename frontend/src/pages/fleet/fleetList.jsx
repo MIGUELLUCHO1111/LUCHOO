@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, ArrowLeft, ArrowRight, AlertTriangle, Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
+import { Plus, ArrowLeft, ArrowRight, AlertTriangle, Truck, Search, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { Card } from "@/components/ui/card";
@@ -308,29 +308,59 @@ const FleetList = () => {
           Tienes {units.filter((u) => u.soy_encargado).length} unidad(es) asignada(s). Puedes ver toda la flota, pero solo editar las tuyas.
         </div>
       )}
+      {/* Barra (pedido de Lguerra, 05/10/2026): "Nueva unidad" predominante junto
+          al buscador, y la fila de botones repartida a todo el ancho. */}
       <div className="flex flex-col gap-3 mb-6">
-        <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-navy dark:text-sky-300"><Search size={16} /></span>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por placa, código, conductor, marca o ubicación…" className={`${inputCls} pl-9 h-11 shadow-sm`} />
-          {q && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-500">{shown.length} resultado(s)</span>}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-navy dark:text-sky-300"><Search size={18} /></span>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por placa, código, conductor, marca o ubicación…" className={`${inputCls} pl-11 h-12 text-base shadow-sm`} />
+            {q && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-500">{shown.length} resultado(s)</span>}
+          </div>
+          {isAdmin && (
+            <motion.button
+              type="button"
+              onClick={() => setShowNew(true)}
+              title="Registrar una unidad nueva (único lugar donde se crean a mano)"
+              whileHover={{ y: -3, scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              className="group relative overflow-hidden h-12 px-7 rounded-2xl inline-flex items-center justify-center gap-3 text-base font-black text-slate-900 bg-gradient-to-r from-[#FFD84D] via-[#FFCD11] to-[#E6B400] shadow-lg shadow-amber-400/40 hover:shadow-xl hover:shadow-amber-400/50 ring-2 ring-[#FFCD11]/40 shrink-0"
+            >
+              {/* brillo que recorre el boton */}
+              <motion.span
+                aria-hidden
+                className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/60 to-transparent skew-x-[-20deg] pointer-events-none"
+                animate={{ x: ["0%", "450%"] }}
+                transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 2.2, ease: "easeInOut" }}
+              />
+              <span className="relative inline-flex h-8 w-8 items-center justify-center rounded-xl bg-brand-navy text-white shadow-md transition-transform duration-300 group-hover:rotate-90">
+                <Plus size={18} strokeWidth={3} />
+              </span>
+              <span className="relative leading-tight text-left">
+                Nueva unidad
+                <span className="block text-[10px] font-bold text-slate-800/70 tracking-wide">Registrar en la flota</span>
+              </span>
+            </motion.button>
+          )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <div className="flex h-11 p-1 rounded-xl bg-slate-100 dark:bg-white/5">
+
+        <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 ${isAdmin ? "xl:grid-cols-[2fr_1fr_2fr_1.4fr_1fr_1.25fr]" : "xl:grid-cols-[2fr_1fr_2fr_1fr]"}`}>
+          <div className="col-span-2 md:col-span-1 flex h-11 p-1 rounded-xl bg-slate-100 dark:bg-white/5">
             {[["", "Todas"], ["LIVIANA", "Liviana"], ["PESADA", "Pesada"]].map(([v, l]) => {
               const n = v ? units.filter((u) => u.fleet_type === v).length : units.length;
               return (
-                <button key={v} onClick={() => setFleet(v)} className={`relative px-3.5 rounded-lg text-sm font-extrabold transition-colors ${fleet === v ? "text-white" : "text-slate-600 dark:text-slate-300 hover:text-brand-navy"}`}>
+                <button key={v} onClick={() => setFleet(v)} className={`relative flex-1 px-2 rounded-lg text-sm font-extrabold whitespace-nowrap transition-colors ${fleet === v ? "text-white" : "text-slate-600 dark:text-slate-300 hover:text-brand-navy"}`}>
                   {fleet === v && <motion.span layoutId="fleet-type" className="absolute inset-0 rounded-lg bg-brand-navy shadow-md shadow-brand-navy/20" transition={{ type: "spring", stiffness: 400, damping: 32 }} />}
                   <span className="relative">{l} <span className="opacity-70 text-xs">{n}</span></span>
                 </button>
               );
             })}
           </div>
-          <button onClick={() => setMine(!mine)} className={`h-11 px-4 rounded-xl text-sm font-extrabold transition-colors ${mine ? "bg-brand-gold text-slate-900 shadow-md shadow-brand-gold/30" : "bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-navy/40"}`}>
+          <button onClick={() => setMine(!mine)} className={`w-full h-11 px-4 rounded-xl text-sm font-extrabold whitespace-nowrap transition-colors ${mine ? "bg-brand-gold text-slate-900 shadow-md shadow-brand-gold/30" : "bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-navy/40"}`}>
             Mis unidades
           </button>
           <select value={missing} onChange={(e) => setMissing(e.target.value)} title="Ver solo las unidades que…"
-            className={`h-11 rounded-xl border px-3 text-sm font-bold shadow-sm ${missing ? "bg-brand-navy text-white border-brand-navy" : "bg-white dark:bg-[#0f1115] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}>
+            className={`w-full col-span-2 md:col-span-1 h-11 rounded-xl border px-3 text-sm font-bold shadow-sm ${missing ? "bg-brand-navy text-white border-brand-navy" : "bg-white dark:bg-[#0f1115] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}>
             <option value="">Ver todas</option>
             <optgroup label="Documentos">
               <option value="doc_vencido">Con documentos vencidos ({filtros.docs.vencido})</option>
@@ -343,22 +373,16 @@ const FleetList = () => {
             </optgroup>
           </select>
           {isAdmin && (
-            <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }} type="button" onClick={() => setShowNew(true)} title="Registrar una unidad nueva (único lugar donde se crean a mano)"
-              className="h-11 px-4 rounded-xl inline-flex items-center gap-2 text-sm font-extrabold bg-brand-gold text-slate-900 shadow-md shadow-brand-gold/30 hover:brightness-105">
-              <span className="inline-flex"><Plus size={17} /></span> Nueva unidad
-            </motion.button>
-          )}
-          {isAdmin && (
-            <Button onClick={() => setShowAssign(true)} className="h-11 rounded-xl gap-2 font-bold bg-brand-navy hover:bg-brand-navy-light text-white" title="Asignar encargado a varias unidades">
-              <UserCog size={16} /><span className="hidden xl:inline">Asignar encargado</span>
+            <Button onClick={() => setShowAssign(true)} className="w-full h-11 rounded-xl gap-2 font-bold whitespace-nowrap bg-brand-navy hover:bg-brand-navy-light text-white" title="Asignar encargado a varias unidades">
+              <UserCog size={16} /> Asignar encargado
             </Button>
           )}
-          <Button variant="outline" onClick={() => navigate("/fleet/catalog")} className="h-11 rounded-xl gap-2" title="Catálogo de modelos">
-            <LayoutGrid size={16} /><span className="hidden lg:inline">Catálogo</span>
+          <Button variant="outline" onClick={() => navigate("/fleet/catalog")} className="w-full h-11 rounded-xl gap-2 font-bold whitespace-nowrap" title="Catálogo de modelos">
+            <LayoutGrid size={16} /> Catálogo
           </Button>
           {isAdmin && (
-            <Button variant="outline" onClick={() => setShowAjustes(true)} className="h-11 rounded-xl gap-2" title="Intervalos de mantenimiento">
-              <Wrench size={16} /><span className="hidden lg:inline">Mantenimiento</span><Settings2 size={14} className="lg:hidden" />
+            <Button variant="outline" onClick={() => setShowAjustes(true)} className="w-full h-11 rounded-xl gap-2 font-bold whitespace-nowrap" title="Intervalos de mantenimiento">
+              <Wrench size={16} /> Mantenimiento
             </Button>
           )}
         </div>
