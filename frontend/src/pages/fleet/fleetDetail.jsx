@@ -19,7 +19,7 @@ import {
 } from "./fleetParts";
 import { categoryLabel, useFamilies } from "./fleetArt";
 import DocumentsPanel from "./fleetDocuments";
-import { fichaChecklist } from "./fleetCompleteness";
+import { fichaChecklist, docsState } from "./fleetCompleteness";
 import AssignManagersModal from "./fleetManagers";
 import ReadingsPanel, { SOURCE as READING_SOURCE } from "./fleetReadings";
 
@@ -789,8 +789,16 @@ const FleetDetail = () => {
               </span>
               <span title={full ? "Equipo del contrato PDVSA-Chevron" : "Documentos, km y encargado"} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${full ? "bg-brand-navy text-white" : "bg-slate-500/10 text-slate-600 dark:text-slate-300"}`}>{full ? "Ficha completa · contrato" : "Ficha básica"}</span>
               <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${live.cls}`}><span className={`h-2 w-2 rounded-full ${live.dot}`} />GPS: {live.label}</span>
-              {unit.docs_expired > 0 && <span className="rounded-full px-3 py-1 text-xs font-bold bg-red-500/10 text-red-600">Papel vencido</span>}
-              {unit.docs_expired === 0 && unit.docs_expiring > 0 && <span className="rounded-full px-3 py-1 text-xs font-bold bg-amber-500/10 text-amber-700">Documento por vencer</span>}
+              {(() => {
+                const ds = docsState(unit);
+                return (
+                  <button type="button" title="Ir a Documentación y seguros"
+                    onClick={() => [...document.querySelectorAll("h3")].find((h) => /documentación y seguros/i.test(h.innerText))?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold shadow-md ${ds.cls} ${ds.ring}`}>
+                    <span className="inline-flex">{ds.key === "al_dia" ? <CheckCircle2 size={13} /> : <FileText size={13} />}</span> {ds.label}
+                  </button>
+                );
+              })()}
             </div>
           </div>
           <div className="flex flex-col items-stretch lg:items-end gap-3">

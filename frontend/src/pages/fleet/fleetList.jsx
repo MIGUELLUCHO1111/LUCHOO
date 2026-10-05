@@ -10,40 +10,8 @@ import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, inputCls } from "./fleetParts";
 import { useFamilies } from "./fleetArt";
-import { fichaChecklist, CHECK_LABELS } from "./fleetCompleteness";
+import { fichaChecklist, CHECK_LABELS, docsState } from "./fleetCompleteness";
 import AssignManagersModal from "./fleetManagers";
-
-// Icono y color solido de cada indicador (pedido de Lguerra, 05/10/2026: que resalte).
-const KPI_ICON = { total: Truck, OPERATIVO_CONTRATO: Briefcase, DISPONIBLE: CircleCheck, FUERA_DE_SERVICIO: Ban, docs: FileWarning };
-const Kpi = ({ id, label, value, total, tile = "bg-brand-navy", tileText = "text-white", tone = "text-brand-navy dark:text-white", active, onClick }) => {
-  const Icon = KPI_ICON[id] || Truck;
-  const pct = total ? Math.round((value / total) * 100) : 0;
-  return (
-    <motion.button
-      type="button"
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={`text-left rounded-2xl border p-4 transition-colors ${active ? "border-brand-navy ring-2 ring-brand-navy/20 bg-white dark:bg-[#0f1115]" : "border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0f1115]/80 hover:border-slate-200 dark:hover:border-white/10"}`}
-    >
-      <div className="flex items-center gap-3">
-        <span className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-md ${tileText} ${tile}`}><Icon size={18} /></span>
-        <div className="min-w-0">
-          <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">{label}</p>
-          <p className={`font-display text-2xl leading-tight ${tone}`}>{value}</p>
-        </div>
-      </div>
-      {id !== "total" && (
-        <div className="mt-3 flex items-center gap-2">
-          <span className="h-1.5 flex-1 rounded-full bg-slate-100 dark:bg-white/5 overflow-hidden">
-            <motion.span initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8 }} className={`block h-full rounded-full ${tile}`} />
-          </span>
-          <span className="text-[10px] font-bold text-slate-500">{pct}%</span>
-        </div>
-      )}
-    </motion.button>
-  );
-};
 
 const AjustesModal = ({ onClose }) => {
   const [form, setForm] = useState(null);
@@ -122,7 +90,7 @@ const UnitCard = ({ u, onOpen, i }) => {
   const gps = gpsState(u.gps);
   const p = u.profile || {};
   const modelo = u.model_name ? [u.brand_name, u.model_name, u.version_name].filter(Boolean).join(" ") : [p.brand, p.model].filter(Boolean).join(" ");
-  const docAlert = u.docs_expired > 0 ? "vencido" : u.docs_expiring > 0 ? "por vencer" : null;
+  const docs = docsState(u);
 
   return (
     <motion.button
@@ -177,11 +145,9 @@ const UnitCard = ({ u, onOpen, i }) => {
         </span>
         <span className="h-6 w-6 rounded-lg flex items-center justify-center text-slate-300 group-hover:bg-brand-navy group-hover:text-white transition-colors"><ChevronRight size={14} /></span>
       </div>
-      {docAlert && (
-        <p className={`mt-3 flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[11px] font-bold ${docAlert === "vencido" ? "bg-red-500/10 text-red-600" : "bg-amber-500/10 text-amber-700"}`}>
-          <FileWarning size={13} /> Documento {docAlert}
-        </p>
-      )}
+      <p className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-extrabold shadow-md ${docs.cls} ${docs.ring}`}>
+        <span className="inline-flex">{docs.key === "al_dia" ? <ShieldCheck size={15} /> : <FileWarning size={15} />}</span> {docs.label}
+      </p>
     </motion.button>
   );
 };
@@ -248,55 +214,6 @@ const FleetPortal = ({ units, onOpen }) => (
   </div>
 );
 
-const IncompleteBlock = ({ units, active, onFilter, onAssign }) => {
-  const stats = useMemo(() => {
-    const byKey = {};
-    let incompletas = 0;
-    units.forEach((u) => {
-      const f = fichaChecklist(u);
-      if (!f.complete) incompletas += 1;
-      f.items.filter((x) => !x.ok).forEach((x) => { byKey[x.key] = (byKey[x.key] || 0) + 1; });
-    });
-    return { incompletas, byKey };
-  }, [units]);
-  const pct = units.length ? Math.round(((units.length - stats.incompletas) / units.length) * 100) : 0;
-
-  return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-slate-100 dark:border-white/5 bg-white/90 dark:bg-[#0f1115]/80 backdrop-blur-md p-5 mb-5 shadow-sm">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-5">
-        <div className="flex items-center gap-4 min-w-0">
-          <div className="relative w-16 h-16 shrink-0">
-            <span className="block w-16 h-16">
-              <svg viewBox="0 0 36 36" className="w-16 h-16 -rotate-90">
-                <circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" className="stroke-slate-100 dark:stroke-white/10" />
-                <motion.circle cx="18" cy="18" r="15" fill="none" strokeWidth="4" strokeLinecap="round" className={pct ? "stroke-emerald-500" : "stroke-transparent"} strokeDasharray="94.2" initial={{ strokeDashoffset: 94.2 }} animate={{ strokeDashoffset: 94.2 - (94.2 * pct) / 100 }} transition={{ duration: 1 }} />
-              </svg>
-            </span>
-            <span className="absolute inset-0 flex items-center justify-center font-display text-sm text-brand-navy dark:text-white">{pct}%</span>
-          </div>
-          <div>
-            <p className="flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.12em] text-brand-navy dark:text-sky-200">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-brand-navy text-white dark:bg-sky-700"><ClipboardList size={13} /></span> Fichas incompletas
-            </p>
-            <p className="font-display text-2xl text-brand-navy dark:text-white mt-0.5">{stats.incompletas} <span className="text-sm text-slate-500 font-sans font-semibold">de {units.length} unidades · {units.length - stats.incompletas} completas</span></p>
-          </div>
-        </div>
-        <div className="flex-1 flex flex-wrap gap-2">
-          {Object.entries(CHECK_LABELS).filter(([k]) => stats.byKey[k]).map(([k, label]) => (
-            <motion.button whileTap={{ scale: 0.96 }} key={k} type="button" onClick={() => onFilter(active === k ? "" : k)} title="Ver solo las unidades a las que les falta esto"
-              className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold border transition-colors ${active === k ? "bg-brand-navy border-brand-navy text-white shadow-md shadow-brand-navy/20" : "bg-amber-500/[0.06] border-amber-500/25 text-slate-700 dark:text-slate-200 hover:border-brand-navy/40"}`}>
-              Sin {label.toLowerCase()}
-              <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-black ${active === k ? "bg-white/20 text-white" : "bg-amber-500 text-white"}`}>{stats.byKey[k]}</span>
-            </motion.button>
-          ))}
-          {!stats.incompletas && <span className="text-sm text-emerald-600 font-bold">Todas las fichas están completas.</span>}
-        </div>
-        <Button onClick={onAssign} className="rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white shrink-0"><UserCog size={16} /> Asignar encargado</Button>
-      </div>
-    </motion.div>
-  );
-};
-
 const FleetList = () => {
   const isAdmin = getCurrentProfile() === "admin";
   useFamilies();
@@ -312,8 +229,6 @@ const FleetList = () => {
     const key = Object.keys(FLEETS).find((k) => FLEETS[k].type === v) || (v === "NONE" ? "sin-clasificar" : "");
     setParams(key ? { flota: key } : {});
   };
-  const [status, setStatus] = useState("");
-  const [docsOnly, setDocsOnly] = useState(false);
   const [showAjustes, setShowAjustes] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [missing, setMissing] = useState("");
@@ -334,27 +249,28 @@ const FleetList = () => {
   const scoped = useMemo(() => (fleet === "NONE" ? units.filter((u) => !u.fleet_type) : fleet ? units.filter((u) => u.fleet_type === fleet) : units), [units, fleet]);
   const sinClasificar = units.filter((u) => !u.fleet_type).length;
 
-  const counts = useMemo(() => {
-    const c = { total: scoped.length, docs: 0, ...Object.fromEntries(Object.keys(STATUS).map((k) => [k, 0])) };
-    scoped.forEach((u) => {
-      c[statusKeyOf(u)] += 1;
-      if (u.docs_expired > 0 || u.docs_expiring > 0) c.docs += 1;
-    });
-    return c;
-  }, [scoped]);
-
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase();
     return scoped.filter((u) => {
       if (mine && !u.soy_encargado) return false;
-      if (missing && fichaChecklist(u).items.some((x) => x.key === missing && x.ok)) return false;
-      if (status && statusKeyOf(u) !== status) return false;
-      if (docsOnly && !(u.docs_expired > 0 || u.docs_expiring > 0)) return false;
+      if (missing.startsWith("doc_")) { if (docsState(u).key !== missing.slice(4)) return false; }
+      else if (missing && fichaChecklist(u).items.some((x) => x.key === missing && x.ok)) return false;
       if (!term) return true;
       const p = u.profile || {};
       return [u.code, u.plate, u.driver_name, u.name, p.brand, p.model, u.brand_name, u.model_name, u.gps?.location_text].some((v) => String(v || "").toLowerCase().includes(term));
     });
-  }, [scoped, q, status, docsOnly, mine, missing]);
+  }, [scoped, q, mine, missing]);
+
+  // Opciones del filtro "Ver solo…" con su cantidad (en la flota que se esta viendo).
+  const filtros = useMemo(() => {
+    const falta = {};
+    const docs = { vencido: 0, por_vencer: 0, faltan: 0, al_dia: 0 };
+    scoped.forEach((u) => {
+      fichaChecklist(u).items.filter((x) => !x.ok).forEach((x) => { falta[x.key] = (falta[x.key] || 0) + 1; });
+      docs[docsState(u).key] += 1;
+    });
+    return { falta, docs };
+  }, [scoped]);
 
   return (
     <PageLayout
@@ -385,23 +301,13 @@ const FleetList = () => {
           )}
         </>
       )}
-      {isAdmin ? (
-        <IncompleteBlock units={scoped} active={missing} onFilter={setMissing} onAssign={() => setShowAssign(true)} />
-      ) : (
+      {!isAdmin && (
         <div className="rounded-2xl bg-brand-navy/5 dark:bg-white/5 border border-brand-navy/10 px-4 py-3 mb-5 text-sm text-slate-700 dark:text-slate-200 flex items-center gap-2">
           <span className="inline-flex text-brand-navy dark:text-sky-300"><ShieldCheck size={16} /></span>
           Tienes {units.filter((u) => u.soy_encargado).length} unidad(es) asignada(s). Puedes ver toda la flota, pero solo editar las tuyas.
         </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-5">
-        <Kpi id="total" label="Unidades" value={counts.total} active={!status && !docsOnly} onClick={() => { setStatus(""); setDocsOnly(false); }} />
-        {Object.entries(STATUS).map(([k, s]) => (
-          <Kpi key={k} id={k} label={s.label} value={counts[k]} total={counts.total} tile={s.dot} tileText={s.on} tone={s.kpi} active={status === k} onClick={() => { setStatus(status === k ? "" : k); setDocsOnly(false); }} />
-        ))}
-        <Kpi id="docs" label="Documentos por vencer" value={counts.docs} total={counts.total} tile="bg-orange-500" tone="text-orange-600" active={docsOnly} onClick={() => { setDocsOnly(!docsOnly); setStatus(""); }} />
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-3 mb-6">
+      <div className="flex flex-col gap-3 mb-6">
         <div className="relative flex-1">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-navy dark:text-sky-300"><Search size={16} /></span>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por placa, código, conductor, marca o ubicación…" className={`${inputCls} pl-9 h-11 shadow-sm`} />
@@ -422,6 +328,24 @@ const FleetList = () => {
           <button onClick={() => setMine(!mine)} className={`h-11 px-4 rounded-xl text-sm font-extrabold transition-colors ${mine ? "bg-brand-gold text-slate-900 shadow-md shadow-brand-gold/30" : "bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-navy/40"}`}>
             Mis unidades
           </button>
+          <select value={missing} onChange={(e) => setMissing(e.target.value)} title="Ver solo las unidades que…"
+            className={`h-11 rounded-xl border px-3 text-sm font-bold shadow-sm ${missing ? "bg-brand-navy text-white border-brand-navy" : "bg-white dark:bg-[#0f1115] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"}`}>
+            <option value="">Ver todas</option>
+            <optgroup label="Documentos">
+              <option value="doc_vencido">Con documentos vencidos ({filtros.docs.vencido})</option>
+              <option value="doc_por_vencer">Con documentos por vencer ({filtros.docs.por_vencer})</option>
+              <option value="doc_faltan">Con documentos por cargar ({filtros.docs.faltan})</option>
+              <option value="doc_al_dia">Con documentos al día ({filtros.docs.al_dia})</option>
+            </optgroup>
+            <optgroup label="Ficha incompleta: le falta">
+              {Object.entries(CHECK_LABELS).filter(([k]) => filtros.falta[k]).map(([k, label]) => <option key={k} value={k}>{label} ({filtros.falta[k]})</option>)}
+            </optgroup>
+          </select>
+          {isAdmin && (
+            <Button onClick={() => setShowAssign(true)} className="h-11 rounded-xl gap-2 font-bold bg-brand-navy hover:bg-brand-navy-light text-white" title="Asignar encargado a varias unidades">
+              <UserCog size={16} /><span className="hidden xl:inline">Asignar encargado</span>
+            </Button>
+          )}
           <Button variant="outline" onClick={() => navigate("/fleet/catalog")} className="h-11 rounded-xl gap-2" title="Catálogo de modelos">
             <LayoutGrid size={16} /><span className="hidden lg:inline">Catálogo</span>
           </Button>
