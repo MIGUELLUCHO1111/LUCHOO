@@ -5,7 +5,8 @@ import {
   ResetPassword, 
   Dashboard, 
   NotFound, 
-  Reports,
+  FuelReports,
+  HoursReports,
   Persons,
   Users,
   Profiles,
@@ -52,7 +53,8 @@ function App() {
             <Route path="/tracker/alerts" element={<TrackerAlerts />} />
             <Route path="/tracker/map" element={<TrackerMapPage />} />
             <Route path="/tracker/report" element={<TrackerReport />} />
-            <Route path="/reports" element={<Reports />} />
+            <Route path="/reports/fuel" element={<FuelReports />} />
+            <Route path="/reports/hours" element={<HoursReports />} />
             <Route path="/hours" element={<HoursDailyEntry />} />
             <Route path="/hours/companies" element={<HoursCompanies />} />
             <Route path="/hours/projects" element={<HoursProjects />} />

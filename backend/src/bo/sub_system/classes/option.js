@@ -109,13 +109,45 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'notificarCierreDeTurno' },
     { sub_system: 'Tracker', class_name: 'Notificador', method_name: 'verificarAnexoSeguridad' },
   ],
-  '/reports': [
+  // Reportes se dividió en dos páginas (05/10/2026), cada una con su permiso.
+  '/reports/fuel': [
     { sub_system: 'Fuel', class_name: 'Reporte', method_name: 'getFuelSummary' },
+  ],
+  // getAllEmpresas / getProyectosByEmpresa: los usa el "Detalle de un Día"
+  // para elegir empresa y proyecto (antes faltaban y un perfil no-admin veía
+  // esos selectores vacíos).
+  '/reports/hours': [
     { sub_system: 'Horas', class_name: 'Reporte', method_name: 'getResumenHoras' },
     { sub_system: 'Horas', class_name: 'Reporte', method_name: 'getResumenPorDia' },
+    { sub_system: 'Horas', class_name: 'Empresa', method_name: 'getAllEmpresas' },
     { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getAllProyectos' },
+    { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectosByEmpresa' },
     { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getEquiposAsignados' },
     { sub_system: 'Horas', class_name: 'Registro', method_name: 'getRegistrosDelDia' },
+  ],
+  // Flota (05/10/2026): faltaban -- un perfil con la sección asignada veía
+  // "Flota" en el menú pero la lista salía vacía porque el dispatcher le
+  // negaba listarFichas. Mismas funciones que encargado_flota en
+  // permission.csv; modificar sigue limitado a las unidades de las que el
+  // usuario es encargado (assertUnitAccess en fleetAccess.js), en las demás
+  // queda en solo lectura.
+  '/fleet': [
+    { sub_system: 'Flota', class_name: 'Ficha', method_name: 'listarFichas' },
+    { sub_system: 'Flota', class_name: 'Ficha', method_name: 'obtener' },
+    { sub_system: 'Flota', class_name: 'Ficha', method_name: 'getAjustes' },
+    { sub_system: 'Flota', class_name: 'Ficha', method_name: 'guardar' },
+    { sub_system: 'Flota', class_name: 'Ficha', method_name: 'guardarDocumento' },
+    { sub_system: 'Flota', class_name: 'Ficha', method_name: 'eliminarDocumento' },
+    { sub_system: 'Flota', class_name: 'Ficha', method_name: 'agregarNota' },
+    { sub_system: 'Flota', class_name: 'Catalogo', method_name: 'listarCatalogo' },
+    { sub_system: 'Flota', class_name: 'Lectura', method_name: 'registrarLectura' },
+    { sub_system: 'Flota', class_name: 'Lectura', method_name: 'reemplazarMedidor' },
+  ],
+  '/fleet/catalog': [
+    { sub_system: 'Flota', class_name: 'Catalogo', method_name: 'listarCatalogo' },
+    { sub_system: 'Flota', class_name: 'Catalogo', method_name: 'asignarUnidades' },
+    { sub_system: 'Flota', class_name: 'Catalogo', method_name: 'quitarUnidad' },
+    { sub_system: 'Flota', class_name: 'Catalogo', method_name: 'proponerModelo' },
   ],
   '/hours': [
     { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectosByEmpresa' },
@@ -155,6 +187,32 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Horas', class_name: 'Equipo', method_name: 'deleteEquipo' },
   ],
 };
+
+/**
+ * Al arrancar el backend: a cada perfil le agrega las funciones que le faltan
+ * según las secciones que tiene asignadas (SECTION_PERMISSIONS). Así, si una
+ * pantalla empieza a usar una función nueva, los perfiles que ya tenían esa
+ * sección la reciben solos, sin quitarles y volverles a poner la sección.
+ * Solo SUMA: no quita funciones, porque algunos perfiles tienen permisos que
+ * vienen directo de permission.csv (ej. encargado_flota). Solo vincula
+ * funciones que ya existen (no crea transacciones) y es seguro correrlo en
+ * varios procesos a la vez (ON CONFLICT DO NOTHING). Devuelve cuántos
+ * permisos agregó.
+ */
+export async function resyncSectionPermissions(dbms) {
+  const rows = (await dbms.executeNamedQuery({ nameQuery: 'getOptionProfileNames', params: {} }))?.rows || [];
+  let added = 0;
+  for (const { option_name, profile_name } of rows) {
+    for (const perm of SECTION_PERMISSIONS[option_name] || []) {
+      const res = await dbms.executeNamedQuery({
+        nameQuery: 'linkExistingMethodToProfile',
+        params: { method_name: perm.method_name, profile_name },
+      });
+      added += res?.rows?.length || 0;
+    }
+  }
+  return added;
+}
 
 export class Option {
   constructor() {

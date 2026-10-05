@@ -194,3 +194,5 @@ id;sub_system;class;method;profile
 184;Horas;Registro;guardarPtoDiario;admin
 185;Horas;Registro;getPtoDelDia;admin
 209;Flota;Ficha;crearUnidad;admin
+186;Horas;Proyecto;getTarifasProyecto;admin
+187;Horas;Proyecto;guardarTarifaEquipo;admin

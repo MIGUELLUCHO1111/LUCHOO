@@ -118,6 +118,77 @@ class Proyecto {
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
   };
 
+  // ---------- Tarifa USD/hora de cada unidad del proyecto (admin, 057) ----------
+
+  getTarifasProyecto = async ({ project_id }) => {
+    await this.dbmsReady;
+
+    if (!project_id) {
+      throw new Error(JSON.stringify({
+        message: "Campo requerido: 'project_id'",
+        statusCode: STATUS_CODES.BAD_REQUEST,
+      }));
+    }
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'getTarifasProyecto',
+      params: { project_id },
+    });
+
+    return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
+  };
+
+  // rate_usd vacío borra la tarifa de esa unidad; standby_rate_usd vacío
+  // deja el stand-by de esa unidad sin monto.
+  guardarTarifaEquipo = async ({ project_id, equipment_id, rate_usd, standby_rate_usd, caller_user_id }) => {
+    await this.dbmsReady;
+
+    if (!project_id || !equipment_id) {
+      throw new Error(JSON.stringify({
+        message: "Campos requeridos: 'project_id', 'equipment_id'",
+        statusCode: STATUS_CODES.BAD_REQUEST,
+      }));
+    }
+
+    const toAmount = (v, label) => {
+      if (v === undefined || v === null || String(v).trim() === '') return null;
+      const n = Number(String(v).replace(',', '.'));
+      if (!Number.isFinite(n) || n < 0) {
+        throw new Error(JSON.stringify({
+          message: `${label} debe ser un número mayor o igual a 0`,
+          statusCode: STATUS_CODES.BAD_REQUEST,
+        }));
+      }
+      return n.toFixed(2);
+    };
+    const rate = toAmount(rate_usd, 'La tarifa por hora');
+    const standbyRate = toAmount(standby_rate_usd, 'La tarifa stand-by');
+
+    if (rate === null) {
+      if (standbyRate !== null) {
+        throw new Error(JSON.stringify({
+          message: 'Indica primero la tarifa por hora; la de stand-by sola no se puede guardar.',
+          statusCode: STATUS_CODES.BAD_REQUEST,
+        }));
+      }
+      await this.dbms.executeNamedQuery({ nameQuery: 'deleteTarifaEquipo', params: { project_id, equipment_id } });
+      return { statusCode: STATUS_CODES.OK, data: null, message: 'Tarifa eliminada' };
+    }
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'upsertTarifaEquipo',
+      params: {
+        project_id,
+        equipment_id,
+        rate_usd: rate,
+        standby_rate_usd: standbyRate,
+        updated_by: caller_user_id ? Number(caller_user_id) : null,
+      },
+    });
+
+    return { statusCode: STATUS_CODES.OK, data: result?.rows?.[0], message: 'Tarifa guardada' };
+  };
+
   // ---------- Qué perfil(es) pueden rellenar este proyecto (admin) ----------
 
   asignarPerfil = async ({ project_id, profile_name }) => {

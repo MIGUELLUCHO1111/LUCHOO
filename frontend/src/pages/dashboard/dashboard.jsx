@@ -7,12 +7,14 @@ import { PageLayout } from "@/components/layout/PageLayout";
 // Un acceso directo por sección principal (mismo criterio de visibilidad
 // que el Sidebar: allowedSections === null mientras se resuelve el
 // perfil no restringe todavía, para evitar un parpadeo de "sin accesos").
+// Una sección con submenú lista sus páginas en `urls`: el acceso directo
+// lleva a la primera que el perfil puede ver.
 const SHORTCUTS = [
   { icon: Fuel, label: "Combustible", description: "Llenados, tanque de gasoil y unidades", url: "/fuel" },
   { icon: Radio, label: "Tracker GPS", description: "Estado de flota, alertas y mapa en vivo", url: "/tracker" },
   { icon: Truck, label: "Flota", description: "Ficha 360° de cada vehículo: estado, documentos y mantenimiento", url: "/fleet" },
   { icon: Clock, label: "Control de Horas", description: "Registro diario por proyecto y equipo", url: "/hours" },
-  { icon: BarChart3, label: "Reportes", description: "Resumen de combustible y horas trabajadas", url: "/reports" },
+  { icon: BarChart3, label: "Reportes", description: "Resumen de combustible y horas trabajadas", urls: ["/reports/fuel", "/reports/hours"] },
 ];
 
 export const Dashboard = () => {
@@ -20,7 +22,7 @@ export const Dashboard = () => {
   const navigate = useNavigate();
 
   const canSee = (url) => !allowedSections || allowedSections.includes(url);
-  const shortcuts = SHORTCUTS.filter((s) => canSee(s.url));
+  const shortcuts = SHORTCUTS.map((s) => ({ ...s, url: (s.urls || [s.url]).find(canSee) })).filter((s) => s.url);
 
   return (
     <PageLayout

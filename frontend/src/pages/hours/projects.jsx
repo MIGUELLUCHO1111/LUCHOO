@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FolderKanban, Plus, X, Pencil, Trash2, Users, Wrench } from "lucide-react";
+import { FolderKanban, Plus, X, Pencil, Trash2, Users, Wrench, DollarSign } from "lucide-react";
 import { hoursService, profileService, personService } from "@/services";
 import { veTodayISO } from "@/lib/trackerFormat";
 import { Button } from "@/components/ui/button";
@@ -248,6 +248,88 @@ const Projects = () => {
     }
   };
 
+  // ---------- Tarifas USD/hora de cada unidad del proyecto (admin) ----------
+  // Se escriben a mano; "SB" es la tarifa de stand-by del contrato. Con ellas
+  // Reportes > Control de Horas calcula cuánto generó cada unidad.
+  const [managingTarifas, setManagingTarifas] = useState(null);
+  const [tarifas, setTarifas] = useState([]);
+  const [tarifasDraft, setTarifasDraft] = useState({});
+  const [tarifasError, setTarifasError] = useState(null);
+  const [tarifasLoading, setTarifasLoading] = useState(false);
+  const [savingTarifaIds, setSavingTarifaIds] = useState(new Set());
+  const [savedTarifaIds, setSavedTarifaIds] = useState(new Set());
+
+  const toDraft = (t) => ({
+    rate_usd: t.rate_usd == null ? "" : String(Number(t.rate_usd)),
+    standby_rate_usd: t.standby_rate_usd == null ? "" : String(Number(t.standby_rate_usd)),
+  });
+
+  const openTarifas = async (project) => {
+    setManagingTarifas(project);
+    setTarifas([]);
+    setTarifasDraft({});
+    setTarifasError(null);
+    setSavedTarifaIds(new Set());
+    setTarifasLoading(true);
+    try {
+      const rows = await hoursService.getTarifasProyecto(project.id);
+      const list = Array.isArray(rows) ? rows : [];
+      setTarifas(list);
+      setTarifasDraft(Object.fromEntries(list.map((t) => [t.equipment_id, toDraft(t)])));
+    } catch (err) {
+      console.error("Error cargando tarifas:", err);
+      setTarifasError(err.response?.data?.message || err.message || "Error al cargar las tarifas");
+    } finally {
+      setTarifasLoading(false);
+    }
+  };
+
+  const setTarifaField = (equipmentId, field, value) => {
+    setTarifasDraft((prev) => ({ ...prev, [equipmentId]: { ...prev[equipmentId], [field]: value } }));
+    setSavedTarifaIds((prev) => {
+      const next = new Set(prev);
+      next.delete(equipmentId);
+      return next;
+    });
+  };
+
+  const tarifaChanged = (t) => {
+    const d = tarifasDraft[t.equipment_id] || {};
+    const o = toDraft(t);
+    return d.rate_usd !== o.rate_usd || d.standby_rate_usd !== o.standby_rate_usd;
+  };
+
+  const saveTarifa = async (t) => {
+    const d = tarifasDraft[t.equipment_id] || {};
+    setTarifasError(null);
+    setSavingTarifaIds((prev) => new Set(prev).add(t.equipment_id));
+    try {
+      const saved = await hoursService.guardarTarifaEquipo({
+        project_id: managingTarifas.id,
+        equipment_id: Number(t.equipment_id),
+        rate_usd: d.rate_usd,
+        standby_rate_usd: d.standby_rate_usd,
+      });
+      const updated = {
+        ...t,
+        rate_usd: saved?.rate_usd ?? null,
+        standby_rate_usd: saved?.standby_rate_usd ?? null,
+      };
+      setTarifas((prev) => prev.map((x) => (x.equipment_id === t.equipment_id ? updated : x)));
+      setTarifasDraft((prev) => ({ ...prev, [t.equipment_id]: toDraft(updated) }));
+      setSavedTarifaIds((prev) => new Set(prev).add(t.equipment_id));
+    } catch (err) {
+      console.error("Error guardando tarifa:", err);
+      setTarifasError(`${t.code}: ${err.response?.data?.message || err.message || "Error al guardar la tarifa"}`);
+    } finally {
+      setSavingTarifaIds((prev) => {
+        const next = new Set(prev);
+        next.delete(t.equipment_id);
+        return next;
+      });
+    }
+  };
+
   return (
     <PageLayout
       icon={FolderKanban}
@@ -443,6 +525,15 @@ const Projects = () => {
                       <Button
                         variant="outline"
                         size="icon"
+                        onClick={() => openTarifas(p)}
+                        className="h-8 w-8 rounded-lg text-brand-navy hover:text-brand-navy-light hover:bg-brand-navy/10 dark:hover:bg-brand-navy-light/10"
+                        title="Tarifas por hora de cada unidad"
+                      >
+                        <DollarSign size={14} />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
                         onClick={() => openAccess(p)}
                         className="h-8 w-8 rounded-lg text-brand-navy hover:text-brand-navy-light hover:bg-brand-navy/10 dark:hover:bg-brand-navy-light/10"
                         title="Quién puede rellenar este proyecto"
@@ -608,6 +699,133 @@ const Projects = () => {
 
               <div className="flex justify-end mt-4">
                 <Button type="button" onClick={() => setManagingEquipos(null)} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">
+                  Cerrar
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ---------- Modal: tarifas USD/hora de cada unidad ---------- */}
+      <AnimatePresence>
+        {managingTarifas && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setManagingTarifas(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.94, y: 12 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.94, y: 12 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-2xl rounded-3xl bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-white/5 shadow-2xl p-6"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-display text-lg text-slate-900 dark:text-white">
+                  Tarifas por hora · {managingTarifas.name}
+                </h3>
+                <Button variant="ghost" size="icon" onClick={() => setManagingTarifas(null)} className="h-8 w-8">
+                  <X size={16} />
+                </Button>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">
+                Valor en USD de cada hora de la unidad en este proyecto. <span className="font-bold">Hora</span> se
+                cobra sobre las horas de cobro completo (ejecutadas + disponibles según PTO) y{" "}
+                <span className="font-bold">Hora SB</span> sobre las de stand-by; si Hora SB queda vacía, el stand-by
+                de esa unidad no genera monto. Deja Hora vacía y guarda para quitar la tarifa.
+              </p>
+
+              {tarifasError && (
+                <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm">
+                  {tarifasError}
+                </div>
+              )}
+
+              <div className="max-h-[60vh] overflow-auto">
+                {tarifasLoading ? (
+                  <p className="px-2 py-6 text-center text-sm text-slate-400">Cargando...</p>
+                ) : tarifas.length === 0 ? (
+                  <p className="px-2 py-6 text-center text-sm text-slate-400">
+                    Este proyecto no tiene unidades asignadas ni horas registradas todavía.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Unidad</TableHead>
+                        <TableHead>Hora (USD)</TableHead>
+                        <TableHead>Hora SB (USD)</TableHead>
+                        <TableHead className="text-right"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tarifas.map((t) => {
+                        const d = tarifasDraft[t.equipment_id] || { rate_usd: "", standby_rate_usd: "" };
+                        const saving = savingTarifaIds.has(t.equipment_id);
+                        const changed = tarifaChanged(t);
+                        return (
+                          <TableRow key={t.equipment_id}>
+                            <TableCell>
+                              <div className="font-mono font-bold text-slate-900 dark:text-white">{t.code}</div>
+                              <div className="text-xs text-slate-400">
+                                {t.name ? `${t.name} · ` : ""}
+                                {t.asignado_hoy ? "asignada hoy" : "ya no asignada"}
+                                {t.rate_usd == null && <span className="text-amber-600 dark:text-amber-400"> · sin tarifa</span>}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                inputMode="decimal"
+                                value={d.rate_usd}
+                                onChange={(e) => setTarifaField(t.equipment_id, "rate_usd", e.target.value)}
+                                className="h-9 w-28"
+                                aria-label={`Hora USD de ${t.code}`}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                inputMode="decimal"
+                                value={d.standby_rate_usd}
+                                onChange={(e) => setTarifaField(t.equipment_id, "standby_rate_usd", e.target.value)}
+                                className="h-9 w-28"
+                                aria-label={`Hora SB USD de ${t.code}`}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {savedTarifaIds.has(t.equipment_id) && !changed ? (
+                                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Guardada</span>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={!changed || saving}
+                                  onClick={() => saveTarifa(t)}
+                                  className="rounded-lg bg-brand-navy hover:bg-brand-navy-light text-white"
+                                >
+                                  {saving ? "Guardando..." : "Guardar"}
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+
+              <div className="flex justify-end mt-4">
+                <Button type="button" onClick={() => setManagingTarifas(null)} className="rounded-xl bg-brand-navy hover:bg-brand-navy-light text-white">
                   Cerrar
                 </Button>
               </div>

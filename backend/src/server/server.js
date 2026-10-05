@@ -16,6 +16,7 @@ import trackerAttachmentRouter from '../tracker/trackerAttachmentRoutes.js';
 import trackerReportFileRouter from '../tracker/trackerReportFileRoutes.js';
 import authMiddleware from '../auth/authMiddleware.js';
 import { startTrackerScheduler } from '../tracker/scheduler.js';
+import { resyncSectionPermissions } from '../bo/sub_system/classes/option.js';
 
 dotenv.config();
 
@@ -117,6 +118,15 @@ class Server {
     await this.config.init();
     await this.security.syncPermissions();
     await this.security.alignTransactionIds();
+    // Perfiles con secciones asignadas reciben las funciones que esas
+    // secciones usen hoy (ver resyncSectionPermissions en option.js). Si
+    // agregó alguna, se recarga el mapa de permisos en memoria.
+    await this.security.dbmsReady;
+    const sectionPermsAdded = await resyncSectionPermissions(this.security.dbms);
+    if (sectionPermsAdded > 0) {
+      console.log(`[Security] ${sectionPermsAdded} permiso(s) de sección agregados a perfiles existentes`);
+      await this.security.syncPermissions();
+    }
     await this.security.syncTransactions();
     await this.security.syncUserProfiles();
     startTrackerScheduler();

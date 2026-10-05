@@ -33,6 +33,8 @@ const TX = {
   GET_RESUMEN_POR_DIA: 159,
   GUARDAR_PTO_DIARIO: 184,
   GET_PTO_DEL_DIA: 185,
+  GET_TARIFAS_PROYECTO: 186,
+  GUARDAR_TARIFA_EQUIPO: 187,
 };
 
 const unwrap = (res) => {
@@ -105,6 +107,14 @@ const hoursService = {
   },
   getPtoDelDia({ project_id, fecha }) {
     return executeTransaction(TX.GET_PTO_DEL_DIA, { project_id, fecha }).then(unwrap);
+  },
+  // Tarifa USD/hora de cada unidad del proyecto (solo admin). rate_usd
+  // vacío borra la tarifa; standby_rate_usd vacío = stand-by sin monto.
+  getTarifasProyecto(project_id) {
+    return executeTransaction(TX.GET_TARIFAS_PROYECTO, { project_id }).then(unwrap);
+  },
+  guardarTarifaEquipo({ project_id, equipment_id, rate_usd, standby_rate_usd }) {
+    return executeTransaction(TX.GUARDAR_TARIFA_EQUIPO, { project_id, equipment_id, rate_usd, standby_rate_usd }).then(unwrap);
   },
 };
 

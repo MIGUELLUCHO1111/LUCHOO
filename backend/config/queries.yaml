@@ -94,6 +94,21 @@
     structure_params: {},
     orderArray: []
   },
+  # Re-sincronización de permisos por sección (Option.resyncSectionPermissions,
+  # al arrancar): qué secciones tiene cada perfil, y vincular una función ya
+  # existente a un perfil sin crear transacciones (method.name es UNIQUE).
+  'getOptionProfileNames': {
+    query: 'SELECT o.name AS option_name, p.name AS profile_name FROM public.option_profile op JOIN public.option o ON o.id = op.option_id JOIN public.profile p ON p.id = op.profile_id;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'linkExistingMethodToProfile': {
+    query: 'INSERT INTO public.method_profile (method_id, profile_id) SELECT m.id, p.id FROM public."method" m CROSS JOIN public.profile p WHERE m.name = $1 AND p.name = $2 ON CONFLICT (method_id, profile_id) DO NOTHING RETURNING method_id;',
+    structure_params: { method_name: 'string', profile_name: 'string' },
+    orderArray: ['method_name', 'profile_name']
+  },
+
   'delProfileMethod': {
     query: 'DELETE FROM public."method_profile" WHERE method_id = (SELECT id FROM public."method" WHERE name = $1) AND profile_id = (SELECT id FROM public."profile" WHERE name = $2);',
     structure_params: { method_name: 'string', profile_name: 'string' },
@@ -1353,11 +1368,35 @@
     orderArray: ['project_id', 'fecha']
   },
 
-  # Resumen para Reportes (fase 1 -- solo horas, sin tarifas $/hora
-  # todavía). Trae por equipo; el BO agrega por proyecto y el total en JS,
+  # ---------- Tarifas USD/hora por unidad y proyecto (057) ----------
+
+  # Unidades del proyecto: con tarifa cargada, asignadas hoy o con horas
+  # registradas en ese proyecto (para poder tarifar también las que ya no
+  # están asignadas pero generaron horas).
+  'getTarifasProyecto': {
+    query: 'SELECT e.id AS equipment_id, e.code, e.name, t.rate_usd, t.standby_rate_usd, t.updated_at, EXISTS (SELECT 1 FROM public.project_equipment_assignment a WHERE a.project_id = $1 AND a.equipment_id = e.id AND a.assigned_from <= CURRENT_DATE AND (a.assigned_to IS NULL OR a.assigned_to > CURRENT_DATE)) AS asignado_hoy FROM public.fleet_unit e LEFT JOIN public.project_equipment_rate t ON t.equipment_id = e.id AND t.project_id = $1 WHERE e.deleted_at IS NULL AND (t.id IS NOT NULL OR EXISTS (SELECT 1 FROM public.project_equipment_assignment a WHERE a.project_id = $1 AND a.equipment_id = e.id AND a.assigned_from <= CURRENT_DATE AND (a.assigned_to IS NULL OR a.assigned_to > CURRENT_DATE)) OR EXISTS (SELECT 1 FROM public.hours_daily_entry h WHERE h.project_id = $1 AND h.equipment_id = e.id)) ORDER BY e.code;',
+    structure_params: { project_id: 'int' },
+    orderArray: ['project_id']
+  },
+
+  # Tarifas como texto + ::numeric: el tipo 'float' del validador rechaza enteros.
+  'upsertTarifaEquipo': {
+    query: 'INSERT INTO public.project_equipment_rate (project_id, equipment_id, rate_usd, standby_rate_usd, updated_by) VALUES ($1, $2, $3::numeric, $4::numeric, $5) ON CONFLICT (project_id, equipment_id) DO UPDATE SET rate_usd = EXCLUDED.rate_usd, standby_rate_usd = EXCLUDED.standby_rate_usd, updated_by = EXCLUDED.updated_by, updated_at = NOW() RETURNING project_id, equipment_id, rate_usd, standby_rate_usd, updated_at;',
+    structure_params: { project_id: 'int', equipment_id: 'int', rate_usd: 'string', standby_rate_usd: 'string|null', updated_by: 'int|null' },
+    orderArray: ['project_id', 'equipment_id', 'rate_usd', 'standby_rate_usd', 'updated_by']
+  },
+
+  'deleteTarifaEquipo': {
+    query: 'DELETE FROM public.project_equipment_rate WHERE project_id = $1 AND equipment_id = $2 RETURNING id;',
+    structure_params: { project_id: 'int', equipment_id: 'int' },
+    orderArray: ['project_id', 'equipment_id']
+  },
+
+  # Resumen para Reportes: horas por equipo + su tarifa en el proyecto
+  # (project_equipment_rate, 057). Trae por equipo; el BO agrega por proyecto y el total en JS,
   # igual que Fuel.Reporte.getFuelSummary.
   'getResumenHorasPorEquipo': {
-    query: 'SELECT r.project_id, p.name AS project_name, c.name AS company_name, r.equipment_id, e.code AS equipment_code, e.name AS equipment_name, SUM(r.executed_hours + r.pto_hours) AS cobro_completo, SUM(r.standby_hours) AS standby, SUM(r.contracted_hours) AS hrs_totales, COUNT(*) AS dias_registrados FROM public.hours_daily_entry r JOIN public.fleet_unit e ON e.id = r.equipment_id JOIN public.project p ON p.id = r.project_id JOIN public.company c ON c.id = p.company_id WHERE r.fecha BETWEEN $1 AND $2 GROUP BY r.project_id, p.name, c.name, r.equipment_id, e.code, e.name ORDER BY c.name, p.name, e.code;',
+    query: 'SELECT r.project_id, p.name AS project_name, c.name AS company_name, r.equipment_id, e.code AS equipment_code, e.name AS equipment_name, SUM(r.executed_hours + r.pto_hours) AS cobro_completo, SUM(r.standby_hours) AS standby, SUM(r.contracted_hours) AS hrs_totales, COUNT(*) AS dias_registrados, MAX(t.rate_usd) AS rate_usd, MAX(t.standby_rate_usd) AS standby_rate_usd FROM public.hours_daily_entry r JOIN public.fleet_unit e ON e.id = r.equipment_id JOIN public.project p ON p.id = r.project_id JOIN public.company c ON c.id = p.company_id LEFT JOIN public.project_equipment_rate t ON t.project_id = r.project_id AND t.equipment_id = r.equipment_id WHERE r.fecha BETWEEN $1 AND $2 GROUP BY r.project_id, p.name, c.name, r.equipment_id, e.code, e.name ORDER BY c.name, p.name, e.code;',
     structure_params: { from: 'string', to: 'string' },
     orderArray: ['from', 'to']
   },
@@ -1367,7 +1406,7 @@
   # proyecto de cada perfil, igual que getResumenHorasPorEquipo. Equivale
   # a la hoja "Gráfico Agosto" del Excel de referencia.
   'getResumenHorasPorDia': {
-    query: 'SELECT gs.fecha, r.project_id, COALESCE(SUM(r.executed_hours + r.pto_hours), 0) AS cobro_completo, COALESCE(SUM(r.standby_hours), 0) AS standby, COALESCE(SUM(r.contracted_hours), 0) AS hrs_totales FROM generate_series($1::date, $2::date, interval ''1 day'') AS gs(fecha) LEFT JOIN public.hours_daily_entry r ON r.fecha = gs.fecha GROUP BY gs.fecha, r.project_id ORDER BY gs.fecha;',
+    query: 'SELECT gs.fecha, r.project_id, COALESCE(SUM(r.executed_hours + r.pto_hours), 0) AS cobro_completo, COALESCE(SUM(r.standby_hours), 0) AS standby, COALESCE(SUM(r.contracted_hours), 0) AS hrs_totales, COALESCE(SUM((r.executed_hours + r.pto_hours) * COALESCE(t.rate_usd, 0) + r.standby_hours * COALESCE(t.standby_rate_usd, 0)), 0) AS generado_usd FROM generate_series($1::date, $2::date, interval ''1 day'') AS gs(fecha) LEFT JOIN public.hours_daily_entry r ON r.fecha = gs.fecha LEFT JOIN public.project_equipment_rate t ON t.project_id = r.project_id AND t.equipment_id = r.equipment_id GROUP BY gs.fecha, r.project_id ORDER BY gs.fecha;',
     structure_params: { from: 'string', to: 'string' },
     orderArray: ['from', 'to']
   },

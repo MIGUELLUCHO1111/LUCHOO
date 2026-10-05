@@ -184,7 +184,14 @@ export const Sidebar = () => {
         { title: "Catálogo de Modelos", url: "/fleet/catalog" },
       ],
     },
-    { icon: BarChart3, label: "Reportes", url: "/reports" },
+    {
+      icon: BarChart3,
+      label: "Reportes",
+      children: [
+        { title: "Combustible", url: "/reports/fuel" },
+        { title: "Control de Horas", url: "/reports/hours" },
+      ],
+    },
     {
       icon: Clock,
       label: "Control de Horas",

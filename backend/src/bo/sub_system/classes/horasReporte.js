@@ -14,11 +14,12 @@ const STATUS_CODES = config.STATUS_CODES;
 const pctStandby = (cobroCompleto, hrsTotales) =>
   hrsTotales > 0 ? +Math.max(0, (1 - cobroCompleto / hrsTotales) * 100).toFixed(2) : null;
 
-// Resumen de Control de Horas para Reportes (fase 1 -- solo horas, sin
-// tarifas $/hora todavía: no existen en el sistema, así que no se inventa
-// ningún monto. La rentabilidad en dólares queda pendiente para cuando
-// haya tarifas, igual que Pesada en Combustible no tiene monto porque usa
-// tanque propio (ver ROADMAP_HORAS_RENTABILIDAD.md).
+// Resumen de Control de Horas para Reportes, con el monto generado según la
+// tarifa USD/hora de cada unidad en su proyecto (project_equipment_rate, 057):
+//   generado = cobro completo x tarifa + stand-by x tarifa SB.
+// Una unidad sin tarifa cargada no suma monto y se marca con sin_tarifa.
+const money = (n) => +(Number(n) || 0).toFixed(2);
+
 class Reporte {
   constructor() {
     this.dbms = new DBMS();
@@ -49,6 +50,10 @@ class Reporte {
       const cobroCompleto = parseFloat(r.cobro_completo) || 0;
       const standby = parseFloat(r.standby) || 0;
       const hrsTotales = parseFloat(r.hrs_totales) || 0;
+      const rate = r.rate_usd == null ? null : parseFloat(r.rate_usd);
+      const standbyRate = r.standby_rate_usd == null ? null : parseFloat(r.standby_rate_usd);
+      const generadoCobro = rate === null ? 0 : cobroCompleto * rate;
+      const generadoStandby = rate === null || standbyRate === null ? 0 : standby * standbyRate;
       return {
         project_id: r.project_id,
         project_name: r.project_name,
@@ -61,6 +66,12 @@ class Reporte {
         hrs_totales: +hrsTotales.toFixed(2),
         pct_standby: pctStandby(cobroCompleto, hrsTotales),
         dias_registrados: parseInt(r.dias_registrados, 10) || 0,
+        rate_usd: rate,
+        standby_rate_usd: standbyRate,
+        sin_tarifa: rate === null,
+        generado_cobro: money(generadoCobro),
+        generado_standby: money(generadoStandby),
+        generado_usd: money(generadoCobro + generadoStandby),
       };
     });
 
@@ -75,6 +86,8 @@ class Reporte {
           standby: 0,
           hrs_totales: 0,
           equipos_activos: 0,
+          generado_usd: 0,
+          equipos_sin_tarifa: 0,
         });
       }
       const acc = byProyectoMap.get(eq.project_id);
@@ -82,6 +95,8 @@ class Reporte {
       acc.standby += eq.standby;
       acc.hrs_totales += eq.hrs_totales;
       acc.equipos_activos += 1;
+      acc.generado_usd += eq.generado_usd;
+      if (eq.sin_tarifa) acc.equipos_sin_tarifa += 1;
     }
     const byProyecto = [...byProyectoMap.values()].map((p) => ({
       ...p,
@@ -89,6 +104,7 @@ class Reporte {
       standby: +p.standby.toFixed(2),
       hrs_totales: +p.hrs_totales.toFixed(2),
       pct_standby: pctStandby(p.cobro_completo, p.hrs_totales),
+      generado_usd: money(p.generado_usd),
     }));
 
     const totals = byEquipo.reduce(
@@ -96,13 +112,19 @@ class Reporte {
         cobro_completo: acc.cobro_completo + eq.cobro_completo,
         standby: acc.standby + eq.standby,
         hrs_totales: acc.hrs_totales + eq.hrs_totales,
+        generado_cobro: acc.generado_cobro + eq.generado_cobro,
+        generado_standby: acc.generado_standby + eq.generado_standby,
+        equipos_sin_tarifa: acc.equipos_sin_tarifa + (eq.sin_tarifa ? 1 : 0),
       }),
-      { cobro_completo: 0, standby: 0, hrs_totales: 0 },
+      { cobro_completo: 0, standby: 0, hrs_totales: 0, generado_cobro: 0, generado_standby: 0, equipos_sin_tarifa: 0 },
     );
     totals.cobro_completo = +totals.cobro_completo.toFixed(2);
     totals.standby = +totals.standby.toFixed(2);
     totals.hrs_totales = +totals.hrs_totales.toFixed(2);
     totals.pct_standby = pctStandby(totals.cobro_completo, totals.hrs_totales);
+    totals.generado_cobro = money(totals.generado_cobro);
+    totals.generado_standby = money(totals.generado_standby);
+    totals.generado_usd = money(totals.generado_cobro + totals.generado_standby);
 
     return { statusCode: STATUS_CODES.OK, data: { from, to, totals, byProyecto, byEquipo } };
   };
@@ -132,7 +154,7 @@ class Reporte {
     for (const r of result?.rows || []) {
       const fecha = new Date(r.fecha).toISOString().slice(0, 10);
       if (!porDiaMap.has(fecha)) {
-        porDiaMap.set(fecha, { fecha, cobro_completo: 0, standby: 0, hrs_totales: 0, horas_pto: null });
+        porDiaMap.set(fecha, { fecha, cobro_completo: 0, standby: 0, hrs_totales: 0, horas_pto: null, generado_usd: 0 });
       }
       // r.project_id es null en los días sin ningún registro (LEFT JOIN) --
       // esas filas no aportan nada, solo garantizan que el día aparezca.
@@ -141,6 +163,7 @@ class Reporte {
         acc.cobro_completo += parseFloat(r.cobro_completo) || 0;
         acc.standby += parseFloat(r.standby) || 0;
         acc.hrs_totales += parseFloat(r.hrs_totales) || 0;
+        acc.generado_usd += parseFloat(r.generado_usd) || 0;
       }
     }
 
@@ -161,6 +184,7 @@ class Reporte {
         hrs_totales: +d.hrs_totales.toFixed(2),
         pct_standby: pctStandby(d.cobro_completo, d.hrs_totales),
         horas_pto: d.horas_pto === null ? null : +d.horas_pto.toFixed(2),
+        generado_usd: money(d.generado_usd),
       }));
 
     return { statusCode: STATUS_CODES.OK, data: { from, to, porDia } };
