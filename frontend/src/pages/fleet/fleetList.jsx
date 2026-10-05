@@ -264,7 +264,14 @@ const FleetList = () => {
   const load = () =>
     fleetService
       .listar()
-      .then((d) => setUnits(Array.isArray(d) ? d : []))
+      .then((d) => {
+        const list = Array.isArray(d) ? d : [];
+        setUnits(list);
+        // "Mis unidades" arranca activo solo si el usuario es encargado de
+        // alguna; sin ninguna asignada la lista saldría vacía y parecería que
+        // no puede ver la flota (sí puede, en solo lectura).
+        if (!list.some((u) => u.soy_encargado)) setMine(false);
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
 

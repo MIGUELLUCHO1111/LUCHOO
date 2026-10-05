@@ -62,7 +62,10 @@ export async function resumenLecturas(dbms, unidad) {
     actual[meter] = { valor: ultima.value, fecha: ultima.read_at, fuente: ultima.source, base: base ? { valor: base.value, fecha: base.read_at, reemplazo: base.source === 'REEMPLAZO' } : null };
     // Horometro: sumar las horas trabajadas de Control de Horas desde la ultima lectura.
     if (meter === 'HORAS') {
-      const [h] = await q('fleetHoursSince', { unit_id: Number(unidad.id), since: String(ultima.read_at).slice(0, 10) });
+      // read_at llega como Date desde pg: String(date) da "Mon Sep 21 ...", no
+      // una fecha valida. Se pasa a AAAA-MM-DD en hora de Caracas.
+      const since = new Date(ultima.read_at).toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+      const [h] = await q('fleetHoursSince', { unit_id: Number(unidad.id), since });
       if (h && Number(h.total) > 0) {
         actual.HORAS.estimado = { valor: ultima.value + Number(h.total), hasta: h.ultima, dias: h.dias, horas: Number(h.total) };
       }
