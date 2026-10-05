@@ -91,18 +91,19 @@ router.get('/models/file/:modelId/:filename', async (req, res) => {
 
 // ---------- Archivo de cada documento de la ficha (PDF o foto) ----------
 const DOCS_ROOT = path.resolve(__dirname, '../../uploads/fleet/documents');
-const DOC_EXT = { ...MIME_EXT, 'application/pdf': '.pdf' };
+// Documentos: solo PDF (pedido de Lguerra, 05/10/2026).
+const isPdfUpload = (file) => (file.mimetype === 'application/pdf' || /.pdf$/i.test(file.originalname || ''));
 const uploadDoc = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => (DOC_EXT[file.mimetype] ? cb(null, true) : cb(new Error('INVALID_MIME'))),
+  fileFilter: (req, file, cb) => (isPdfUpload(file) ? cb(null, true) : cb(new Error('INVALID_MIME'))),
 });
 
 // POST /fleet/documents/file — campos: document_id, profile, file.
 router.post('/documents/file', (req, res) => {
   uploadDoc.single('file')(req, res, async (uploadErr) => {
     if (uploadErr) {
-      return fail(res, STATUS_CODES.BAD_REQUEST, uploadErr.message === 'INVALID_MIME' ? 'Tipo de archivo no permitido (solo PDF, JPG, PNG o WEBP)' : uploadErr.code === 'LIMIT_FILE_SIZE' ? 'El archivo pesa más de 10 MB' : uploadErr.message || 'Error al procesar el archivo');
+      return fail(res, STATUS_CODES.BAD_REQUEST, uploadErr.message === 'INVALID_MIME' ? 'El documento debe cargarse en PDF' : uploadErr.code === 'LIMIT_FILE_SIZE' ? 'El archivo pesa más de 10 MB' : uploadErr.message || 'Error al procesar el archivo');
     }
     try {
       if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
@@ -126,11 +127,13 @@ router.post('/documents/file', (req, res) => {
 
       const dir = path.join(DOCS_ROOT, String(id));
       await fs.mkdir(dir, { recursive: true });
-      const filename = `${randomUUID()}${DOC_EXT[req.file.mimetype]}`;
+      // Que sea un PDF de verdad (empieza por "%PDF"), no otro archivo renombrado.
+      if (req.file.buffer.subarray(0, 4).toString('latin1') !== '%PDF') return fail(res, STATUS_CODES.BAD_REQUEST, 'El archivo no es un PDF válido');
+      const filename = `${randomUUID()}.pdf`;
       await fs.writeFile(path.join(dir, filename), req.file.buffer);
       const url = `/fleet/documents/file/${id}/${filename}`;
       const originalName = String(req.file.originalname || filename).slice(0, 200);
-      await dbms.executeNamedQuery({ nameQuery: 'fleetSetDocumentFile', params: { id, file_url: url, file_name: originalName, file_mime: req.file.mimetype } });
+      await dbms.executeNamedQuery({ nameQuery: 'fleetSetDocumentFile', params: { id, file_url: url, file_name: originalName, file_mime: 'application/pdf' } });
 
       const prev = doc.file_url && doc.file_url.split('/').pop();
       if (prev && SAFE_SEGMENT.test(prev) && prev !== filename) await fs.unlink(path.join(dir, prev)).catch(() => {});

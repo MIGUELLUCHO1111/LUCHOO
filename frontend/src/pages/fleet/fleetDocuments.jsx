@@ -46,7 +46,8 @@ export const requiredFor = (unit) => {
 };
 
 const MAX_MB = 10;
-const OK_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+// Solo PDF (pedido de Lguerra, 05/10/2026); el backend tambien lo valida.
+const isPdf = (f) => !!f && (f.type === "application/pdf" || /.pdf$/i.test(f.name || ""));
 
 const stateOf = (doc, alertDays) => {
   if (!doc) return { key: "falta", label: "Falta cargar", chip: "bg-slate-500/10 text-slate-500", icon: "bg-brand-navy text-white shadow-md shadow-brand-navy/25 dark:bg-sky-700", ring: "border-dashed border-slate-300 dark:border-white/15" };
@@ -69,7 +70,7 @@ const DocForm = ({ unitId, type, onCancel, onSaved }) => {
 
   const pick = (f) => {
     if (!f) return;
-    if (!OK_TYPES.includes(f.type)) return setError("El archivo debe ser PDF, JPG, PNG o WEBP.");
+    if (!isPdf(f)) return setError("El documento debe cargarse en PDF.");
     if (f.size > MAX_MB * 1024 * 1024) return setError(`El archivo pesa más de ${MAX_MB} MB.`);
     setError(null);
     setFile(f);
@@ -77,7 +78,7 @@ const DocForm = ({ unitId, type, onCancel, onSaved }) => {
 
   const save = async (e) => {
     e.preventDefault();
-    if (!file) return setError("Adjunta el archivo del documento (PDF o foto) para que quede respaldado.");
+    if (!file) return setError("Adjunta el documento en PDF para que quede respaldado.");
     if (def.expires && !form.expires_at) return setError("Indica la fecha de vencimiento.");
     if (form.issued_at && form.expires_at && form.expires_at < form.issued_at) return setError("El vencimiento no puede ser antes de la emisión.");
     setSaving(true);
@@ -116,10 +117,10 @@ const DocForm = ({ unitId, type, onCancel, onSaved }) => {
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{file ? file.name : "Adjuntar el documento"}</span>
-            <span className="block text-[11px] text-slate-400">{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · clic para cambiarlo` : `PDF o foto, hasta ${MAX_MB} MB · clic o arrastra aquí`}</span>
+            <span className="block text-[11px] text-slate-400">{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB · clic para cambiarlo` : `Solo PDF, hasta ${MAX_MB} MB · clic o arrastra aquí`}</span>
           </span>
         </button>
-        <input ref={fileRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+        <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
         {error && <p className="flex items-center gap-1.5 text-xs font-bold text-red-600"><AlertTriangle size={13} /> {error}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" className="rounded-xl h-9" onClick={onCancel}>Cancelar</Button>
@@ -152,6 +153,7 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, compact = fa
   };
   const attach = async (f) => {
     if (!f || !current) return;
+    if (!isPdf(f)) { window.alert("El documento debe cargarse en PDF."); return; }
     setBusy(true);
     try {
       await fleetService.subirArchivoDocumento(current.id, f);
@@ -197,7 +199,7 @@ const DocSlot = ({ unit, type, docs, alertDays, onChange, optional, compact = fa
                   <Paperclip size={12} /> {busy ? "Subiendo…" : "Falta el archivo · adjuntar"}
                 </button>
               )}
-              <input ref={attachRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => attach(e.target.files?.[0])} />
+              <input ref={attachRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={(e) => attach(e.target.files?.[0])} />
               {current.expires_at && !small && <span className="text-[11px] text-slate-400">Vence {fmtDate(current.expires_at)}</span>}
             </div>
           )}
