@@ -13,6 +13,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { Donut } from "@/components/ui/donut";
+import { HorasPorDiaChart } from "@/components/ui/horasPorDiaChart";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { fuelService, hoursService } from "@/services";
 import { veTodayISO, formatFechaISO } from "@/lib/trackerFormat";
@@ -23,6 +24,12 @@ import { veTodayISO, formatFechaISO } from "@/lib/trackerFormat";
 // Los índices se mantienen (0 y 3 para Liviana/Pesada, 4 y 5 para Cobro
 // Completo/Stand-By, el resto para el ciclo por vehículo de "Gasto en USD").
 const PALETTE = ["#144763", "#191919", "#0d3549", "#ffcc00", "#1d5c7f", "#e0b400", "#64748b", "#a8842a"];
+
+// "Gasto en USD por Vehículo": top 5 con color propio (alternando navy y
+// dorado para que segmentos vecinos no se confundan) + "Otros" en gris.
+const TOP_GASTO_VEHICLES = 5;
+const TOP_GASTO_COLORS = [PALETTE[0], PALETTE[3], PALETTE[4], PALETTE[5], PALETTE[2]];
+const OTROS_COLOR = PALETTE[6];
 
 // Aritmética de fechas "puras" (YYYY-MM-DD) anclada a medianoche UTC, igual
 // que en dailyEntry.jsx -- evita que un new Date(iso) local se corra un día
@@ -197,12 +204,28 @@ const Reports = () => {
   const flotaTotal = totals.liviana.liters + totals.pesada.liters_equivalent;
 
   // ---------- Dona 2: gasto USD por vehículo (solo Liviana) ----------
-  const livianaVehicles = byVehicle.filter((v) => v.fleet_type === "liviana" && v.amount > 0);
-  const gastoSegments = livianaVehicles.map((v, i) => ({
+  // Solo los 5 que más gastan tienen su propio segmento; el resto se agrupa
+  // en "Otros" (gris) para que la dona siga siendo legible con toda la flota.
+  const livianaVehicles = byVehicle
+    .filter((v) => v.fleet_type === "liviana" && v.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const topVehicles = livianaVehicles.slice(0, TOP_GASTO_VEHICLES);
+  const otrosAmount = livianaVehicles
+    .slice(TOP_GASTO_VEHICLES)
+    .reduce((s, v) => s + v.amount, 0);
+  const otrosCount = livianaVehicles.length - topVehicles.length;
+  const gastoSegments = topVehicles.map((v, i) => ({
     label: v.code,
     value: v.amount,
-    color: PALETTE[i % PALETTE.length],
+    color: TOP_GASTO_COLORS[i],
   }));
+  if (otrosAmount > 0) {
+    gastoSegments.push({
+      label: `Otros (${otrosCount} ${otrosCount === 1 ? "vehículo" : "vehículos"})`,
+      value: otrosAmount,
+      color: OTROS_COLOR,
+    });
+  }
   const gastoTotal = livianaVehicles.reduce((s, v) => s + v.amount, 0);
 
   // ---------- Dona 3: Control de Horas -- cobro completo vs stand-by ----------
@@ -513,6 +536,13 @@ const Reports = () => {
           <h3 className="text-sm font-display uppercase tracking-widest text-slate-900 dark:text-white">
             Control de Horas — Resumen por Día
           </h3>
+          {!porDiaLoading && !porDiaError && porDia.length > 0 && (
+            <Card className="w-full">
+              <CardContent className="p-5">
+                <HorasPorDiaChart data={porDia} />
+              </CardContent>
+            </Card>
+          )}
           <Card className="w-full overflow-hidden">
             <div className="overflow-x-auto">
               <Table>
@@ -523,24 +553,25 @@ const Reports = () => {
                     <TableHead>Total Hrs. Stand-By</TableHead>
                     <TableHead>% Stand-By</TableHead>
                     <TableHead>Hrs. Totales</TableHead>
+                    <TableHead>Horas PTO</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {porDiaLoading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                      <TableCell colSpan={6} className="text-center py-8 text-slate-400">
                         Cargando...
                       </TableCell>
                     </TableRow>
                   ) : porDiaError ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-red-500">
+                      <TableCell colSpan={6} className="text-center py-8 text-red-500">
                         {porDiaError}
                       </TableCell>
                     </TableRow>
                   ) : porDia.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                      <TableCell colSpan={6} className="text-center py-8 text-slate-400">
                         Sin días en este rango
                       </TableCell>
                     </TableRow>
@@ -552,6 +583,7 @@ const Reports = () => {
                         <TableCell>{d.standby.toFixed(2)}</TableCell>
                         <TableCell>{d.pct_standby === null ? "-" : `${d.pct_standby}%`}</TableCell>
                         <TableCell>{d.hrs_totales.toFixed(2)}</TableCell>
+                        <TableCell>{d.horas_pto === null ? "-" : d.horas_pto.toFixed(2)}</TableCell>
                       </TableRow>
                     ))
                   )}

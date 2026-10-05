@@ -31,6 +31,8 @@ const TX = {
   QUITAR_ASIGNACION_EQUIPO: 157,
   GET_RESUMEN_HORAS: 158,
   GET_RESUMEN_POR_DIA: 159,
+  GUARDAR_PTO_DIARIO: 184,
+  GET_PTO_DEL_DIA: 185,
 };
 
 const unwrap = (res) => {
@@ -95,6 +97,14 @@ const hoursService = {
   eliminarRegistro(id) { return executeTransaction(TX.ELIMINAR_REGISTRO, { id }).then(unwrap); },
   getAcumuladoMes({ project_id, fecha }) {
     return executeTransaction(TX.GET_ACUMULADO_MES, { project_id, fecha }).then(unwrap);
+  },
+
+  // Horas PTO del proyecto (un renglón por proyecto+día; null/"" lo borra)
+  guardarPtoDiario({ project_id, fecha, horas_pto, created_by }) {
+    return executeTransaction(TX.GUARDAR_PTO_DIARIO, { project_id, fecha, horas_pto, created_by }).then(unwrap);
+  },
+  getPtoDelDia({ project_id, fecha }) {
+    return executeTransaction(TX.GET_PTO_DEL_DIA, { project_id, fecha }).then(unwrap);
   },
 };
 

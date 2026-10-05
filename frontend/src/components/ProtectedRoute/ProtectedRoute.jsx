@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Outlet, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "@/context";
 import { AlertMessage } from "@/components";
+import { LowTankAlert } from "@/components/LowTankAlert/LowTankAlert";
 
 const DETAIL_ROUTES = [[/^\/fleet\/\d+$/, "/fleet"]];
 
@@ -81,5 +82,10 @@ export const ProtectedRoute = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      <LowTankAlert />
+    </>
+  );
 };

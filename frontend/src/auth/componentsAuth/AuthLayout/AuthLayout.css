@@ -78,7 +78,12 @@ input:-webkit-autofill:active {
 }
 
 
-.relative > svg {
+/* Solo el ícono de los campos del login (.relative que envuelve un
+   .auth-input). Antes era `.relative > svg` a secas y, como este CSS queda
+   cargado en toda la SPA después de pasar por el login, sacaba de flujo
+   cualquier SVG hijo de un .relative en el resto de la app (ej. el gráfico
+   por día de Reportes quedaba flotando detrás de la tabla). */
+.relative:has(> .auth-input) > svg {
   z-index: 10;
   position: absolute;
 }

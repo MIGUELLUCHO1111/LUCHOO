@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { RECENT_LIMIT, limitToRecent } from "@/lib/recentRecords";
+import { unitLabel } from "@/lib/unitLabel";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Fuel,
@@ -123,8 +125,10 @@ const FuelLightFleet = () => {
   const getPhotoUrl = (r) => resolvePhotoUrl(r.photos?.at(-1)?.url);
 
   // ---------- Filters ----------
-  const filteredRefuels = useMemo(() => {
-    return refuels.filter((r) => {
+  const filtersActive =
+    !!filters.from || !!filters.to || filters.unitIds.length > 0 || !!filters.responsible;
+  const recent = useMemo(() => {
+    const matching = refuels.filter((r) => {
       const d = new Date(r.filled_at);
       if (filters.from && d < new Date(filters.from)) return false;
       if (filters.to) {
@@ -141,7 +145,9 @@ const FuelLightFleet = () => {
         return false;
       return true;
     });
-  }, [refuels, filters, persons]);
+    return limitToRecent(matching, filtersActive);
+  }, [refuels, filters, persons, filtersActive]);
+  const filteredRefuels = recent.visible;
 
   const totals = useMemo(() => {
     let liters = 0;
@@ -424,7 +430,7 @@ const FuelLightFleet = () => {
                 multiple
                 items={lightVehicles}
                 getValue={(v) => Number(v.id)}
-                getLabel={(v) => `${v.code} - ${v.name}`}
+                getLabel={unitLabel}
                 value={filters.unitIds}
                 onChange={(id) => toggleUnitFilter(id)}
                 placeholder="Buscar unidad..."
@@ -445,7 +451,9 @@ const FuelLightFleet = () => {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label className="text-sm font-bold">Totales</Label>
+              <Label className="text-sm font-bold">
+                Totales{recent.limited && ` (últimos ${RECENT_LIMIT})`}
+              </Label>
               <div className="flex items-center gap-3 h-10 px-3 rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-500/10 text-sm">
                 <span className="text-emerald-700 dark:text-emerald-400 font-black">
                   {totals.liters} L
@@ -476,6 +484,13 @@ const FuelLightFleet = () => {
           {showForm ? "Cancelar" : "Nuevo Llenado"}
         </Button>
       </div>
+      {recent.limited && (
+        <p className="-mt-2 mb-3 text-xs text-slate-500 dark:text-slate-400">
+          Mostrando los últimos {RECENT_LIMIT} de {recent.total} llenados. Filtra por fecha, unidad o
+          responsable para ver los demás.
+        </p>
+      )}
+
 
       <AnimatePresence>
         {showForm && (
@@ -519,7 +534,7 @@ const FuelLightFleet = () => {
                       <option value="">Seleccionar...</option>
                       {lightVehicles.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.code} - {v.name}
+                          {unitLabel(v)}
                         </option>
                       ))}
                     </select>

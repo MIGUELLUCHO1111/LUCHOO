@@ -1,4 +1,5 @@
 import api, { executeTransaction, getCurrentProfile } from "./api";
+import { notifyTanksChanged } from "@/lib/tankAlert";
 
 const TX = {
   CREATE_VEHICLE: 81,
@@ -39,6 +40,12 @@ const unwrap = (res) => {
   return d;
 };
 
+// Llenados y movimientos cambian el nivel del tanque: avisa a la alerta global.
+const tanksChanged = (data) => {
+  notifyTanksChanged();
+  return data;
+};
+
 const fuelService = {
   // ---------- Fleet (Light) vehicles ----------
   createVehicle(data) {
@@ -59,7 +66,7 @@ const fuelService = {
 
   // ---------- Refuel records (light fleet, wire keys follow the backend) ----------
   createRefuel(data) {
-    return executeTransaction(TX.CREATE_REFUEL, data).then(unwrap);
+    return executeTransaction(TX.CREATE_REFUEL, data).then(unwrap).then(tanksChanged);
   },
   getCargaById(id) {
     return executeTransaction(TX.GET_CARGA_BY_ID, { id }).then(unwrap);
@@ -71,15 +78,15 @@ const fuelService = {
     return executeTransaction(TX.GET_ALL_REFUELS, {}).then(unwrap);
   },
   updateRefuel(id, data) {
-    return executeTransaction(TX.UPDATE_REFUEL, { id, ...data }).then(unwrap);
+    return executeTransaction(TX.UPDATE_REFUEL, { id, ...data }).then(unwrap).then(tanksChanged);
   },
   deleteRefuel(id) {
-    return executeTransaction(TX.DELETE_REFUEL, { id }).then(unwrap);
+    return executeTransaction(TX.DELETE_REFUEL, { id }).then(unwrap).then(tanksChanged);
   },
 
   // ---------- Heavy fleet (Fuel.Pesada, tx 105-109) ----------
   createHeavyRefuel(data) {
-    return executeTransaction(TX.CREATE_HEAVY_REFUEL, data).then(unwrap);
+    return executeTransaction(TX.CREATE_HEAVY_REFUEL, data).then(unwrap).then(tanksChanged);
   },
   getHeavyRefuelById(id) {
     return executeTransaction(TX.GET_HEAVY_REFUEL_BY_ID, { id }).then(unwrap);
@@ -88,15 +95,15 @@ const fuelService = {
     return executeTransaction(TX.GET_ALL_HEAVY_REFUELS, {}).then(unwrap);
   },
   updateHeavyRefuel(id, data) {
-    return executeTransaction(TX.UPDATE_HEAVY_REFUEL, { id, ...data }).then(unwrap);
+    return executeTransaction(TX.UPDATE_HEAVY_REFUEL, { id, ...data }).then(unwrap).then(tanksChanged);
   },
   deleteHeavyRefuel(id) {
-    return executeTransaction(TX.DELETE_HEAVY_REFUEL, { id }).then(unwrap);
+    return executeTransaction(TX.DELETE_HEAVY_REFUEL, { id }).then(unwrap).then(tanksChanged);
   },
 
   // ---------- Tanque de gasoil (Fuel.Tanque, tx 111-117) ----------
   createTank(data) {
-    return executeTransaction(TX.CREATE_TANK, data).then(unwrap);
+    return executeTransaction(TX.CREATE_TANK, data).then(unwrap).then(tanksChanged);
   },
   getAllTanks() {
     return executeTransaction(TX.GET_ALL_TANKS, {}).then(unwrap);
@@ -105,16 +112,16 @@ const fuelService = {
     return executeTransaction(TX.GET_TANK_BY_ID, { id }).then(unwrap);
   },
   updateTank(id, data) {
-    return executeTransaction(TX.UPDATE_TANK, { id, ...data }).then(unwrap);
+    return executeTransaction(TX.UPDATE_TANK, { id, ...data }).then(unwrap).then(tanksChanged);
   },
   deleteTank(id) {
-    return executeTransaction(TX.DELETE_TANK, { id }).then(unwrap);
+    return executeTransaction(TX.DELETE_TANK, { id }).then(unwrap).then(tanksChanged);
   },
   getMovementsByTank(tankId) {
     return executeTransaction(TX.GET_MOVEMENTS_BY_TANK, { tank_id: tankId }).then(unwrap);
   },
   registerMovement(data) {
-    return executeTransaction(TX.REGISTER_MOVEMENT, data).then(unwrap);
+    return executeTransaction(TX.REGISTER_MOVEMENT, data).then(unwrap).then(tanksChanged);
   },
 
   // ---------- Reportes (Fuel.Reporte, tx 118) ----------

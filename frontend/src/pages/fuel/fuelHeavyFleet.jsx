@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { RECENT_LIMIT, limitToRecent } from "@/lib/recentRecords";
+import { unitLabel } from "@/lib/unitLabel";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck,
@@ -238,8 +240,10 @@ const FuelHeavyFleet = () => {
   };
 
   // ---------- Filters ----------
-  const filteredFillUps = useMemo(() => {
-    return fillUps.filter((r) => {
+  const filtersActive =
+    !!filters.from || !!filters.to || filters.unitIds.length > 0 || !!filters.requester;
+  const recent = useMemo(() => {
+    const matching = fillUps.filter((r) => {
       const d = new Date(r.filled_at);
       if (filters.from && d < new Date(filters.from)) return false;
       if (filters.to) {
@@ -252,7 +256,9 @@ const FuelHeavyFleet = () => {
       if (filters.requester && r.requester !== filters.requester) return false;
       return true;
     });
-  }, [fillUps, filters]);
+    return limitToRecent(matching, filtersActive);
+  }, [fillUps, filters, filtersActive]);
+  const filteredFillUps = recent.visible;
 
   const totals = useMemo(() => {
     let gallons = 0;
@@ -276,7 +282,7 @@ const FuelHeavyFleet = () => {
 
   const vehicleName = (id) => {
     const v = heavyVehicles.find((x) => String(x.id) === String(id));
-    return v ? `${v.code} - ${v.name}` : `Unidad ${id}`;
+    return v ? unitLabel(v) : `Unidad ${id}`;
   };
 
   const getMeasurement = (r) =>
@@ -425,7 +431,7 @@ const FuelHeavyFleet = () => {
                 multiple
                 items={heavyVehicles}
                 getValue={(v) => Number(v.id)}
-                getLabel={(v) => `${v.code} - ${v.name}`}
+                getLabel={unitLabel}
                 value={filters.unitIds}
                 onChange={(id) => toggleUnitFilter(id)}
                 placeholder="Buscar unidad..."
@@ -444,7 +450,9 @@ const FuelHeavyFleet = () => {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label className="text-sm font-bold">Total consumido</Label>
+              <Label className="text-sm font-bold">
+                Total consumido{recent.limited && ` (últimas ${RECENT_LIMIT})`}
+              </Label>
               <div className="flex items-center gap-2 h-10 px-3 rounded-xl border border-brand-gold/30 dark:border-brand-gold/20 bg-brand-gold/10 text-sm font-black text-brand-gold-dark dark:text-brand-gold">
                 {unit === "galones"
                   ? `${totals.gallons} gal`
@@ -511,6 +519,13 @@ const FuelHeavyFleet = () => {
           {showForm ? "Cancelar" : "Nueva Carga"}
         </Button>
       </div>
+      {recent.limited && (
+        <p className="-mt-2 mb-3 text-xs text-slate-500 dark:text-slate-400">
+          Mostrando las últimas {RECENT_LIMIT} de {recent.total} cargas. Filtra por fecha, unidad o
+          solicitante para ver las demás.
+        </p>
+      )}
+
 
       <AnimatePresence>
         {showForm && (
@@ -580,7 +595,7 @@ const FuelHeavyFleet = () => {
                       <option value="">Seleccionar...</option>
                       {heavyVehicles.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.code} - {v.name}
+                          {unitLabel(v)}
                         </option>
                       ))}
                     </select>

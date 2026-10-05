@@ -100,6 +100,62 @@ class Registro {
     return { statusCode: STATUS_CODES.OK, data: result?.rows || [] };
   };
 
+  // "HORAS PTO" del proyecto para un día (fila fija de la hoja "Gráfico"
+  // del Excel, ver migración 052). Un solo valor por proyecto+día: vacío o
+  // null borra el renglón, así el día queda "sin PTO" en vez de en 0.
+  guardarPtoDiario = async ({ project_id, fecha, horas_pto, created_by, caller_profile }) => {
+    await this.dbmsReady;
+
+    if (!project_id || !fecha) {
+      throw new Error(JSON.stringify({
+        message: "Campos requeridos: 'project_id', 'fecha'",
+        statusCode: STATUS_CODES.BAD_REQUEST,
+      }));
+    }
+
+    await assertProjectAccess(this.dbms, { caller_profile, project_id });
+
+    if (horas_pto === null || horas_pto === undefined || horas_pto === '') {
+      await this.dbms.executeNamedQuery({ nameQuery: 'deletePtoDiario', params: { project_id, fecha } });
+      return { statusCode: STATUS_CODES.OK, data: null, message: 'Horas PTO eliminadas' };
+    }
+
+    const horas = Number(horas_pto);
+    if (!Number.isFinite(horas) || horas < 0) {
+      throw new Error(JSON.stringify({
+        message: 'Las horas PTO deben ser un número mayor o igual a 0',
+        statusCode: STATUS_CODES.BAD_REQUEST,
+      }));
+    }
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'upsertPtoDiario',
+      params: { project_id, fecha, horas_pto: horas, created_by: created_by || null },
+    });
+
+    return { statusCode: STATUS_CODES.CREATED, data: result?.rows?.[0], message: 'Horas PTO guardadas' };
+  };
+
+  getPtoDelDia = async ({ project_id, fecha, caller_profile }) => {
+    await this.dbmsReady;
+
+    if (!project_id || !fecha) {
+      throw new Error(JSON.stringify({
+        message: "Campos requeridos: 'project_id', 'fecha'",
+        statusCode: STATUS_CODES.BAD_REQUEST,
+      }));
+    }
+
+    await assertProjectAccess(this.dbms, { caller_profile, project_id });
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'getPtoDiario',
+      params: { project_id, fecha },
+    });
+
+    return { statusCode: STATUS_CODES.OK, data: result?.rows?.[0] || null };
+  };
+
   eliminarRegistro = async ({ id, caller_profile }) => {
     await this.dbmsReady;
 

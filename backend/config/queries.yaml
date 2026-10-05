@@ -1384,6 +1384,35 @@
     orderArray: ['id']
   },
 
+  # ---------- Horas PTO del proyecto (un renglón por proyecto+día) ----------
+  # Fila "HORAS PTO" de la hoja "Gráfico" del Excel -- ver migración 052.
+
+  'upsertPtoDiario': {
+    query: 'INSERT INTO public.project_daily_pto (project_id, fecha, horas_pto, created_by) VALUES ($1, $2, $3, $4) ON CONFLICT (project_id, fecha) DO UPDATE SET horas_pto = EXCLUDED.horas_pto, updated_at = NOW() RETURNING id, project_id, fecha, horas_pto;',
+    structure_params: { project_id: 'int', fecha: 'string', horas_pto: 'number', created_by: 'int|null' },
+    orderArray: ['project_id', 'fecha', 'horas_pto', 'created_by']
+  },
+
+  'deletePtoDiario': {
+    query: 'DELETE FROM public.project_daily_pto WHERE project_id = $1 AND fecha = $2 RETURNING id;',
+    structure_params: { project_id: 'int', fecha: 'string' },
+    orderArray: ['project_id', 'fecha']
+  },
+
+  'getPtoDiario': {
+    query: 'SELECT id, project_id, fecha, horas_pto FROM public.project_daily_pto WHERE project_id = $1 AND fecha = $2;',
+    structure_params: { project_id: 'int', fecha: 'string' },
+    orderArray: ['project_id', 'fecha']
+  },
+
+  # Por proyecto y día en el rango -- el BO suma por día respetando el
+  # acceso por proyecto, igual que getResumenHorasPorDia.
+  'getPtoPorDia': {
+    query: 'SELECT fecha, project_id, horas_pto FROM public.project_daily_pto WHERE fecha BETWEEN $1 AND $2;',
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
+  },
+
   # ---------- Acceso por proyecto (qué perfiles pueden rellenar cada proyecto) ----------
 
   'hasProjectProfileAccess': {

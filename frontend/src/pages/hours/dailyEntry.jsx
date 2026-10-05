@@ -51,6 +51,9 @@ const DailyEntry = () => {
   // mostrar el acumulado "con hoy", igual que las columnas ACUMULADO MES
   // del Excel de referencia.
   const [acumuladoPrevio, setAcumuladoPrevio] = useState({});
+  // "HORAS PTO" del proyecto para el día: un solo valor, no por equipo (la
+  // fila fija de la hoja "Gráfico" del Excel). "" = sin cargar.
+  const [horasPto, setHorasPto] = useState("");
 
   const [showPicker, setShowPicker] = useState(false);
   const [loadingDay, setLoadingDay] = useState(false);
@@ -79,6 +82,7 @@ const DailyEntry = () => {
       setIncludedIds(new Set());
       setRowData({});
       setAcumuladoPrevio({});
+      setHorasPto("");
       return;
     }
     loadDay();
@@ -90,12 +94,14 @@ const DailyEntry = () => {
     setError(null);
     setNotice(null);
     try {
-      const [asignados, registros, acumulado] = await Promise.all([
+      const [asignados, registros, acumulado, pto] = await Promise.all([
         hoursService.getEquiposAsignados({ project_id: Number(projectId), fecha }),
         hoursService.getRegistrosDelDia({ project_id: Number(projectId), fecha }),
         hoursService.getAcumuladoMes({ project_id: Number(projectId), fecha }),
+        hoursService.getPtoDelDia({ project_id: Number(projectId), fecha }),
       ]);
       setAssignedEquipos(Array.isArray(asignados) ? asignados : []);
+      setHorasPto(pto?.horas_pto != null ? String(parseFloat(pto.horas_pto)) : "");
 
       const nextAcumulado = {};
       for (const a of Array.isArray(acumulado) ? acumulado : []) {
@@ -243,6 +249,12 @@ const DailyEntry = () => {
           created_by: user?.id || null,
         });
       }
+      await hoursService.guardarPtoDiario({
+        project_id: Number(projectId),
+        fecha,
+        horas_pto: horasPto === "" ? null : parseFloat(horasPto),
+        created_by: user?.id || null,
+      });
       setNotice("Día guardado");
       loadDay();
     } catch (err) {
@@ -484,6 +496,28 @@ const DailyEntry = () => {
         </Card>
       )}
 
+      {projectId && !loadingDay && (
+        <Card className="mt-4 border-brand-navy/20 dark:border-brand-navy-light/20">
+          <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+            <div className="flex-1">
+              <p className="text-sm font-bold text-slate-900 dark:text-white">Horas PTO del proyecto</p>
+              <p className="text-xs text-slate-400">
+                Un solo valor por día para todo el proyecto (fila "HORAS PTO" del gráfico). Déjalo vacío si no aplica.
+              </p>
+            </div>
+            <Input
+              type="number"
+              min="0"
+              step="0.5"
+              placeholder="Ej: 164"
+              value={horasPto}
+              onChange={(e) => setHorasPto(e.target.value)}
+              className="w-32"
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {projectId && displayedEquipos.length > 0 && (
         <Card className="mt-4">
           <CardContent className="p-6 grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -515,7 +549,7 @@ const DailyEntry = () => {
         </Card>
       )}
 
-      {projectId && displayedEquipos.length > 0 && (
+      {projectId && !loadingDay && (
         <div className="flex justify-end mt-4">
           <Button
             onClick={handleSave}

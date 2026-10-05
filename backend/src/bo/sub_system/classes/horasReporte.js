@@ -5,6 +5,15 @@ import { getAccessibleProjectIds } from './projectAccess.js';
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
 
+// %Stand-By agregado con la fórmula de la hoja "Gráfico" del Excel de
+// referencia: (1 - cobro completo / hrs. totales) * 100. A diferencia de
+// standby/hrs_totales, cuenta como stand-by TODA hora contratada que no se
+// cobró completa (incluye horas fuera de servicio). Se acota en 0: si un
+// equipo trabajó más de lo contratado no hay stand-by negativo.
+// (Julio, 25/09/2026 -- pedido explícito de usar la fórmula del Excel.)
+const pctStandby = (cobroCompleto, hrsTotales) =>
+  hrsTotales > 0 ? +Math.max(0, (1 - cobroCompleto / hrsTotales) * 100).toFixed(2) : null;
+
 // Resumen de Control de Horas para Reportes (fase 1 -- solo horas, sin
 // tarifas $/hora todavía: no existen en el sistema, así que no se inventa
 // ningún monto. La rentabilidad en dólares queda pendiente para cuando
@@ -50,7 +59,7 @@ class Reporte {
         cobro_completo: +cobroCompleto.toFixed(2),
         standby: +standby.toFixed(2),
         hrs_totales: +hrsTotales.toFixed(2),
-        pct_standby: hrsTotales > 0 ? +((standby * 100) / hrsTotales).toFixed(2) : null,
+        pct_standby: pctStandby(cobroCompleto, hrsTotales),
         dias_registrados: parseInt(r.dias_registrados, 10) || 0,
       };
     });
@@ -79,7 +88,7 @@ class Reporte {
       cobro_completo: +p.cobro_completo.toFixed(2),
       standby: +p.standby.toFixed(2),
       hrs_totales: +p.hrs_totales.toFixed(2),
-      pct_standby: p.hrs_totales > 0 ? +((p.standby * 100) / p.hrs_totales).toFixed(2) : null,
+      pct_standby: pctStandby(p.cobro_completo, p.hrs_totales),
     }));
 
     const totals = byEquipo.reduce(
@@ -93,7 +102,7 @@ class Reporte {
     totals.cobro_completo = +totals.cobro_completo.toFixed(2);
     totals.standby = +totals.standby.toFixed(2);
     totals.hrs_totales = +totals.hrs_totales.toFixed(2);
-    totals.pct_standby = totals.hrs_totales > 0 ? +((totals.standby * 100) / totals.hrs_totales).toFixed(2) : null;
+    totals.pct_standby = pctStandby(totals.cobro_completo, totals.hrs_totales);
 
     return { statusCode: STATUS_CODES.OK, data: { from, to, totals, byProyecto, byEquipo } };
   };
@@ -111,27 +120,36 @@ class Reporte {
       }));
     }
 
-    const result = await this.dbms.executeNamedQuery({
-      nameQuery: 'getResumenHorasPorDia',
-      params: { from, to },
-    });
+    const [result, ptoResult] = await Promise.all([
+      this.dbms.executeNamedQuery({ nameQuery: 'getResumenHorasPorDia', params: { from, to } }),
+      this.dbms.executeNamedQuery({ nameQuery: 'getPtoPorDia', params: { from, to } }),
+    ]);
 
     const accessibleIds = await getAccessibleProjectIds(this.dbms, caller_profile);
+    const canSee = (projectId) => !accessibleIds || accessibleIds.map(Number).includes(Number(projectId));
     const porDiaMap = new Map();
 
     for (const r of result?.rows || []) {
       const fecha = new Date(r.fecha).toISOString().slice(0, 10);
       if (!porDiaMap.has(fecha)) {
-        porDiaMap.set(fecha, { fecha, cobro_completo: 0, standby: 0, hrs_totales: 0 });
+        porDiaMap.set(fecha, { fecha, cobro_completo: 0, standby: 0, hrs_totales: 0, horas_pto: null });
       }
       // r.project_id es null en los días sin ningún registro (LEFT JOIN) --
       // esas filas no aportan nada, solo garantizan que el día aparezca.
-      if (r.project_id != null && (!accessibleIds || accessibleIds.map(Number).includes(Number(r.project_id)))) {
+      if (r.project_id != null && canSee(r.project_id)) {
         const acc = porDiaMap.get(fecha);
         acc.cobro_completo += parseFloat(r.cobro_completo) || 0;
         acc.standby += parseFloat(r.standby) || 0;
         acc.hrs_totales += parseFloat(r.hrs_totales) || 0;
       }
+    }
+
+    // Horas PTO (fila fija del Excel): null si ningún proyecto visible la
+    // cargó ese día, para que el gráfico deje el hueco en vez de marcar 0.
+    for (const r of ptoResult?.rows || []) {
+      const fecha = new Date(r.fecha).toISOString().slice(0, 10);
+      const acc = porDiaMap.get(fecha);
+      if (acc && canSee(r.project_id)) acc.horas_pto = (acc.horas_pto || 0) + (parseFloat(r.horas_pto) || 0);
     }
 
     const porDia = [...porDiaMap.values()]
@@ -141,7 +159,8 @@ class Reporte {
         cobro_completo: +d.cobro_completo.toFixed(2),
         standby: +d.standby.toFixed(2),
         hrs_totales: +d.hrs_totales.toFixed(2),
-        pct_standby: d.hrs_totales > 0 ? +((d.standby * 100) / d.hrs_totales).toFixed(2) : null,
+        pct_standby: pctStandby(d.cobro_completo, d.hrs_totales),
+        horas_pto: d.horas_pto === null ? null : +d.horas_pto.toFixed(2),
       }));
 
     return { statusCode: STATUS_CODES.OK, data: { from, to, porDia } };

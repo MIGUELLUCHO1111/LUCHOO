@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { LOW_TANK_PERCENT } from "@/lib/tankAlert";
 
 const colorMap = {
   high: "bg-emerald-500",
@@ -8,7 +9,7 @@ const colorMap = {
 
 function getLevelColor(percent) {
   if (percent >= 60) return colorMap.high;
-  if (percent >= 30) return colorMap.medium;
+  if (percent > LOW_TANK_PERCENT) return colorMap.medium;
   return colorMap.low;
 }
 

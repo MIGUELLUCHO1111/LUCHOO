@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Fuel, Plus, X, Pencil, Trash2, ArrowDownToLine, History } from "lucide-react";
+import { Fuel, Plus, X, Pencil, Trash2, ArrowDownToLine, History, AlertTriangle } from "lucide-react";
 import { useAuth, useConfirm } from "@/context";
 import { fuelService } from "@/services";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { fmtDate, fmtTime } from "@/lib/excel";
+import { LOW_TANK_PERCENT, isTankLow, tankPercent } from "@/lib/tankAlert";
 
 const emptyForm = {
   code: "",
@@ -55,6 +56,8 @@ const FuelTank = () => {
   const [historyTank, setHistoryTank] = useState(null);
   const [movements, setMovements] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  const lowTanks = tanks.filter((t) => t.is_active && isTankLow(t));
 
   useEffect(() => {
     loadTanks();
@@ -190,6 +193,22 @@ const FuelTank = () => {
       subtitle={`GESTIÓN DE TANQUES • ${new Date().toLocaleDateString()}`}
       accentColor="navy"
     >
+      {lowTanks.length > 0 && (
+        <div
+          role="alert"
+          className="mb-4 p-4 rounded-2xl border bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-200 flex items-start gap-3"
+        >
+          <AlertTriangle size={20} className="flex-shrink-0 mt-0.5 text-amber-500" />
+          <div className="text-sm">
+            <p className="font-bold">La capacidad del tanque está bajando y debe ser llenado</p>
+            <p className="opacity-90">
+              {lowTanks.map((t) => `${t.code} (${Math.round(tankPercent(t))}%)`).join(", ")}
+              {" · "}nivel en {LOW_TANK_PERCENT}% o menos de su capacidad.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end mb-4">
         <Button
           onClick={() => { resetForm(); setShowForm(!showForm); }}
@@ -321,8 +340,18 @@ const FuelTank = () => {
         ) : (
           tanks.map((t) => {
             const low = Number(t.current_level_liters) <= Number(t.min_alert_liters);
+            const needsRefill = isTankLow(t);
             return (
-              <Card key={t.id} className={low ? "border-red-300 dark:border-red-500/30" : ""}>
+              <Card
+                key={t.id}
+                className={
+                  low
+                    ? "border-red-300 dark:border-red-500/30"
+                    : needsRefill
+                      ? "border-amber-300 dark:border-amber-500/30"
+                      : ""
+                }
+              >
                 <CardContent className="p-5 flex flex-col gap-4">
                   <div className="flex items-start justify-between">
                     <div>
@@ -380,6 +409,11 @@ const FuelTank = () => {
                       <p className="text-xs text-slate-400 capitalize">{t.fuel_type}</p>
                       {low && (
                         <p className="text-xs text-red-500 font-bold">Nivel bajo mínimo</p>
+                      )}
+                      {needsRefill && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                          <AlertTriangle size={12} /> Debe ser llenado
+                        </p>
                       )}
                     </div>
                   </div>
