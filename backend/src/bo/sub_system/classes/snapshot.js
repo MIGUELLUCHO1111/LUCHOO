@@ -11,6 +11,24 @@ const STATUS_CODES = config.STATUS_CODES;
 // cuenta de API; sin este filtro generarían alertas/reportes falsos).
 const STALE_HOURS = Number(process.env.TRACKER_STALE_HOURS || 24);
 
+// Codigo comparado sin guiones, puntos ni espacios: "FPCSL08" y "FP-CSL.08"
+// son la misma unidad (no se renombra por eso).
+const normCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+// Liviana o Pesada segun el tipo de vehiculo que tiene la unidad en el GPS
+// (TObjectTypeName de la API oficial v3: "PICK UP 1", "Camion", "GRUA",
+// "Tractor", "Camión Cava"...). Si no se reconoce, queda sin clasificar y la
+// lista de Flota lo avisa. Pedido de Lguerra, 06/10/2026.
+const PESADA_RE = /cami[oó]n|cabina|chuto|tractor|gr[uú]a|montacarga|cargador|cava|gandola|volteo|cisterna|brazo|cesta|plataforma|retro|excavadora|tanque|bus\b|autob[uú]s|maquinaria|compactador/i;
+const LIVIANA_RE = /pick\s*-?up|camioneta|autom[oó]vil|\bauto\b|sed[aá]n|\bvan\b|moto|r[uú]stico|jeep|\bcarro\b|hatchback|suv/i;
+export const fleetTypeFromGps = (typeName) => {
+  const t = String(typeName || '');
+  if (!t) return null;
+  if (LIVIANA_RE.test(t)) return 'LIVIANA';
+  if (PESADA_RE.test(t)) return 'PESADA';
+  return null;
+};
+
 class Snapshot {
   constructor() {
     this.dbms = new DBMS();
@@ -18,6 +36,18 @@ class Snapshot {
     this.client = new ForesightClient();
     this.alerta = new Alerta();
   }
+
+  // Tipo de flota de una unidad nueva: una sola consulta a la API v3 (solo
+  // al auto-registrar, no en cada sincronizacion). Si falla, sin clasificar.
+  tipoDeFlotaDelGps = async (plate) => {
+    try {
+      const estado = await this.client.getEstadoActualV3(plate);
+      return fleetTypeFromGps(estado?.TObjectTypeName);
+    } catch (error) {
+      console.error(`[Tracker] No se pudo consultar el tipo de vehiculo de ${plate}:`, error?.message || error);
+      return null;
+    }
+  };
 
   // Fase 1 - motor de datos: llama a la API una vez (toda la flota),
   // cruza cada unidad por placa contra la tabla interna, y guarda una fila
@@ -57,6 +87,34 @@ class Snapshot {
       const plateKey = plate ? plate.toUpperCase() : null;
       let unit = plateKey ? byPlate.get(plateKey) : null;
 
+      // Si en GEvolution le cambiaron el nombre a una unidad ya registrada
+      // (ej. "FPVA09" -> "FP-BA.09"), el codigo de la app se actualiza solo
+      // y queda en su historial (pedido de Lguerra, 06/10/2026). Solo si el
+      // nombre nuevo no es el codigo de otra unidad.
+      if (unit && raw.Name && normCode(raw.Name) && normCode(raw.Name) !== normCode(unit.code)) {
+        const nuevo = String(raw.Name).trim();
+        const otra = byCode.get(nuevo.toUpperCase());
+        if (!otra || otra.id === unit.id) {
+          try {
+            const r = await this.dbms.executeNamedQuery({ nameQuery: 'renameFleetUnitCode', params: { id: Number(unit.id), code: nuevo } });
+            const renamed = r?.rows?.[0];
+            if (renamed) {
+              await this.dbms.executeNamedQuery({
+                nameQuery: 'insertFleetUnitEvent',
+                params: { unit_id: Number(unit.id), event_type: 'EDICION', title: `Código ${nuevo}`, detail: `Antes: ${unit.code}. Se tomó el nombre nuevo que tiene en el GPS.`, created_by: 'sistema' },
+              });
+              console.log(`[Tracker] Unidad renombrada desde el GPS: ${unit.code} -> ${nuevo} (placa ${plate})`);
+              byCode.delete(String(unit.code).toUpperCase());
+              byCode.set(nuevo.toUpperCase(), renamed);
+              byPlate.set(plateKey, renamed);
+              unit = renamed;
+            }
+          } catch (error) {
+            console.error(`[Tracker] No se pudo renombrar ${unit.code} -> ${nuevo}:`, error?.message || error);
+          }
+        }
+      }
+
       // Auto-registro (pedido de Lguerra, 18/09/2026): la plataforma ya le
       // pone un código a cada unidad (raw.Name, ej. "FP-CSL.07") -- en vez
       // de dejarla "sin registrar" hasta que alguien la note en un reporte,
@@ -91,15 +149,16 @@ class Snapshot {
           }
         } else {
           try {
+            const fleetType = await this.tipoDeFlotaDelGps(plate);
             const createResult = await this.dbms.executeNamedQuery({
               nameQuery: 'createTrackerUnit',
-              params: { code, plate, driver_name: 'ROTATIVO', fleet_type: null },
+              params: { code, plate, driver_name: 'ROTATIVO', fleet_type: fleetType },
             });
             unit = createResult?.rows?.[0];
             if (unit) {
               byPlate.set(plateKey, unit);
               byCode.set(codeKey, unit);
-              console.log(`[Tracker] Unidad nueva auto-registrada: ${code} (placa ${plate})`);
+              console.log(`[Tracker] Unidad nueva auto-registrada: ${code} (placa ${plate}, flota ${fleetType || 'sin clasificar'})`);
             }
           } catch (error) {
             console.error(`[Tracker] No se pudo auto-registrar la unidad ${code} (placa ${plate}):`, error?.message || error);

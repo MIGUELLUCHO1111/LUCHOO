@@ -904,6 +904,20 @@
   # is_active/fleet_type como sí hace updateTrackerUnit (que requiere
   # mandarlos todos y pisaría lo que ya tenía la unidad con valores por
   # defecto). El WHERE plate IS NULL la hace segura de reintentar.
+  # Renombrado automatico cuando cambian el nombre de la unidad en GEvolution
+  # (06/10/2026). No pisa el codigo de otra unidad viva.
+  'renameFleetUnitCode': {
+    query: 'UPDATE public.fleet_unit u SET code = $2 WHERE u.id = $1 AND u.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM public.fleet_unit o WHERE upper(o.code) = upper($2) AND o.id <> $1 AND o.deleted_at IS NULL) RETURNING id, code, plate, driver_name, is_active, fleet_type;',
+    structure_params: { id: 'int', code: 'string' },
+    orderArray: ['id', 'code']
+  },
+
+  'insertFleetUnitEvent': {
+    query: 'INSERT INTO public.fleet_unit_event (unit_id, event_type, title, detail, created_by) VALUES ($1, $2, $3, $4, $5);',
+    structure_params: { unit_id: 'int', event_type: 'string', title: 'string', detail: 'string|null', created_by: 'string|null' },
+    orderArray: ['unit_id', 'event_type', 'title', 'detail', 'created_by']
+  },
+
   'setTrackerUnitPlateIfMissing': {
     query: 'UPDATE public.fleet_unit SET plate = $2 WHERE code = $1 AND plate IS NULL AND deleted_at IS NULL RETURNING id, code, plate, driver_name, is_active, fleet_type;',
     structure_params: { code: 'string', plate: 'string' },
