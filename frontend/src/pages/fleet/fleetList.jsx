@@ -15,7 +15,7 @@ import AssignManagersModal from "./fleetManagers";
 
 // Icono y color solido de cada indicador (pedido de Lguerra, 05/10/2026: que resalte).
 const KPI_ICON = { total: Truck, OPERATIVO_CONTRATO: Briefcase, DISPONIBLE: CircleCheck, FUERA_DE_SERVICIO: Ban, docs: FileWarning };
-const Kpi = ({ id, label, value, total, tile = "bg-brand-navy", tone = "text-brand-navy dark:text-white", active, onClick }) => {
+const Kpi = ({ id, label, value, total, tile = "bg-brand-navy", tileText = "text-white", tone = "text-brand-navy dark:text-white", active, onClick }) => {
   const Icon = KPI_ICON[id] || Truck;
   const pct = total ? Math.round((value / total) * 100) : 0;
   return (
@@ -27,7 +27,7 @@ const Kpi = ({ id, label, value, total, tile = "bg-brand-navy", tone = "text-bra
       className={`text-left rounded-2xl border p-4 transition-colors ${active ? "border-brand-navy ring-2 ring-brand-navy/20 bg-white dark:bg-[#0f1115]" : "border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0f1115]/80 hover:border-slate-200 dark:hover:border-white/10"}`}
     >
       <div className="flex items-center gap-3">
-        <span className={`h-10 w-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-md ${tile}`}><Icon size={18} /></span>
+        <span className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 shadow-md ${tileText} ${tile}`}><Icon size={18} /></span>
         <div className="min-w-0">
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 dark:text-slate-400 leading-tight">{label}</p>
           <p className={`font-display text-2xl leading-tight ${tone}`}>{value}</p>
@@ -171,7 +171,7 @@ const UnitCard = ({ u, onOpen, i }) => {
       </div>
 
       <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between gap-2">
-        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold text-white ${st.dot}`}>{st.short}</span>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold ${st.on} ${st.dot}`}>{st.short}</span>
         <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold ${gps.cls}`}>
           <span className={`h-2 w-2 rounded-full ${gps.dot}`} />{gps.label}
         </span>
@@ -298,7 +298,7 @@ const FleetList = () => {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-5">
         <Kpi id="total" label="Unidades" value={counts.total} active={!status && !docsOnly} onClick={() => { setStatus(""); setDocsOnly(false); }} />
         {Object.entries(STATUS).map(([k, s]) => (
-          <Kpi key={k} id={k} label={s.label} value={counts[k]} total={counts.total} tile={s.dot} tone={s.kpi} active={status === k} onClick={() => { setStatus(status === k ? "" : k); setDocsOnly(false); }} />
+          <Kpi key={k} id={k} label={s.label} value={counts[k]} total={counts.total} tile={s.dot} tileText={s.on} tone={s.kpi} active={status === k} onClick={() => { setStatus(status === k ? "" : k); setDocsOnly(false); }} />
         ))}
         <Kpi id="docs" label="Documentos por vencer" value={counts.docs} total={counts.total} tile="bg-orange-500" tone="text-orange-600" active={docsOnly} onClick={() => { setDocsOnly(!docsOnly); setStatus(""); }} />
       </div>

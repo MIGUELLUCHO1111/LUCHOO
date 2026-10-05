@@ -614,7 +614,7 @@ const StatusControl = ({ unit, onSaved }) => {
       {isAdmin ? (
         <div className="flex flex-wrap rounded-2xl bg-slate-100 dark:bg-white/5 p-1">
           {Object.entries(STATUS).map(([k, s]) => (
-            <button key={k} disabled={saving} onClick={() => pick(k)} title={s.label} className={`relative px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${k === current ? "text-white" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"}`}>
+            <button key={k} disabled={saving} onClick={() => pick(k)} title={s.label} className={`relative px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${k === current ? s.on : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-200"}`}>
               {k === current && <motion.span layoutId="fleet-status" className={`absolute inset-0 rounded-xl ${s.bar}`} />}
               <span className="relative">{s.short}</span>
             </button>

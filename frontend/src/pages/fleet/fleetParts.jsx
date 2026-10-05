@@ -3,19 +3,21 @@
 // Condicion operativa de la politica FP-MTTO-PO-01 §4.1 (respuestas de Julio,
 // 30/09/2026). La cambiara Mantenimiento al abrir/cerrar una OT; mientras
 // tanto solo un admin la cambia a mano (el backend lo valida).
+// Colores (pedido de Lguerra, 05/10/2026): En contrato = amarillo Caterpillar,
+// Disponible = azul marino. "on" = color de letra sobre el fondo solido.
 export const STATUS = {
   OPERATIVO_CONTRATO: {
-    label: "Operativo en contrato", short: "En contrato",
-    dot: "bg-emerald-500", badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/30",
-    bar: "bg-emerald-500", glow: "from-emerald-500/15", ring: "ring-emerald-500/25", kpi: "text-emerald-600",
+    label: "Operativo en contrato", short: "En contrato", on: "text-slate-900",
+    dot: "bg-[#FFCD11]", badge: "bg-[#FFCD11]/20 text-[#7a5c00] dark:text-[#FFCD11] ring-[#FFCD11]/50",
+    bar: "bg-[#FFCD11]", glow: "from-[#FFCD11]/20", ring: "ring-[#FFCD11]/40", kpi: "text-[#a57c00] dark:text-[#FFCD11]",
   },
   DISPONIBLE: {
-    label: "Disponible", short: "Disponible",
-    dot: "bg-amber-500", badge: "bg-amber-500/10 text-amber-700 dark:text-amber-400 ring-amber-500/30",
-    bar: "bg-amber-500", glow: "from-amber-500/15", ring: "ring-amber-500/25", kpi: "text-amber-600",
+    label: "Disponible", short: "Disponible", on: "text-white",
+    dot: "bg-brand-navy", badge: "bg-brand-navy/10 text-brand-navy dark:text-sky-300 ring-brand-navy/30",
+    bar: "bg-brand-navy", glow: "from-brand-navy/15", ring: "ring-brand-navy/25", kpi: "text-brand-navy dark:text-sky-300",
   },
   FUERA_DE_SERVICIO: {
-    label: "Fuera de servicio", short: "Fuera de servicio",
+    label: "Fuera de servicio", short: "Fuera de servicio", on: "text-white",
     dot: "bg-red-500", badge: "bg-red-500/10 text-red-600 dark:text-red-400 ring-red-500/30",
     bar: "bg-red-500", glow: "from-red-500/15", ring: "ring-red-500/25", kpi: "text-red-600",
   },
