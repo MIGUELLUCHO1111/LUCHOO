@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, AlertTriangle, Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
+import { Plus, ArrowLeft, ArrowRight, AlertTriangle, Truck, Search, Settings2, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { Card } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { STATUS, statusOf, statusKeyOf, gpsState, PlateBadge, VehicleIcon, input
 import { useFamilies } from "./fleetArt";
 import { fichaChecklist, CHECK_LABELS, docsState } from "./fleetCompleteness";
 import AssignManagersModal from "./fleetManagers";
+import NewUnitModal from "./fleetNewUnit";
 import DocsBadge from "./fleetDocsBadge";
 
 const AjustesModal = ({ onClose }) => {
@@ -230,6 +231,7 @@ const FleetList = () => {
   };
   const [showAjustes, setShowAjustes] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const [missing, setMissing] = useState("");
   const [mine, setMine] = useState(!isAdmin);
 
@@ -341,6 +343,12 @@ const FleetList = () => {
             </optgroup>
           </select>
           {isAdmin && (
+            <motion.button whileHover={{ y: -2 }} whileTap={{ scale: 0.97 }} type="button" onClick={() => setShowNew(true)} title="Registrar una unidad nueva (único lugar donde se crean a mano)"
+              className="h-11 px-4 rounded-xl inline-flex items-center gap-2 text-sm font-extrabold bg-brand-gold text-slate-900 shadow-md shadow-brand-gold/30 hover:brightness-105">
+              <span className="inline-flex"><Plus size={17} /></span> Nueva unidad
+            </motion.button>
+          )}
+          {isAdmin && (
             <Button onClick={() => setShowAssign(true)} className="h-11 rounded-xl gap-2 font-bold bg-brand-navy hover:bg-brand-navy-light text-white" title="Asignar encargado a varias unidades">
               <UserCog size={16} /><span className="hidden xl:inline">Asignar encargado</span>
             </Button>
@@ -370,6 +378,7 @@ const FleetList = () => {
       )}
 
       <AnimatePresence>{showAjustes && <AjustesModal onClose={(saved) => { setShowAjustes(false); if (saved) load(); }} />}</AnimatePresence>
+      <AnimatePresence>{showNew && <NewUnitModal defaultFleet={fleet === "LIVIANA" || fleet === "PESADA" ? fleet : ""} onClose={() => setShowNew(false)} />}</AnimatePresence>
       <AnimatePresence>{showAssign && <AssignManagersModal units={units} onClose={() => setShowAssign(false)} onDone={() => { setShowAssign(false); load(); }} />}</AnimatePresence>
     </PageLayout>
   );

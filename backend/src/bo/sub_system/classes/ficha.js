@@ -204,6 +204,45 @@ class Ficha {
     };
   };
 
+  // Alta manual de una unidad (pedido de Lguerra, 05/10/2026): desde aqui se
+  // administran todas; Combustible, Tracker y Control de Horas ya no crean.
+  // Solo admin. Codigo obligatorio y unico; la placa no puede estar en otra
+  // unidad (se compara sin guiones ni espacios). Queda en su historial.
+  crearUnidad = async ({ code, plate, name, fleet_type, driver_name, tank_capacity_liters, caller_user, caller_profile }) => {
+    assertAdmin(caller_profile, 'crear unidades');
+    await this.dbmsReady;
+    const codigo = String(code || '').trim().toUpperCase();
+    if (!codigo) throw badRequest('Indica el código de la unidad (ej. FP-GT.03).');
+    if (codigo.length > 40) throw badRequest('El código es demasiado largo.');
+    const placa = String(plate || '').trim().toUpperCase() || null;
+    const tipo = ['LIVIANA', 'PESADA'].includes(fleet_type) ? fleet_type : null;
+    if (!tipo) throw badRequest('Elige si la unidad es de Flota Liviana o Pesada.');
+
+    const [mismoCodigo] = await this.query('fleetFindUnitByCode', { code: codigo });
+    if (mismoCodigo) {
+      throw new Error(JSON.stringify({
+        message: mismoCodigo.deleted_at ? `El código ${codigo} perteneció a una unidad dada de baja; usa otro código.` : `Ya existe la unidad ${mismoCodigo.code}.`,
+        statusCode: STATUS_CODES.CONFLICT, error: { existente_id: mismoCodigo.deleted_at ? null : Number(mismoCodigo.id) },
+      }));
+    }
+    if (placa) {
+      const [mismaPlaca] = await this.query('fleetFindUnitByPlate', { plate_norm: normPlate(placa) });
+      if (mismaPlaca) throw new Error(JSON.stringify({ message: `La placa ${placa} ya está en la unidad ${mismaPlaca.code}.`, statusCode: STATUS_CODES.CONFLICT, error: { existente_id: Number(mismaPlaca.id) } }));
+    }
+
+    const [nueva] = await this.query('fleetCreateUnit', {
+      code: codigo,
+      name: clean(name, 'text') ?? null,
+      plate: placa,
+      driver_name: clean(driver_name, 'text') ?? 'ROTATIVO',
+      fleet_type: tipo,
+      tank_capacity_liters: numStr(clean(tank_capacity_liters, 'num') ?? null),
+    });
+    await this.query('fleetEnsureProfile', { unit_id: Number(nueva.id) });
+    await this.query('fleetInsertEvent', { unit_id: Number(nueva.id), event_type: 'CREADO', title: 'Unidad creada a mano en Flota', detail: [placa && `Placa ${placa}`, tipo === 'PESADA' ? 'Flota Pesada' : 'Flota Liviana'].filter(Boolean).join(' · '), created_by: caller_user || null });
+    return { statusCode: STATUS_CODES.CREATED, data: { id: Number(nueva.id), code: nueva.code }, message: `Unidad ${nueva.code} creada` };
+  };
+
   guardar = async ({ id, caller_user, caller_profile, caller_user_id, ...campos }) => {
     if (!id) throw badRequest("Campo requerido: 'id'");
     await this.dbmsReady;

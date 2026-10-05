@@ -30,6 +30,7 @@ const TX = {
   LECTURA_REGISTRAR: 206,
   LECTURA_REEMPLAZO: 207,
   LECTURA_ANULAR: 208,
+  CREAR_UNIDAD: 209,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -112,6 +113,8 @@ const fleetService = {
   registrarLectura: (unit_id, lectura) => call(TX.LECTURA_REGISTRAR, { unit_id, ...lectura }),
   reemplazarMedidor: (unit_id, lectura) => call(TX.LECTURA_REEMPLAZO, { unit_id, ...lectura }),
   anularLectura: (id, reason) => call(TX.LECTURA_ANULAR, { id, reason }),
+  /** Alta manual de una unidad (solo admin): unico lugar donde se crean a mano. */
+  crearUnidad: (unidad) => call(TX.CREAR_UNIDAD, unidad),
   /** Foto propia de una unidad (se ve en su ficha y en la lista). */
   subirFotoUnidad: async (unitId, file) => {
     const formData = new FormData();

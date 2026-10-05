@@ -191,3 +191,4 @@ id;sub_system;class;method;profile
 206;Flota;Lectura;registrarLectura;admin,encargado_flota
 207;Flota;Lectura;reemplazarMedidor;admin,encargado_flota
 208;Flota;Lectura;anularLectura;admin
+209;Flota;Ficha;crearUnidad;admin

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Truck, Plus, X, Pencil, Trash2 } from "lucide-react";
 import { fuelService } from "@/services";
@@ -18,6 +19,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 
 const Vehicles = () => {
+  const navigate = useNavigate();
   const confirm = useConfirm();
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -128,14 +130,21 @@ const Vehicles = () => {
       subtitle={`GESTIÓN DE VEHÍCULOS • ${new Date().toLocaleDateString()}`}
       accentColor="navy"
     >
-      <div className="flex justify-end mb-4">
-        <Button
-          onClick={() => { resetForm(); setShowForm(!showForm); }}
-          className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
-        >
-          {showForm ? <X size={16} /> : <Plus size={16} />}
-          {showForm ? "Cancelar" : "Nueva Unidad"}
-        </Button>
+      <div className="flex flex-wrap justify-end gap-3 mb-4">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mr-auto self-center">Las unidades nuevas se registran en <b>Flota → Fichas de Vehículos</b>. Aquí se editan las existentes.</p>
+        {showForm ? (
+          <Button onClick={resetForm} className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm">
+            <X size={16} /> Cancelar
+          </Button>
+        ) : (
+          <Button
+            onClick={() => navigate("/fleet")}
+            title="Las unidades nuevas se crean solo en Flota → Fichas de Vehículos"
+            className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
+          >
+            <Plus size={16} /> Nueva unidad en Flota
+          </Button>
+        )}
       </div>
 
       <AnimatePresence>

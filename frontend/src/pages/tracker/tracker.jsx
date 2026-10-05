@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Radio, RefreshCw, Plus, X, Pencil, Trash2, ChevronDown, Zap, PauseCircle, AlertTriangle, Search, ClipboardList } from "lucide-react";
 import { trackerService } from "@/services";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import {
 } from "@/lib/trackerFormat";
 
 const Tracker = () => {
+  const navigate = useNavigate();
   const confirm = useConfirm();
 
   const [snapshots, setSnapshots] = useState([]);
@@ -556,13 +558,19 @@ const Tracker = () => {
                   </button>
                 )}
               </div>
-              <Button
-                onClick={() => { resetForm(); setShowForm(!showForm); }}
-                className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-brand-navy hover:bg-brand-navy-light text-white text-sm shrink-0"
-              >
-                {showForm ? <X size={14} /> : <Plus size={14} />}
-                {showForm ? "Cancelar" : "Nueva Unidad"}
-              </Button>
+              {showForm ? (
+                <Button onClick={resetForm} className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-brand-navy hover:bg-brand-navy-light text-white text-sm shrink-0">
+                  <X size={16} /> Cancelar
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => navigate("/fleet")}
+                  title="Las unidades nuevas se crean solo en Flota → Fichas de Vehículos"
+                  className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-brand-navy hover:bg-brand-navy-light text-white text-sm shrink-0"
+                >
+                  <Plus size={16} /> Nueva unidad en Flota
+                </Button>
+              )}
             </div>
 
             {showForm && (
