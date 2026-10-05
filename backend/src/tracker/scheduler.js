@@ -6,6 +6,7 @@ import Comportamiento from '../bo/sub_system/classes/comportamiento.js';
 import Geocerca from '../bo/sub_system/classes/geocerca.js';
 import Alerta from '../bo/sub_system/classes/alerta.js';
 import TelegramSubscriberSync from './telegramSubscriberSync.js';
+import { enviarAvisoDocumentos } from '../fleet/docsAlert.js';
 import { TURNOS } from '../bo/sub_system/classes/reporte.js';
 
 /**
@@ -113,6 +114,30 @@ export function startTrackerScheduler() {
     console.log(`[Tracker] Limpieza automática de alertas programada (${alertCleanupExpression}, America/Caracas)`);
   } else {
     console.error(`[Tracker] TRACKER_ALERT_CLEANUP_CRON inválido: '${alertCleanupExpression}' -- limpieza de alertas no programada`);
+  }
+
+  // Aviso diario de documentos de la flota vencidos o por vencer (pedido de
+  // Lguerra, 05/10/2026), ver src/fleet/docsAlert.js. Independiente de los
+  // demas interruptores; FLEET_DOCS_ALERT_CRON=off lo apaga.
+  const docsAlertExpression = process.env.FLEET_DOCS_ALERT_CRON || '0 9 * * *';
+  if (docsAlertExpression === 'off') {
+    console.log('[Flota] Aviso diario de documentos por Telegram desactivado (FLEET_DOCS_ALERT_CRON=off)');
+  } else if (cron.validate(docsAlertExpression)) {
+    cron.schedule(
+      docsAlertExpression,
+      async () => {
+        try {
+          const r = await enviarAvisoDocumentos();
+          console.log(`[Flota] Aviso de documentos: ${r.vencidos} vencido(s), ${r.porVencer} por vencer${r.mensajes.length ? (r.enviado ? ' -- enviado por Telegram' : ' -- NO se pudo enviar') : ' -- nada que avisar'}`);
+        } catch (error) {
+          console.error('[Flota] Error en el aviso de documentos:', error?.message || error);
+        }
+      },
+      { timezone: 'America/Caracas' },
+    );
+    console.log(`[Flota] Aviso diario de documentos por Telegram programado (${docsAlertExpression}, America/Caracas)`);
+  } else {
+    console.error(`[Flota] FLEET_DOCS_ALERT_CRON inválido: '${docsAlertExpression}' -- aviso de documentos no programado`);
   }
 
   // Entradas/salidas de geocerca (pedido de Lguerra, 22/09/2026): las detecta

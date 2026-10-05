@@ -18,7 +18,7 @@ const normCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 // Liviana o Pesada segun el tipo de vehiculo que tiene la unidad en el GPS
 // (TObjectTypeName de la API oficial v3: "PICK UP 1", "Camion", "GRUA",
 // "Tractor", "Camión Cava"...). Si no se reconoce, queda sin clasificar y la
-// lista de Flota lo avisa. Pedido de Lguerra, 06/10/2026.
+// lista de Flota lo avisa. Pedido de Lguerra, 05/10/2026.
 const PESADA_RE = /cami[oó]n|cabina|chuto|tractor|gr[uú]a|montacarga|cargador|cava|gandola|volteo|cisterna|brazo|cesta|plataforma|retro|excavadora|tanque|bus\b|autob[uú]s|maquinaria|compactador/i;
 const LIVIANA_RE = /pick\s*-?up|camioneta|autom[oó]vil|\bauto\b|sed[aá]n|\bvan\b|moto|r[uú]stico|jeep|\bcarro\b|hatchback|suv/i;
 export const fleetTypeFromGps = (typeName) => {
@@ -89,7 +89,7 @@ class Snapshot {
 
       // Si en GEvolution le cambiaron el nombre a una unidad ya registrada
       // (ej. "FPVA09" -> "FP-BA.09"), el codigo de la app se actualiza solo
-      // y queda en su historial (pedido de Lguerra, 06/10/2026). Solo si el
+      // y queda en su historial (pedido de Lguerra, 05/10/2026). Solo si el
       // nombre nuevo no es el codigo de otra unidad.
       if (unit && raw.Name && normCode(raw.Name) && normCode(raw.Name) !== normCode(unit.code)) {
         const nuevo = String(raw.Name).trim();

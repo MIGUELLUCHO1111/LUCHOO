@@ -905,7 +905,7 @@
   # mandarlos todos y pisaría lo que ya tenía la unidad con valores por
   # defecto). El WHERE plate IS NULL la hace segura de reintentar.
   # Renombrado automatico cuando cambian el nombre de la unidad en GEvolution
-  # (06/10/2026). No pisa el codigo de otra unidad viva.
+  # (05/10/2026). No pisa el codigo de otra unidad viva.
   'renameFleetUnitCode': {
     query: 'UPDATE public.fleet_unit u SET code = $2 WHERE u.id = $1 AND u.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM public.fleet_unit o WHERE upper(o.code) = upper($2) AND o.id <> $1 AND o.deleted_at IS NULL) RETURNING id, code, plate, driver_name, is_active, fleet_type;',
     structure_params: { id: 'int', code: 'string' },
@@ -1680,6 +1680,15 @@
   },
 
   # Resumen de documentos por unidad para "Fichas incompletas".
+  # Aviso diario de documentos por Telegram (05/10/2026): el documento MAS
+  # RECIENTE de cada tipo por unidad (uno renovado deja al viejo como historial)
+  # que este vencido o venza dentro de $1 dias.
+  'fleetDocsForAlert': {
+    query: 'SELECT * FROM (SELECT DISTINCT ON (d.unit_id, d.doc_type) d.unit_id, u.code, u.plate, u.fleet_type, d.doc_type, d.name, d.expires_at::text AS expires_at, (d.expires_at - CURRENT_DATE) AS days_left FROM public.fleet_unit_document d JOIN public.fleet_unit u ON u.id = d.unit_id AND u.deleted_at IS NULL WHERE d.deleted_at IS NULL ORDER BY d.unit_id, d.doc_type, d.expires_at DESC NULLS FIRST, d.id DESC) x WHERE x.days_left IS NOT NULL AND x.days_left <= $1 ORDER BY x.days_left, x.code;',
+    structure_params: { alert_days: 'int' },
+    orderArray: ['alert_days']
+  },
+
   'fleetDocsSummary': {
     query: 'SELECT unit_id, doc_type, (file_url IS NOT NULL) AS has_file, (expires_at - CURRENT_DATE) AS days_left FROM public.fleet_unit_document WHERE deleted_at IS NULL;',
     structure_params: {},
