@@ -7,6 +7,7 @@ import { getCurrentProfile } from "@/services/api";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import { inputCls } from "./fleetParts";
+import DriverDocsBars from "./fleetDriverDocsBars";
 import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, driverInFleet, DRIVER_DOCS, certPesada, politica } from "./fleetDriverParts";
 
 // Conductores de la flota (pedido de Lguerra, 07/10/2026): registro con
@@ -19,7 +20,6 @@ const FLEET_BAND = { LIVIANA: "bg-brand-navy", PESADA: "bg-[#FFCD11]", AMBAS: "b
 
 const DriverCard = ({ d, isAdmin, onEdit, onRemove, onPhoto, onDoc, i }) => {
   const navigate = useNavigate();
-  const lic = licencia(d);
   const stop = (e) => e.stopPropagation();
   return (
     <motion.div layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.02, 0.3) }} whileHover={{ y: -3 }}
@@ -45,7 +45,7 @@ const DriverCard = ({ d, isAdmin, onEdit, onRemove, onPhoto, onDoc, i }) => {
             </div>
           </div>
         </div>
-        <p className={`mt-3 rounded-xl px-3 py-1.5 text-xs font-extrabold ${lic.cls}`}>{lic.label}</p>
+        <DriverDocsBars d={d} className="mt-3" />
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2" onClick={stop}>
           {DRIVER_DOCS.map((x) => (
             <DocBox key={x.kind} title={x.short} icon={x.icon} url={d[x.url]} mime={d[x.mime]} isAdmin={isAdmin} onUpload={(file) => onDoc(d, x.kind, file)} estado={x.estado(d)} />

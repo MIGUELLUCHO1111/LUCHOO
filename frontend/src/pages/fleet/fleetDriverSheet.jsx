@@ -10,6 +10,7 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import { inputCls, fmtDate, fmtDateTime } from "./fleetParts";
 import FichaPdfButton from "./fleetSheetDownload";
+import DriverDocsBars from "./fleetDriverDocsBars";
 import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, DRIVER_FLEET, DRIVER_DOCS, DOC_SAVED, pideCertPesada } from "./fleetDriverParts";
 
 // Ficha del conductor (/fleet/drivers/:id, pedido de Lguerra 07/10/2026):
@@ -239,6 +240,7 @@ const FleetDriverSheet = () => {
           </Card>
 
           <Card icon={HeartPulse} title="Documentos del conductor">
+            <DriverDocsBars d={d} big className="mb-4" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {DRIVER_DOCS.map((x) => (
                 <DocBox key={x.kind} big title={x.title} icon={x.icon} url={d[x.url]} mime={d[x.mime]} isAdmin={isAdmin} onUpload={(file) => doc(x.kind, file)} estado={x.estado(d)} />
