@@ -27,11 +27,13 @@ const TrackerMapPage = () => {
   const [selectedTripIndex, setSelectedTripIndex] = useState(null);
   const [pickerPlate, setPickerPlate] = useState("");
 
-  const abrirRecorridos = (snapshot) => {
+  // useCallback: si cambiara en cada render, TrackerMap volveria a dibujar
+  // todos los puntos al tocar uno y el cartel (con el conductor) se cerraba.
+  const abrirRecorridos = useCallback((snapshot) => {
     setSelectedUnit(snapshot);
     setRoutePoints(null);
     setSelectedTripIndex(null);
-  };
+  }, []);
 
   const cerrarRecorridos = () => {
     setSelectedUnit(null);

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { resolveFleetFileUrl } from "@/services";
 
 // Colores por estado (mismo criterio que la tabla del tracker).
 const STATUS_COLOR = {
@@ -20,6 +21,24 @@ const MARKER_RADIUS_HOVER = 10;
 // Lguerra, 17/09/2026, tras ver que ir directo a zoom 15 se sentia brusco.
 const CLICK_ZOOM_STEP = 3;
 const CLICK_ZOOM_MAX = 14;
+
+const escHtml = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+// Conductor en el cartel de la unidad (07/10/2026): foto, nombre y telefono del
+// registro de Conductores de Flota, con enlace a su ficha; si no esta
+// registrado, el texto suelto de la unidad (ej. ROTATIVO).
+const driverPopup = (s) => {
+  if (!s.driver_id) return s.driver_name ? `Conductor: ${escHtml(s.driver_name)}<br/>` : "";
+  const ini = String(s.driver_full_name || "?").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  const foto = s.driver_photo_url
+    ? `<img src="${resolveFleetFileUrl(s.driver_photo_url)}" alt="" style="width:100%;height:100%;object-fit:cover"/>`
+    : ini;
+  return (
+    `<a href="/fleet/drivers/${s.driver_id}" title="Abrir la ficha del conductor" style="display:flex;align-items:center;gap:8px;margin:6px 0;padding:6px;border-radius:10px;background:#f1f5f9;text-decoration:none;color:#15324D">` +
+    `<span style="width:38px;height:38px;border-radius:9px;overflow:hidden;background:#15324D;color:#fff;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${foto}</span>` +
+    `<span><span style="display:block;font-size:10px;color:#64748b">Conductor</span><b style="display:block">${escHtml(s.driver_full_name)}</b>${s.driver_phone ? `<span style="font-size:11px;color:#475569">${escHtml(s.driver_phone)}</span>` : ""}</span></a>`
+  );
+};
 
 const formatHora = (iso) => {
   if (!iso) return "-";
@@ -116,7 +135,7 @@ export default function TrackerMap({ snapshots = [], onSelectUnit, routePoints }
       const label = s.unit_code || s.plate || "Unidad sin identificar";
       marker.bindPopup(
         `<strong>${label}</strong>${s.plate ? ` · ${s.plate}` : ""}<br/>` +
-          `${s.driver_name ? `Conductor: ${s.driver_name}<br/>` : ""}` +
+          driverPopup(s) +
           `Estado: <strong style="color:${color}">${s.status}</strong>${s.is_stale ? " (sin señal reciente)" : ""}<br/>` +
           `Ubicación: ${s.location_text || "desconocida"}<br/>` +
           `Hora: ${formatHora(s.last_report_at)}`

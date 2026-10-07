@@ -38,6 +38,22 @@ function findBrowserExecutable() {
 }
 
 /**
+ * PDF en hoja A4 (fichas de Flota): el HTML trae su propio @page y saltos.
+ * @param {string} html - documento completo a renderizar
+ * @returns {Promise<Buffer>}
+ */
+export async function renderA4Pdf(html) {
+  const browser = await puppeteer.launch({ executablePath: findBrowserExecutable(), headless: true, args: ['--no-sandbox', '--disable-gpu'] });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    return Buffer.from(await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true }));
+  } finally {
+    await browser.close();
+  }
+}
+
+/**
  * @param {string} html - documento completo a renderizar
  * @param {{width?: number}} [options]
  * @returns {Promise<{pdfBuffer: Buffer, pngBuffer: Buffer}>}

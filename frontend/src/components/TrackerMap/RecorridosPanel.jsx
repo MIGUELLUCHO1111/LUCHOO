@@ -3,6 +3,7 @@ import { X, Route, Clock, Gauge, MapPinned } from "lucide-react";
 import { trackerService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import DriverChip from "./DriverChip";
 
 const formatHora = (iso) => {
   if (!iso) return "-";
@@ -81,6 +82,11 @@ export default function RecorridosPanel({ unit, onClose, onVerRuta, selectedTrip
           </span>
           <span className="font-bold text-slate-900 dark:text-white">{titulo || "Recorridos"} — {label}</span>
           {unit.plate && <span className="text-xs text-slate-400">{unit.plate}</span>}
+          {(unit.driver_id || unit.driver_name) && (
+            <span className="hidden sm:inline-flex items-center gap-2 ml-2 pl-3 border-l border-slate-200 dark:border-white/10 text-xs text-slate-500">
+              Conductor: <DriverChip s={unit} />
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <input

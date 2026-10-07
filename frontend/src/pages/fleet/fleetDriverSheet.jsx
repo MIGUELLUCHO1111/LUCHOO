@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import { inputCls, fmtDate, fmtDateTime } from "./fleetParts";
+import FichaPdfButton from "./fleetSheetDownload";
 import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, DRIVER_FLEET, DRIVER_DOCS, DOC_SAVED, pideCertPesada } from "./fleetDriverParts";
 
 // Ficha del conductor (/fleet/drivers/:id, pedido de Lguerra 07/10/2026):
@@ -185,12 +186,15 @@ const FleetDriverSheet = () => {
             </div>
             {!d.photo_url && isAdmin && <p className={`mt-3 text-xs font-bold ${pesada ? "text-slate-800" : "text-white/80"}`}>Toca el recuadro de la foto (o arrastra una imagen) para identificar al conductor.</p>}
           </div>
+          <div className="flex md:flex-col gap-2 shrink-0">
+            <FichaPdfButton kind="conductor" id={d.id} className="bg-white text-brand-navy hover:bg-slate-100" />
           {isAdmin && (
-            <div className="flex md:flex-col gap-2 shrink-0">
+            <>
               <Button onClick={() => setEditar(true)} className="rounded-xl bg-white text-brand-navy hover:bg-slate-100 font-bold gap-1.5 shadow"><Pencil size={15} /> Editar ficha</Button>
               <Button onClick={baja} variant="outline" className={`rounded-xl font-bold gap-1.5 bg-transparent ${pesada ? "border-slate-900/30 text-slate-900 hover:bg-slate-900/10" : "border-white/40 text-white hover:bg-white/10"}`}><UserX size={15} /> Dar de baja</Button>
-            </div>
+            </>
           )}
+          </div>
         </div>
       </motion.section>
 

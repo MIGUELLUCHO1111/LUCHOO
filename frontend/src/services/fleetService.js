@@ -131,6 +131,14 @@ const fleetService = {
   // Conductores (registro y asignacion a unidades)
   listarConductores: () => call(TX.CONDUCTORES_LISTAR),
   obtenerConductor: (id) => call(TX.CONDUCTOR_OBTENER, { id }),
+  /** Ficha imprimible en PDF: kind = "unidad" | "conductor". */
+  descargarFichaPdf: async (kind, id) => {
+    const ruta = kind === "conductor" ? `/fleet/drivers/${id}/sheet.pdf` : `/fleet/units/${id}/sheet.pdf`;
+    const res = await api.get(ruta, { params: { profile: getCurrentProfile() }, responseType: "blob", timeout: 120000 });
+    const cd = res.headers?.["content-disposition"] || "";
+    const filename = (cd.match(/filename="([^"]+)"/) || [])[1] || `Ficha_${id}.pdf`;
+    return { blob: res.data, filename };
+  },
   guardarConductor: (conductor) => call(TX.CONDUCTOR_GUARDAR, conductor),
   eliminarConductor: (id) => call(TX.CONDUCTOR_ELIMINAR, { id }),
   asignarConductor: (unit_id, driver_id) => call(TX.CONDUCTOR_ASIGNAR, { unit_id, driver_id: driver_id || null }),

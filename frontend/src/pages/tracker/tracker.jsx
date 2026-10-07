@@ -15,6 +15,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
+import DriverChip from "@/components/TrackerMap/DriverChip";
 import { useConfirm } from "@/context";
 import {
   CATEGORY_STYLES,
@@ -73,7 +74,7 @@ const Tracker = () => {
     const search = f.search.trim().toLowerCase();
     return units.filter((u) => {
       if (search) {
-        const haystack = `${u.code || ""} ${u.plate || ""} ${u.driver_name || ""}`.toLowerCase();
+        const haystack = `${u.code || ""} ${u.plate || ""} ${u.driver_name || ""} ${u.driver_full_name || ""}`.toLowerCase();
         if (!haystack.includes(search)) return false;
       }
       if (f.fleet && u.fleet_type !== f.fleet) return false;
@@ -262,7 +263,7 @@ const Tracker = () => {
         </span>
       </TableCell>
       <TableCell className="text-sm">{s.plate || "-"}</TableCell>
-      <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
+      <TableCell className="text-sm"><DriverChip s={s} /></TableCell>
       <TableCell className="text-sm max-w-xs">
         <div className="flex items-center gap-2">
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${CATEGORY_STYLES[s.location_category] || CATEGORY_STYLES.OTRAS}`}>
@@ -470,7 +471,7 @@ const Tracker = () => {
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(s.fleet_type)}`}>{fleetTypeLabel(s.fleet_type)}</span>
                       </TableCell>
                       <TableCell className="text-sm">{s.plate || "-"}</TableCell>
-                      <TableCell className="text-sm">{s.driver_name || "-"}</TableCell>
+                      <TableCell className="text-sm"><DriverChip s={s} /></TableCell>
                       <TableCell className="text-sm max-w-[220px]">
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${CATEGORY_STYLES[s.location_category] || CATEGORY_STYLES.OTRAS}`}>{s.location_category}</span>

@@ -24,6 +24,7 @@ import DocsBadge from "./fleetDocsBadge";
 import { DriverTile, FrenteTile, ParadaTile, paradaInfo } from "./fleetAssign";
 import AssignManagersModal from "./fleetManagers";
 import ReadingsPanel, { SOURCE as READING_SOURCE } from "./fleetReadings";
+import FichaPdfButton from "./fleetSheetDownload";
 
 const EVENT_ICON = {
   CONDUCTOR: User, ESTADO: Activity, UBICACION: MapPin, ODOMETRO: Gauge, MANTENIMIENTO: Wrench,
@@ -753,6 +754,7 @@ const FleetDetail = () => {
           </div>
           <div className="flex flex-col items-stretch lg:items-end gap-3">
             <StatusControl unit={unit} onSaved={setUnit} />
+            <FichaPdfButton kind="unidad" id={unit.id} />
             {unit.puede_editar ? (
               <Button onClick={() => setEditing(true)} className="rounded-xl font-bold gap-2 bg-brand-navy hover:bg-brand-navy-light text-white">
                 <Pencil size={14} /> Editar ficha
