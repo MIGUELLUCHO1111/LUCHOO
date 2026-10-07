@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import { inputCls, fmtDate, fmtDateTime } from "./fleetParts";
-import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, DRIVER_FLEET, licDocEstado, medDocEstado } from "./fleetDriverParts";
+import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, DRIVER_FLEET, DRIVER_DOCS, DOC_SAVED, pideCertPesada } from "./fleetDriverParts";
 
 // Ficha del conductor (/fleet/drivers/:id, pedido de Lguerra 07/10/2026):
 // foto para identificarlo, a que flota pertenece, documentos y las unidades
@@ -129,7 +129,7 @@ const FleetDriverSheet = () => {
     try { await fn(); setAviso(ok); await load(); } catch (e) { setError(e.response?.data?.message || e.message); }
   };
   const photo = (file) => (photoOk(file) ? run(() => fleetService.subirFotoConductor(d.id, file), "Foto guardada") : setError("La foto debe ser JPG, PNG o WEBP de hasta 8 MB."));
-  const doc = (kind, file) => (docOk(file) ? run(() => fleetService.subirDocumentoConductor(d.id, kind, file), kind === "licencia" ? "Licencia guardada" : "Carta médica guardada") : setError("El archivo debe ser una foto (JPG, PNG, WEBP) o un PDF de hasta 10 MB."));
+  const doc = (kind, file) => (docOk(file) ? run(() => fleetService.subirDocumentoConductor(d.id, kind, file), DOC_SAVED[kind]) : setError("El archivo debe ser una foto (JPG, PNG, WEBP) o un PDF de hasta 10 MB."));
   const quitar = async (u) => {
     if (!(await confirm(`¿Quitar a ${d.full_name} de ${u.code}? La unidad queda como ROTATIVO.`, { title: "Quitar unidad", confirmText: "Quitar" }))) return;
     run(() => fleetService.asignarConductor(u.unit_id, null), `${u.code} quedó como ROTATIVO`);
@@ -152,6 +152,7 @@ const FleetDriverSheet = () => {
   const med = cartaMedica(d);
   const lv = vence(d.license_expires_at, d.license_days_left);
   const mv = vence(d.medical_expires_at, d.medical_days_left);
+  const hv = vence(d.heavy_cert_expires_at, d.heavy_cert_days_left);
   const fleet = DRIVER_FLEET[d.fleet_type];
   const pesada = d.fleet_type === "PESADA";
   const heroBg = d.fleet_type === "AMBAS" ? "bg-gradient-to-br from-brand-navy via-brand-navy to-[#8a6d00]" : pesada ? "bg-gradient-to-br from-[#FFD84D] via-[#FFCD11] to-[#E6B400]" : "bg-gradient-to-br from-brand-navy to-[#1d4466]";
@@ -235,8 +236,9 @@ const FleetDriverSheet = () => {
 
           <Card icon={HeartPulse} title="Documentos del conductor">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <DocBox big title="Licencia de conducir" icon={IdCard} url={d.license_file_url} mime={d.license_file_mime} isAdmin={isAdmin} onUpload={(file) => doc("licencia", file)} estado={licDocEstado(d)} />
-              <DocBox big title="Carta médica" icon={HeartPulse} url={d.medical_file_url} mime={d.medical_file_mime} isAdmin={isAdmin} onUpload={(file) => doc("medico", file)} estado={medDocEstado(d)} />
+              {DRIVER_DOCS.map((x) => (
+                <DocBox key={x.kind} big title={x.title} icon={x.icon} url={d[x.url]} mime={d[x.mime]} isAdmin={isAdmin} onUpload={(file) => doc(x.kind, file)} estado={x.estado(d)} />
+              ))}
             </div>
           </Card>
         </div>
@@ -250,6 +252,8 @@ const FleetDriverSheet = () => {
               <Dato label="Grado" value={d.license_category} />
               <div className="col-span-2"><Dato label="Vence la licencia" value={lv.txt} cls={lv.cls} /></div>
               <div className="col-span-2"><Dato label="Vence la carta médica" value={mv.txt} cls={mv.cls} /></div>
+              <div className="col-span-2"><Dato label="Política de conducción firmada" value={d.policy_signed_at ? fmtDate(d.policy_signed_at) : d.policy_file_url ? "Sí (sin fecha)" : null} /></div>
+              <div className="col-span-2"><Dato label={`Certificado flota pesada${pideCertPesada(d) ? " · requerido" : ""}`} value={hv.txt} cls={hv.cls} /></div>
               <div className="col-span-2"><Dato label="Flota" value={fleet ? fleet.label : null} /></div>
             </div>
             {d.notes && (

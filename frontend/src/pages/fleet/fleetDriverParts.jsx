@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { Plus, X, IdCard, Pencil, Camera, AlertTriangle, FileText, HeartPulse, Upload, ExternalLink, Truck, Car } from "lucide-react";
+import { Plus, X, IdCard, Pencil, Camera, AlertTriangle, FileText, HeartPulse, Upload, ExternalLink, Truck, Car, ScrollText, BadgeCheck } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { Button } from "@/components/ui/button";
 import { inputCls, initials, fmtDate } from "./fleetParts";
@@ -23,6 +23,28 @@ export const cartaMedica = (d) => {
   if (n <= 30) return { key: "por_vencer", label: n === 0 ? "Vence hoy" : `Vence en ${n} d`, cls: "text-amber-600" };
   return { key: "vigente", label: `Vigente · ${fmtDate(d.medical_expires_at)}`, cls: "text-emerald-600" };
 };
+// Certificado de conduccion de flota pesada: se exige a los de Flota Pesada.
+export const pideCertPesada = (d) => d.fleet_type === "PESADA" || d.fleet_type === "AMBAS";
+export const certPesada = (d) => {
+  const exige = pideCertPesada(d);
+  if (!d.heavy_cert_file_url && !d.heavy_cert_expires_at) return exige ? { key: "falta", label: "Falta cargar (Flota Pesada)", cls: "text-red-600" } : { key: "no_aplica", label: "No requerido (no maneja pesada)", cls: "text-slate-400" };
+  if (!d.heavy_cert_expires_at) return { key: "sin", label: "Cargado (sin vencimiento)", cls: "text-slate-500" };
+  const n = Number(d.heavy_cert_days_left);
+  if (n < 0) return { key: "vencida", label: `Vencido hace ${Math.abs(n)} d`, cls: "text-red-600" };
+  if (n <= 30) return { key: "por_vencer", label: n === 0 ? "Vence hoy" : `Vence en ${n} d`, cls: "text-amber-600" };
+  return { key: "vigente", label: `Vigente · ${fmtDate(d.heavy_cert_expires_at)}`, cls: "text-emerald-600" };
+};
+export const politica = (d) => (d.policy_file_url
+  ? { key: "firmada", label: d.policy_signed_at ? `Firmada el ${fmtDate(d.policy_signed_at)}` : "Firmada", cls: "text-emerald-600" }
+  : { key: "falta", label: "Falta la firma", cls: "text-amber-600" });
+// Los cuatro documentos del conductor (kind = el de POST /fleet/drivers/document).
+export const DRIVER_DOCS = [
+  { kind: "licencia", title: "Licencia de conducir", short: "Licencia", icon: IdCard, url: "license_file_url", mime: "license_file_mime", estado: (d) => licDocEstado(d) },
+  { kind: "medico", title: "Carta médica", short: "Carta médica", icon: HeartPulse, url: "medical_file_url", mime: "medical_file_mime", estado: (d) => medDocEstado(d) },
+  { kind: "politica", title: "Política de conducción de vehículo corporativo", short: "Política de conducción", icon: ScrollText, url: "policy_file_url", mime: "policy_file_mime", estado: (d) => politica(d) },
+  { kind: "pesada", title: "Certificado de conducción de flota pesada", short: "Certificado flota pesada", icon: BadgeCheck, url: "heavy_cert_file_url", mime: "heavy_cert_file_mime", estado: (d) => certPesada(d) },
+];
+export const DOC_SAVED = { licencia: "Licencia guardada", medico: "Carta médica guardada", politica: "Política de conducción guardada", pesada: "Certificado de flota pesada guardado" };
 export const DOC_TYPES = "image/jpeg,image/png,image/webp,application/pdf";
 export const docOk = (file) => file && ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type) && file.size <= 10 * 1024 * 1024;
 export const photoOk = (file) => file && ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 8 * 1024 * 1024;
@@ -112,8 +134,9 @@ export const DriverForm = ({ driver, onClose, onSaved }) => {
     license_number: driver?.license_number || "", license_category: driver?.license_category || "",
     license_expires_at: driver?.license_expires_at || "", medical_expires_at: driver?.medical_expires_at || "",
     fleet_type: driver?.fleet_type || "", notes: driver?.notes || "", is_active: driver ? driver.is_active : true,
+    policy_signed_at: driver?.policy_signed_at || "", heavy_cert_expires_at: driver?.heavy_cert_expires_at || "",
   });
-  const [files, setFiles] = useState({ licencia: null, medico: null, foto: null });
+  const [files, setFiles] = useState({ licencia: null, medico: null, politica: null, pesada: null, foto: null });
   const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -136,7 +159,7 @@ export const DriverForm = ({ driver, onClose, onSaved }) => {
       const res = await fleetService.guardarConductor({ ...(driver ? { id: driver.id } : {}), ...f, fleet_type: f.fleet_type || null });
       const id = driver?.id || res?.id;
       if (files.foto && id) await fleetService.subirFotoConductor(id, files.foto);
-      for (const kind of ["licencia", "medico"]) {
+      for (const kind of ["licencia", "medico", "politica", "pesada"]) {
         if (files[kind] && id) await fleetService.subirDocumentoConductor(id, kind, files[kind]);
       }
       onSaved(id);
@@ -210,9 +233,19 @@ export const DriverForm = ({ driver, onClose, onSaved }) => {
           <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Vencimiento de la carta médica
             <input type="date" value={f.medical_expires_at} onChange={(e) => set("medical_expires_at", e.target.value)} className={`${inputCls} mt-1`} />
           </label>
-          <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FilePick label="Licencia de conducir" icon={IdCard} file={files.licencia} hasCurrent={!!driver?.license_file_url} onPick={(x) => pickFile("licencia", x)} />
-            <FilePick label="Carta médica" icon={HeartPulse} file={files.medico} hasCurrent={!!driver?.medical_file_url} onPick={(x) => pickFile("medico", x)} />
+          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Firma de la política de conducción
+            <input type="date" value={f.policy_signed_at} onChange={(e) => set("policy_signed_at", e.target.value)} className={`${inputCls} mt-1`} />
+          </label>
+          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Vencimiento del certificado de flota pesada
+            <input type="date" value={f.heavy_cert_expires_at} onChange={(e) => set("heavy_cert_expires_at", e.target.value)} className={`${inputCls} mt-1`} />
+          </label>
+          <div className="sm:col-span-2">
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Documentos (foto o PDF, hasta 10 MB)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {DRIVER_DOCS.map((x) => (
+                <FilePick key={x.kind} label={x.short} icon={x.icon} file={files[x.kind]} hasCurrent={!!driver?.[x.url]} onPick={(file) => pickFile(x.kind, file)} />
+              ))}
+            </div>
           </div>
           <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 pb-2">
             <input type="checkbox" checked={f.is_active} onChange={(e) => set("is_active", e.target.checked)} className="h-4 w-4" /> Activo

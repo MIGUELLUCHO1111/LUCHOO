@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, Search, Phone, IdCard, Pencil, UserX, Truck, HeartPulse, ChevronRight, Car } from "lucide-react";
+import { Users, Plus, Search, Phone, IdCard, Pencil, UserX, Truck, ChevronRight, Car } from "lucide-react";
 import { fleetService } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import { inputCls } from "./fleetParts";
-import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, driverInFleet, licDocEstado, medDocEstado } from "./fleetDriverParts";
+import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, driverInFleet, DRIVER_DOCS, certPesada, politica } from "./fleetDriverParts";
 
 // Conductores de la flota (pedido de Lguerra, 07/10/2026): registro con
 // cedula, telefono, licencia y su vencimiento, foto, carta medica, a que flota
 // pertenece y que unidades maneja. Cada tarjeta abre la ficha del conductor
 // (/fleet/drivers/:id). Solo el admin registra/edita.
+// Politica sin firmar, o certificado de flota pesada faltante / vencido / por vencer.
+const pendiente = (d) => politica(d).key === "falta" || ["falta", "vencida", "por_vencer"].includes(certPesada(d).key);
 const FLEET_BAND = { LIVIANA: "bg-brand-navy", PESADA: "bg-[#FFCD11]", AMBAS: "bg-gradient-to-r from-brand-navy from-50% to-[#FFCD11] to-50%" };
 
 const DriverCard = ({ d, isAdmin, onEdit, onRemove, onPhoto, onDoc, i }) => {
@@ -45,8 +47,9 @@ const DriverCard = ({ d, isAdmin, onEdit, onRemove, onPhoto, onDoc, i }) => {
         </div>
         <p className={`mt-3 rounded-xl px-3 py-1.5 text-xs font-extrabold ${lic.cls}`}>{lic.label}</p>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2" onClick={stop}>
-          <DocBox title="Licencia" icon={IdCard} url={d.license_file_url} mime={d.license_file_mime} isAdmin={isAdmin} onUpload={(file) => onDoc(d, "licencia", file)} estado={licDocEstado(d)} />
-          <DocBox title="Carta médica" icon={HeartPulse} url={d.medical_file_url} mime={d.medical_file_mime} isAdmin={isAdmin} onUpload={(file) => onDoc(d, "medico", file)} estado={medDocEstado(d)} />
+          {DRIVER_DOCS.map((x) => (
+            <DocBox key={x.kind} title={x.short} icon={x.icon} url={d[x.url]} mime={d[x.mime]} isAdmin={isAdmin} onUpload={(file) => onDoc(d, x.kind, file)} estado={x.estado(d)} />
+          ))}
         </div>
         <div className="mt-3">
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1.5">Unidades que maneja</p>
@@ -97,8 +100,8 @@ const FleetDrivers = () => {
     sin: drivers.filter((d) => !d.fleet_type).length,
   }), [drivers]);
   const counts = useMemo(() => {
-    const c = { todos: deFlota.length, vencida: 0, por_vencer: 0, medica: 0, sin_unidad: 0 };
-    deFlota.forEach((d) => { const k = licencia(d).key; if (c[k] !== undefined) c[k] += 1; if (!d.unidades.length) c.sin_unidad += 1; if (["vencida", "por_vencer"].includes(cartaMedica(d).key)) c.medica += 1; });
+    const c = { todos: deFlota.length, vencida: 0, por_vencer: 0, medica: 0, pendientes: 0, sin_unidad: 0 };
+    deFlota.forEach((d) => { const k = licencia(d).key; if (c[k] !== undefined) c[k] += 1; if (!d.unidades.length) c.sin_unidad += 1; if (["vencida", "por_vencer"].includes(cartaMedica(d).key)) c.medica += 1; if (pendiente(d)) c.pendientes += 1; });
     return c;
   }, [deFlota]);
   const shown = useMemo(() => {
@@ -107,6 +110,7 @@ const FleetDrivers = () => {
       if (filtro === "vencida" || filtro === "por_vencer") { if (licencia(d).key !== filtro) return false; }
       if (filtro === "sin_unidad" && d.unidades.length) return false;
       if (filtro === "medica" && !["vencida", "por_vencer"].includes(cartaMedica(d).key)) return false;
+      if (filtro === "pendientes" && !pendiente(d)) return false;
       if (!t) return true;
       return [d.full_name, d.cedula, d.phone, d.license_number, ...d.unidades.map((u) => u.code)].some((v) => String(v || "").toLowerCase().includes(t));
     });
@@ -130,7 +134,7 @@ const FleetDrivers = () => {
     ["LIVIANA", "Flota Liviana", Car, "bg-brand-navy"],
     ["PESADA", "Flota Pesada", Truck, "bg-[#FFCD11]"],
   ];
-  const FILTROS = [["todos", "Todos"], ["vencida", "Licencia vencida"], ["por_vencer", "Licencia por vencer"], ["medica", "Carta médica vencida o por vencer"], ["sin_unidad", "Sin unidad"]];
+  const FILTROS = [["todos", "Todos"], ["vencida", "Licencia vencida"], ["por_vencer", "Licencia por vencer"], ["medica", "Carta médica vencida o por vencer"], ["pendientes", "Política o certificado pendiente"], ["sin_unidad", "Sin unidad"]];
   return (
     <PageLayout back={{ to: "/fleet", label: "Fichas de Vehículos" }} icon={Users} title="Conductores" subtitle={`FLOTA • ${drivers.length} CONDUCTOR(ES) REGISTRADO(S)`} maxWidth="max-w-[1400px]">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
@@ -170,7 +174,7 @@ const FleetDrivers = () => {
           </motion.button>
         )}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 mb-6">
         {FILTROS.map(([k, l]) => (
           <button key={k} type="button" onClick={() => setFiltro(k)}
             className={`relative h-11 rounded-xl text-sm font-extrabold transition-colors ${filtro === k ? "text-white" : "bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-navy/40"}`}>

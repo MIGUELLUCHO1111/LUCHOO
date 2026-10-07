@@ -282,7 +282,15 @@ router.post('/drivers/photo', (req, res) => {
   });
 });
 
-// POST /fleet/drivers/document — campos: driver_id, kind (licencia|medico),
+// kind -> consulta, columna del archivo anterior y mensaje.
+const DRIVER_DOC_KINDS = {
+  licencia: { query: 'fleetSetDriverLicenseFile', col: 'license_file_url', msg: 'Licencia guardada' },
+  medico: { query: 'fleetSetDriverMedicalFile', col: 'medical_file_url', msg: 'Carta médica guardada' },
+  politica: { query: 'fleetSetDriverPolicyFile', col: 'policy_file_url', msg: 'Política de conducción guardada' },
+  pesada: { query: 'fleetSetDriverHeavyCertFile', col: 'heavy_cert_file_url', msg: 'Certificado de flota pesada guardado' },
+};
+
+// POST /fleet/drivers/document — campos: driver_id, kind (licencia|medico|politica|pesada),
 // profile, file. Licencia de conducir y carta medica (059): foto o PDF hasta
 // 10 MB; solo queda el mas reciente de cada uno. Solo admin.
 const DRIVER_DOC_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf' };
@@ -301,7 +309,7 @@ router.post('/drivers/document', (req, res) => {
       const id = parseInt(req.body?.driver_id, 10);
       const kind = req.body?.kind;
       const profile = req.body?.profile;
-      if (!Number.isInteger(id) || !profile || !['licencia', 'medico'].includes(kind)) return fail(res, STATUS_CODES.BAD_REQUEST, "Campos requeridos: 'driver_id', 'kind' (licencia|medico) y 'profile'");
+      if (!Number.isInteger(id) || !profile || !DRIVER_DOC_KINDS[kind]) return fail(res, STATUS_CODES.BAD_REQUEST, "Campos requeridos: 'driver_id', 'kind' (licencia|medico|politica|pesada) y 'profile'");
       if (!req.file) return fail(res, STATUS_CODES.BAD_REQUEST, "Falta el archivo 'file'");
       if (!security.hasUserProfile(req.user.id, profile) || !security.hasPermission({ sub_system: 'Flota', class: 'Conductor', method: 'guardarConductor', profile })) {
         return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
@@ -316,11 +324,12 @@ router.post('/drivers/document', (req, res) => {
       const filename = `${kind}-${randomUUID()}${DRIVER_DOC_EXT[req.file.mimetype]}`;
       await fs.writeFile(path.join(dir, filename), req.file.buffer);
       const url = `/fleet/drivers/file/${id}/${filename}`;
-      await dbms.executeNamedQuery({ nameQuery: kind === 'licencia' ? 'fleetSetDriverLicenseFile' : 'fleetSetDriverMedicalFile', params: { id, file_url: url, file_mime: req.file.mimetype } });
-      const prevUrl = kind === 'licencia' ? driver.license_file_url : driver.medical_file_url;
+      const tipo = DRIVER_DOC_KINDS[kind];
+      await dbms.executeNamedQuery({ nameQuery: tipo.query, params: { id, file_url: url, file_mime: req.file.mimetype } });
+      const prevUrl = driver[tipo.col];
       const prev = prevUrl && prevUrl.split('/').pop();
       if (prev && SAFE_SEGMENT.test(prev) && prev !== filename) await fs.unlink(path.join(dir, prev)).catch(() => {});
-      return res.status(STATUS_CODES.CREATED).json({ statusCode: STATUS_CODES.CREATED, data: { id, kind, file_url: url }, message: kind === 'licencia' ? 'Licencia guardada' : 'Carta médica guardada' });
+      return res.status(STATUS_CODES.CREATED).json({ statusCode: STATUS_CODES.CREATED, data: { id, kind, file_url: url }, message: tipo.msg });
     } catch (error) {
       console.error('[Flota] Error subiendo documento de conductor:', error);
       return fail(res, STATUS_CODES.INTERNAL_SERVER_ERROR, config.getMessage('es', 'server_error'));
