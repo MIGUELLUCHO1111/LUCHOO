@@ -7,6 +7,7 @@ import Geocerca from '../bo/sub_system/classes/geocerca.js';
 import Alerta from '../bo/sub_system/classes/alerta.js';
 import TelegramSubscriberSync from './telegramSubscriberSync.js';
 import { enviarAvisoDocumentos } from '../fleet/docsAlert.js';
+import Ficha from '../bo/sub_system/classes/ficha.js';
 import { TURNOS } from '../bo/sub_system/classes/reporte.js';
 
 /**
@@ -114,6 +115,30 @@ export function startTrackerScheduler() {
     console.log(`[Tracker] Limpieza automática de alertas programada (${alertCleanupExpression}, America/Caracas)`);
   } else {
     console.error(`[Tracker] TRACKER_ALERT_CLEANUP_CRON inválido: '${alertCleanupExpression}' -- limpieza de alertas no programada`);
+  }
+
+  // Lectura diaria del odometro del GPS de toda la flota (pedido de Lguerra,
+  // 07/10/2026; antes solo al abrir cada ficha). No manda mensajes: solo
+  // guarda una lectura por unidad y por dia. FLEET_GPS_ODOMETER_CRON=off la apaga.
+  const odoExpression = process.env.FLEET_GPS_ODOMETER_CRON || '0 23 * * *';
+  if (odoExpression === 'off') {
+    console.log('[Flota] Lectura diaria de odometros del GPS desactivada (FLEET_GPS_ODOMETER_CRON=off)');
+  } else if (cron.validate(odoExpression)) {
+    cron.schedule(
+      odoExpression,
+      async () => {
+        try {
+          const r = await new Ficha().sincronizarOdometrosGps();
+          console.log(`[Flota] Odómetros del GPS: ${r.guardadas} lectura(s) nueva(s) de ${r.total} unidades (${r.sin_dato} sin dato del GPS, ${r.errores} error(es))`);
+        } catch (error) {
+          console.error('[Flota] Error en la lectura diaria de odómetros:', error?.message || error);
+        }
+      },
+      { timezone: 'America/Caracas' },
+    );
+    console.log(`[Flota] Lectura diaria de odómetros del GPS programada (${odoExpression}, America/Caracas)`);
+  } else {
+    console.error(`[Flota] FLEET_GPS_ODOMETER_CRON inválido: '${odoExpression}'`);
   }
 
   // Aviso diario de documentos de la flota vencidos o por vencer (pedido de

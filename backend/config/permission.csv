@@ -196,3 +196,9 @@ id;sub_system;class;method;profile
 209;Flota;Ficha;crearUnidad;admin
 186;Horas;Proyecto;getTarifasProyecto;admin
 187;Horas;Proyecto;guardarTarifaEquipo;admin
+210;Flota;Ficha;asignarFrente;admin,encargado_flota
+211;Flota;Ficha;listarFrentes;admin,encargado_flota
+212;Flota;Conductor;listarConductores;admin,encargado_flota
+213;Flota;Conductor;guardarConductor;admin
+214;Flota;Conductor;eliminarConductor;admin
+215;Flota;Conductor;asignarConductor;admin,encargado_flota

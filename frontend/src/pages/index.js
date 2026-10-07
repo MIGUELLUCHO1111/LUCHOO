@@ -23,3 +23,4 @@ export { default as HoursEquipment } from "./hours/equipment.jsx";
 export { default as FleetList } from "./fleet/fleetList.jsx";
 export { default as FleetDetail } from "./fleet/fleetDetail.jsx";
 export { default as FleetCatalog } from "./fleet/fleetCatalog.jsx";
+export { default as FleetDrivers } from "./fleet/fleetDrivers.jsx";

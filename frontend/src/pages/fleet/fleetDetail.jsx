@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ArrowLeft, Pencil, Gauge, User, MapPin, Phone, FileText, Wrench, StickyNote, Activity,
@@ -21,6 +21,7 @@ import { categoryLabel, useFamilies } from "./fleetArt";
 import DocumentsPanel from "./fleetDocuments";
 import { fichaChecklist } from "./fleetCompleteness";
 import DocsBadge from "./fleetDocsBadge";
+import { DriverTile, FrenteTile, ParadaTile, paradaInfo } from "./fleetAssign";
 import AssignManagersModal from "./fleetManagers";
 import ReadingsPanel, { SOURCE as READING_SOURCE } from "./fleetReadings";
 
@@ -189,46 +190,6 @@ const UnitPhoto = ({ unit, onChanged }) => {
       {can && own && !busy && <button type="button" onClick={quitar} className="text-[10px] font-bold text-slate-400 hover:text-red-600">Quitar foto</button>}
       {error && <p className="text-[10px] font-bold text-red-600 max-w-[12rem] text-center">{error}</p>}
       <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
-    </div>
-  );
-};
-
-// ---------- Conductor con micro-tarjeta al pasar el cursor ----------
-const DriverChip = ({ unit }) => {
-  const [open, setOpen] = useState(false);
-  const p = unit.profile || {};
-  return (
-    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onClick={() => setOpen(!open)}>
-      <div className="flex items-center gap-3 cursor-pointer">
-        <span className="h-10 w-10 rounded-full bg-gradient-to-br from-brand-navy to-brand-navy-light text-white text-sm font-bold flex items-center justify-center ring-2 ring-white dark:ring-[#0f1115] shadow">
-          {initials(unit.driver_name)}
-        </span>
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Conductor</p>
-          <p className={`text-sm font-extrabold truncate ${unit.driver_name ? "text-brand-navy dark:text-white" : "text-amber-600"}`}>{unit.driver_name || "Sin asignar"}</p>
-        </div>
-      </div>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 6 }}
-            className="absolute z-30 left-0 top-12 w-64 rounded-2xl bg-white dark:bg-[#15171c] border border-slate-100 dark:border-white/10 shadow-2xl p-4"
-          >
-            <p className="font-bold text-slate-900 dark:text-white">{unit.driver_name || "Sin asignar"}</p>
-            <p className="text-xs text-slate-500 mb-3">{p.driver_assigned_at ? `Asignado desde ${fmtDate(p.driver_assigned_at)}` : "Fecha de asignación sin registrar"}</p>
-            {p.driver_phone ? (
-              <a href={`tel:${p.driver_phone}`} className="flex items-center gap-2 text-sm font-bold text-brand-navy dark:text-sky-300 hover:underline">
-                <Phone size={14} /> {p.driver_phone}
-              </a>
-            ) : (
-              <p className="text-xs text-slate-400">Sin teléfono registrado</p>
-            )}
-            {p.next_driver && <p className="text-xs text-slate-500 mt-3">Próximo conductor: <b>{p.next_driver}</b></p>}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
@@ -730,7 +691,6 @@ const StatusControl = ({ unit, onSaved }) => {
 const FleetDetail = () => {
   useFamilies();
   const { id } = useParams();
-  const navigate = useNavigate();
   const [unit, setUnit] = useState(null);
   const [alertDays, setAlertDays] = useState(30);
   const [error, setError] = useState(null);
@@ -744,13 +704,13 @@ const FleetDetail = () => {
 
   if (error && !unit)
     return (
-      <PageLayout icon={Truck} title="Ficha de Vehículo">
+      <PageLayout back={{ to: "/fleet", label: "Fichas de Vehículos" }} icon={Truck} title="Ficha de Vehículo">
         <Card className="p-6 text-red-600">{error}</Card>
       </PageLayout>
     );
   if (!unit)
     return (
-      <PageLayout icon={Truck} title="Ficha de Vehículo">
+      <PageLayout back={{ to: "/fleet", label: "Fichas de Vehículos" }} icon={Truck} title="Ficha de Vehículo">
         <p className="text-center text-slate-400 py-20">Cargando ficha…</p>
       </PageLayout>
     );
@@ -767,14 +727,11 @@ const FleetDetail = () => {
   const modelo = (unit.model_name ? [unit.brand_name, unit.model_name, unit.version_name, p.model_year] : [p.brand, p.model, p.model_year]).filter(Boolean).join(" · ");
 
   return (
-    <PageLayout icon={Truck} title="Ficha de Vehículo" subtitle={`FLOTA • ${unit.code}`} maxWidth="max-w-[1400px]">
+    <PageLayout back={{ to: "/fleet", label: "Fichas de Vehículos" }} icon={Truck} title="Ficha de Vehículo" subtitle={`FLOTA • ${unit.code}`} maxWidth="max-w-[1400px]">
       {/* ===== Encabezado ===== */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`relative overflow-hidden rounded-3xl border border-slate-100 dark:border-white/5 bg-white/80 dark:bg-[#0f1115]/80 backdrop-blur-md p-6 mb-6 ring-1 ${st.ring}`}>
         <div className={`absolute inset-0 bg-gradient-to-r ${st.glow} to-transparent pointer-events-none`} />
         <div className="relative flex flex-col lg:flex-row lg:items-center gap-6">
-          <button onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/fleet"))} className="self-start h-9 w-9 rounded-xl border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5" title="Volver a la flota">
-            <ArrowLeft size={16} />
-          </button>
           <UnitPhoto unit={unit} onChanged={load} />
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-3 mb-2">
@@ -790,6 +747,7 @@ const FleetDetail = () => {
               </span>
               <span title={full ? "Equipo del contrato PDVSA-Chevron" : "Documentos, km y encargado"} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${full ? "bg-brand-navy text-white" : "bg-slate-500/10 text-slate-600 dark:text-slate-300"}`}>{full ? "Ficha completa · contrato" : "Ficha básica"}</span>
               <span className={`inline-flex items-center gap-1.5 text-xs font-bold ${live.cls}`}><span className={`h-2 w-2 rounded-full ${live.dot}`} />GPS: {live.label}</span>
+              {paradaInfo(unit.parada) && <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold ${paradaInfo(unit.parada).cls}`}>⏸ {paradaInfo(unit.parada).txt}</span>}
               <DocsBadge unit={unit} size="lg" onClick={() => [...document.querySelectorAll("h3")].find((h) => /documentación y seguros/i.test(h.innerText))?.scrollIntoView({ behavior: "smooth", block: "start" })} />
             </div>
           </div>
@@ -912,15 +870,10 @@ const FleetDetail = () => {
               {gps.km_por_dia?.length > 0 && <div className="mt-5"><KmSparkline dias={gps.km_por_dia} /></div>}
 
               <div className="mt-5 pt-5 border-t border-slate-100 dark:border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <DriverChip unit={unit} />
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="h-10 w-10 rounded-xl bg-brand-navy text-white flex items-center justify-center shrink-0 shadow-md shadow-brand-navy/20 dark:bg-sky-700"><MapPin size={16} /></span>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Zona asignada</p>
-                    <p className={`text-sm font-extrabold truncate ${p.assigned_zone ? "text-brand-navy dark:text-white" : "text-amber-600"}`}>{p.assigned_zone || "Sin zona"}</p>
-                  </div>
-                </div>
+                <div className="sm:col-span-2"><DriverTile unit={unit} onChanged={load} /></div>
+                <div className="sm:col-span-2"><FrenteTile unit={unit} onChanged={load} /></div>
                 <ManagerRow unit={unit} onChanged={load} />
+                <div className="sm:col-span-2"><ParadaTile parada={unit.parada} /></div>
                 <div className="sm:col-span-2 flex items-center gap-3 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 p-3">
                   <span className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 text-white ${live.dot.replace(" animate-pulse", "")}`}><Radio size={16} /></span>
                   <div className="min-w-0">

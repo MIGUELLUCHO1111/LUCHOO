@@ -129,7 +129,7 @@ const TrackerAlerts = () => {
     latestByUnitDayTipo.get(`${a.unit_id ?? a.plate}__${veDateOf(a.triggered_at)}__${tipo}`);
 
   return (
-    <PageLayout icon={BellRing} title="Notificaciones" subtitle="TRACKER GPS DE FLOTA">
+    <PageLayout back={{ to: "/tracker", label: "Estado de Flota" }} icon={BellRing} title="Notificaciones" subtitle="TRACKER GPS DE FLOTA">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
           {SEGMENTS.map((s) => (

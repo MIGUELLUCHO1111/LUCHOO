@@ -182,6 +182,7 @@ export const Sidebar = () => {
         { title: "Flota Liviana", url: "/fleet?flota=liviana" },
         { title: "Flota Pesada", url: "/fleet?flota=pesada" },
         { title: "Catálogo de Modelos", url: "/fleet/catalog" },
+        { title: "Conductores", url: "/fleet/drivers" },
       ],
     },
     {

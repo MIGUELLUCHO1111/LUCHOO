@@ -89,7 +89,7 @@ const TrackerMapPage = () => {
   const sinSenal = snapshots.filter((s) => s.is_stale).length;
 
   return (
-    <PageLayout icon={Map} title="Mapa en Vivo" subtitle="TRACKER GPS DE FLOTA">
+    <PageLayout back={{ to: "/tracker", label: "Estado de Flota" }} icon={Map} title="Mapa en Vivo" subtitle="TRACKER GPS DE FLOTA">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <span className="flex items-center gap-2">

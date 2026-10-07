@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, ArrowLeft, ArrowRight, AlertTriangle, Truck, Search, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
+import { Flag, Users, PauseCircle, Plus, ArrowLeft, ArrowRight, AlertTriangle, Truck, Search, FileWarning, MapPin, User, Wrench, X, LayoutGrid, UserCog, ClipboardList, ShieldCheck, Briefcase, CircleCheck, Ban, ChevronRight } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { Card } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { useFamilies } from "./fleetArt";
 import { fichaChecklist, CHECK_LABELS, docsState, docsDetalle } from "./fleetCompleteness";
 import AssignManagersModal from "./fleetManagers";
 import NewUnitModal from "./fleetNewUnit";
+import { paradaInfo } from "./fleetAssign";
 import DocsBadge from "./fleetDocsBadge";
 
 const AjustesModal = ({ onClose }) => {
@@ -41,6 +42,7 @@ const AjustesModal = ({ onClose }) => {
     ["MAINT_INTERVAL_LIVIANA", "Mantenimiento Flota Liviana", "km"],
     ["MAINT_INTERVAL_PESADA", "Mantenimiento Flota Pesada", "km"],
     ["DOC_ALERT_DAYS", "Avisar vencimiento de documentos con", "días"],
+    ["IDLE_ALERT_DAYS", "Marcar como equipo parado después de", "días"],
   ];
 
   return (
@@ -123,6 +125,7 @@ const UnitCard = ({ u, onOpen, i }) => {
       <div className="mt-4 space-y-1.5 text-xs">
         <InfoRow icon={User} warn={!u.driver_name}>{u.driver_name || "Sin conductor"}</InfoRow>
         <InfoRow icon={MapPin}>{u.gps?.location_text || p.assigned_zone || "Sin ubicación"}</InfoRow>
+        <InfoRow icon={Flag} warn={!u.frente}>{u.frente ? `${u.frente.frente}${u.frente.contrato ? ` · ${u.frente.contrato}` : ""}` : "Sin frente asignado"}</InfoRow>
         <InfoRow icon={UserCog} warn={!u.encargado}>
           {u.encargado ? `Encargado: ${u.encargado.nombre}` : "Sin encargado"}
           {u.soy_encargado && <span className="ml-1.5 rounded-full bg-brand-gold/25 text-amber-800 dark:text-brand-gold px-1.5 text-[9px] font-black">TUYA</span>}
@@ -146,6 +149,11 @@ const UnitCard = ({ u, onOpen, i }) => {
         </span>
         <span className="h-6 w-6 rounded-lg flex items-center justify-center text-slate-300 group-hover:bg-brand-navy group-hover:text-white transition-colors"><ChevronRight size={14} /></span>
       </div>
+      {paradaInfo(u.parada) && (
+        <p className={`mt-3 flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-extrabold ${paradaInfo(u.parada).cls}`}>
+          <span className="inline-flex"><PauseCircle size={14} /></span> {paradaInfo(u.parada).txt}
+        </p>
+      )}
       <span className="mt-3 block"><DocsBadge unit={u} /></span>
     </motion.button>
   );
@@ -166,6 +174,7 @@ const fleetStats = (list) => ({
   fuera: list.filter((u) => statusKeyOf(u) === "FUERA_DE_SERVICIO").length,
   docs: list.filter((u) => docsState(u).key === "vencido").length,
   incompletas: list.filter((u) => !fichaChecklist(u).complete).length,
+  paradas: list.filter((u) => u.parada?.alerta).length,
 });
 
 // Una etiqueta de resumen que lleva a esa flota ya filtrada (pedido de
@@ -221,6 +230,7 @@ const FleetPortal = ({ units, onOpen }) => (
             <Chip cls={f.disp} title="Ver las unidades disponibles" onGo={() => onOpen(key, { estado: "DISPONIBLE" })}>{s.disponibles} disponibles</Chip>
             {s.fuera > 0 && <Chip cls="bg-red-600 text-white" title="Ver las unidades fuera de servicio" onGo={() => onOpen(key, { estado: "FUERA_DE_SERVICIO" })}>{s.fuera} fuera de servicio</Chip>}
             {s.docs > 0 && <Chip cls="bg-red-600 text-white" title="Ver las unidades con documentos vencidos (la más vencida primero)" onGo={() => onOpen(key, { ver: "doc_vencido" })}>{s.docs} con papel vencido</Chip>}
+            {s.paradas > 0 && <Chip cls="bg-violet-600 text-white" title="Ver los equipos parados (el que lleva más tiempo primero)" onGo={() => onOpen(key, { ver: "parada" })}>{s.paradas} parada(s)</Chip>}
             <Chip cls={f.dark} title="Ver las fichas incompletas (las que menos datos tienen primero)" onGo={() => onOpen(key, { ver: "incompleta" })}>{s.incompletas} ficha(s) incompleta(s)</Chip>
           </div>
           <span className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-white text-slate-900 px-4 py-2 text-sm font-extrabold shadow-md group-hover:gap-3 transition-all">
@@ -290,10 +300,14 @@ const FleetList = () => {
       if (estado && statusKeyOf(u) !== estado) return false;
       if (missing.startsWith("doc_")) { if (docsState(u).key !== missing.slice(4)) return false; }
       else if (missing === "incompleta") { if (fichaChecklist(u).complete) return false; }
+      else if (missing === "parada") { if (!u.parada?.alerta) return false; }
+      else if (missing === "quieta") { if (!(u.parada?.dias >= 7)) return false; }
+      else if (missing === "sin_frente") { if (u.frente) return false; }
+      else if (missing.startsWith("frente:")) { if (u.frente?.frente !== missing.slice(7)) return false; }
       else if (missing && fichaChecklist(u).items.some((x) => x.key === missing && x.ok)) return false;
       if (!term) return true;
       const p = u.profile || {};
-      return [u.code, u.plate, u.driver_name, u.name, p.brand, p.model, u.brand_name, u.model_name, u.gps?.location_text].some((v) => String(v || "").toLowerCase().includes(term));
+      return [u.code, u.plate, u.driver_name, u.frente?.frente, u.frente?.contrato, u.conductor?.full_name, u.name, p.brand, p.model, u.brand_name, u.model_name, u.gps?.location_text].some((v) => String(v || "").toLowerCase().includes(term));
     });
   }, [scoped, q, mine, missing, estado]);
 
@@ -303,13 +317,14 @@ const FleetList = () => {
     const list = shown.slice();
     if (missing === "doc_vencido") list.sort((a, b) => minDias(a, "vencido") - minDias(b, "vencido"));
     else if (missing === "doc_por_vencer") list.sort((a, b) => minDias(a, "por_vencer") - minDias(b, "por_vencer"));
-    else if (missing && !missing.startsWith("doc_")) list.sort((a, b) => fichaChecklist(a).pct - fichaChecklist(b).pct || String(a.code).localeCompare(String(b.code)));
+    else if (missing === "parada" || missing === "quieta") list.sort((a, b) => (b.parada?.dias ?? 0) - (a.parada?.dias ?? 0));
+    else if (missing === "incompleta" || CHECK_LABELS[missing]) list.sort((a, b) => fichaChecklist(a).pct - fichaChecklist(b).pct || String(a.code).localeCompare(String(b.code)));
     return list;
   }, [shown, missing]);
-  const ORDEN = { doc_vencido: "la más vencida primero", doc_por_vencer: "la que vence antes primero", incompleta: "las que menos datos tienen primero" };
+  const ORDEN = { parada: "la que lleva más tiempo parada primero", quieta: "la que lleva más tiempo sin moverse primero", doc_vencido: "la más vencida primero", doc_por_vencer: "la que vence antes primero", incompleta: "las que menos datos tienen primero" };
   const filtroActivo = [
     estado && STATUS[estado]?.label,
-    missing && (missing === "incompleta" ? "Fichas incompletas" : missing.startsWith("doc_") ? { doc_vencido: "Con documentos vencidos", doc_por_vencer: "Con documentos por vencer", doc_faltan: "Con documentos por cargar", doc_al_dia: "Con documentos al día" }[missing] : `Sin ${(CHECK_LABELS[missing] || missing).toLowerCase()}`),
+    missing && (missing === "incompleta" ? "Fichas incompletas" : missing === "parada" ? `Equipos parados (${scoped[0]?.parada?.dias_alerta ?? 90}+ días sin moverse)` : missing === "quieta" ? "Sin moverse hace 7 días o más" : missing === "sin_frente" ? "Sin frente asignado" : missing.startsWith("frente:") ? `Frente ${missing.slice(7)}` : missing.startsWith("doc_") ? { doc_vencido: "Con documentos vencidos", doc_por_vencer: "Con documentos por vencer", doc_faltan: "Con documentos por cargar", doc_al_dia: "Con documentos al día" }[missing] : `Sin ${(CHECK_LABELS[missing] || missing).toLowerCase()}`),
   ].filter(Boolean).join(" · ");
 
   // Opciones del filtro "Ver solo…" con su cantidad (en la flota que se esta viendo).
@@ -325,6 +340,7 @@ const FleetList = () => {
 
   return (
     <PageLayout
+      back={fleet ? { to: "/fleet", label: "Toda la flota", onClick: () => setFleet("") } : { to: "/dashboard", label: "Inicio" }}
       icon={Truck}
       title={FLEETS[flotaKey]?.title || (fleet === "NONE" ? "Unidades sin clasificar" : "Fichas de Vehículos")}
       subtitle={`FLOTA FULLPETRO • ${scoped.length} UNIDADES`}
@@ -332,9 +348,6 @@ const FleetList = () => {
     >
       {fleet ? (
         <div className="flex flex-wrap items-center gap-3 mb-5">
-          <motion.button whileHover={{ x: -3 }} type="button" onClick={() => setFleet("")} className="inline-flex items-center gap-2 rounded-xl bg-brand-navy text-white px-4 h-10 text-sm font-extrabold shadow-md shadow-brand-navy/20">
-            <ArrowLeft size={16} /> Toda la flota
-          </motion.button>
           {fleet !== "NONE" && (
             <div className={`inline-flex items-center gap-2 rounded-xl bg-gradient-to-r ${FLEETS[flotaKey].grad} ${FLEETS[flotaKey].text} px-4 h-10 text-sm font-extrabold shadow-md`}>
               <VehicleIcon fleetType={fleet} className={`w-8 h-5 ${FLEETS[flotaKey].text}`} /> {FLEETS[flotaKey].title} · {scoped.length} unidades
@@ -394,7 +407,7 @@ const FleetList = () => {
           )}
         </div>
 
-        <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 ${isAdmin ? "xl:grid-cols-[2fr_1fr_2fr_1.4fr_1fr_1.25fr]" : "xl:grid-cols-[2fr_1fr_2fr_1fr]"}`}>
+        <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 ${isAdmin ? "xl:grid-cols-[1.9fr_1fr_1.9fr_1.4fr_1fr_1.15fr_1.25fr]" : "xl:grid-cols-[2fr_1fr_2fr_1fr_1.15fr]"}`}>
           <div className="col-span-2 md:col-span-1 flex h-11 p-1 rounded-xl bg-slate-100 dark:bg-white/5">
             {[["", "Todas"], ["LIVIANA", "Liviana"], ["PESADA", "Pesada"]].map(([v, l]) => {
               const n = v ? units.filter((u) => u.fleet_type === v).length : units.length;
@@ -418,6 +431,14 @@ const FleetList = () => {
               <option value="doc_faltan">Con documentos por cargar ({filtros.docs.faltan})</option>
               <option value="doc_al_dia">Con documentos al día ({filtros.docs.al_dia})</option>
             </optgroup>
+            <optgroup label="Movimiento">
+              <option value="parada">Equipos parados ({scoped.filter((u) => u.parada?.alerta).length})</option>
+              <option value="quieta">Sin moverse hace 7 días o más ({scoped.filter((u) => u.parada?.dias >= 7).length})</option>
+            </optgroup>
+            <optgroup label="Frente">
+              <option value="sin_frente">Sin frente asignado ({scoped.filter((u) => !u.frente).length})</option>
+              {[...new Set(scoped.map((u) => u.frente?.frente).filter(Boolean))].sort().map((fr) => <option key={fr} value={`frente:${fr}`}>{fr} ({scoped.filter((u) => u.frente?.frente === fr).length})</option>)}
+            </optgroup>
             <option value="incompleta">Fichas incompletas ({scoped.filter((u) => !fichaChecklist(u).complete).length})</option>
             <optgroup label="Ficha incompleta: le falta">
               {Object.entries(CHECK_LABELS).filter(([k]) => filtros.falta[k]).map(([k, label]) => <option key={k} value={k}>{label} ({filtros.falta[k]})</option>)}
@@ -430,6 +451,9 @@ const FleetList = () => {
           )}
           <Button variant="outline" onClick={() => navigate("/fleet/catalog")} className="w-full h-11 rounded-xl gap-2 font-bold whitespace-nowrap" title="Catálogo de modelos">
             <LayoutGrid size={16} /> Catálogo
+          </Button>
+          <Button variant="outline" onClick={() => navigate("/fleet/drivers")} className="w-full h-11 rounded-xl gap-2 font-bold whitespace-nowrap" title="Registro de conductores">
+            <Users size={16} /> Conductores
           </Button>
           {isAdmin && (
             <Button variant="outline" onClick={() => setShowAjustes(true)} className="w-full h-11 rounded-xl gap-2 font-bold whitespace-nowrap" title="Intervalos de mantenimiento">

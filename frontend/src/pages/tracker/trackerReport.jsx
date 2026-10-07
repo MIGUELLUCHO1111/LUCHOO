@@ -216,7 +216,7 @@ const TrackerReport = () => {
   const colSpan = isNocturno ? 6 : 5;
 
   return (
-    <PageLayout icon={FileSpreadsheet} title="Reportes de Turno Generados" subtitle="TRACKER GPS DE FLOTA">
+    <PageLayout back={{ to: "/tracker", label: "Estado de Flota" }} icon={FileSpreadsheet} title="Reportes de Turno Generados" subtitle="TRACKER GPS DE FLOTA">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex flex-wrap items-center gap-3">
           <input

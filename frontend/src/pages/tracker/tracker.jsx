@@ -297,6 +297,7 @@ const Tracker = () => {
 
   return (
     <PageLayout
+      back={{ to: "/dashboard", label: "Inicio" }}
       icon={Radio}
       title="Estado de Flota"
       subtitle={`TRACKER GPS • ÚLTIMA LECTURA GUARDADA • ${new Date().toLocaleDateString()}`}

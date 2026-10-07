@@ -31,6 +31,12 @@ const TX = {
   LECTURA_REEMPLAZO: 207,
   LECTURA_ANULAR: 208,
   CREAR_UNIDAD: 209,
+  ASIGNAR_FRENTE: 210,
+  LISTAR_FRENTES: 211,
+  CONDUCTORES_LISTAR: 212,
+  CONDUCTOR_GUARDAR: 213,
+  CONDUCTOR_ELIMINAR: 214,
+  CONDUCTOR_ASIGNAR: 215,
 };
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
@@ -115,6 +121,24 @@ const fleetService = {
   anularLectura: (id, reason) => call(TX.LECTURA_ANULAR, { id, reason }),
   /** Alta manual de una unidad (solo admin): unico lugar donde se crean a mano. */
   crearUnidad: (unidad) => call(TX.CREAR_UNIDAD, unidad),
+
+  // Frente / contrato / sitio de la unidad (frente vacio = quitar)
+  asignarFrente: (unit_id, datos) => call(TX.ASIGNAR_FRENTE, { unit_id, ...datos }),
+  listarFrentes: () => call(TX.LISTAR_FRENTES),
+
+  // Conductores (registro y asignacion a unidades)
+  listarConductores: () => call(TX.CONDUCTORES_LISTAR),
+  guardarConductor: (conductor) => call(TX.CONDUCTOR_GUARDAR, conductor),
+  eliminarConductor: (id) => call(TX.CONDUCTOR_ELIMINAR, { id }),
+  asignarConductor: (unit_id, driver_id) => call(TX.CONDUCTOR_ASIGNAR, { unit_id, driver_id: driver_id || null }),
+  subirFotoConductor: async (driverId, file) => {
+    const formData = new FormData();
+    formData.append("driver_id", driverId);
+    formData.append("profile", getCurrentProfile());
+    formData.append("photo", file);
+    const res = await api.post("/fleet/drivers/photo", formData, { headers: { "Content-Type": undefined } });
+    return res?.data?.data;
+  },
   /** Foto propia de una unidad (se ve en su ficha y en la lista). */
   subirFotoUnidad: async (unitId, file) => {
     const formData = new FormData();

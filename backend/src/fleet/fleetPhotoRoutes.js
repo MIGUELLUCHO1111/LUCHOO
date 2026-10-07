@@ -244,4 +244,54 @@ router.get('/units/file/:unitId/:filename', async (req, res) => {
   });
 });
 
+// ---------- Foto de cada conductor (058) ----------
+const DRIVERS_ROOT = path.resolve(__dirname, '../../uploads/fleet/drivers');
+
+// POST /fleet/drivers/photo — campos: driver_id, profile, photo. Solo admin.
+router.post('/drivers/photo', (req, res) => {
+  upload.single('photo')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return fail(res, STATUS_CODES.BAD_REQUEST, uploadErr.message === 'INVALID_MIME' ? 'Tipo de archivo no permitido (solo jpg, png o webp)' : uploadErr.code === 'LIMIT_FILE_SIZE' ? 'La foto pesa más de 8 MB' : uploadErr.message || 'Error al procesar el archivo');
+    }
+    try {
+      if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+      const id = parseInt(req.body?.driver_id, 10);
+      const profile = req.body?.profile;
+      if (!Number.isInteger(id) || !profile) return fail(res, STATUS_CODES.BAD_REQUEST, "Campos requeridos: 'driver_id' y 'profile'");
+      if (!req.file) return fail(res, STATUS_CODES.BAD_REQUEST, "Falta el archivo 'photo'");
+      if (!security.hasUserProfile(req.user.id, profile) || !security.hasPermission({ sub_system: 'Flota', class: 'Conductor', method: 'guardarConductor', profile })) {
+        return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
+      }
+      const dbms = new DBMS();
+      await dbms.init();
+      const driver = (await dbms.executeNamedQuery({ nameQuery: 'fleetGetDriver', params: { id } }))?.rows?.[0];
+      if (!driver || driver.deleted_at) return fail(res, STATUS_CODES.NOT_FOUND, 'Conductor no encontrado');
+      const dir = path.join(DRIVERS_ROOT, String(id));
+      await fs.mkdir(dir, { recursive: true });
+      const filename = `${randomUUID()}${MIME_EXT[req.file.mimetype]}`;
+      await fs.writeFile(path.join(dir, filename), req.file.buffer);
+      const url = `/fleet/drivers/file/${id}/${filename}`;
+      await dbms.executeNamedQuery({ nameQuery: 'fleetSetDriverPhoto', params: { id, photo_url: url } });
+      const prev = driver.photo_url && driver.photo_url.split('/').pop();
+      if (prev && SAFE_SEGMENT.test(prev) && prev !== filename) await fs.unlink(path.join(dir, prev)).catch(() => {});
+      return res.status(STATUS_CODES.CREATED).json({ statusCode: STATUS_CODES.CREATED, data: { id, photo_url: url }, message: 'Foto guardada' });
+    } catch (error) {
+      console.error('[Flota] Error subiendo foto de conductor:', error);
+      return fail(res, STATUS_CODES.INTERNAL_SERVER_ERROR, config.getMessage('es', 'server_error'));
+    }
+  });
+});
+
+// GET /fleet/drivers/file/:driverId/:filename — solo con sesion.
+router.get('/drivers/file/:driverId/:filename', async (req, res) => {
+  if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+  const { driverId, filename } = req.params;
+  if (!SAFE_SEGMENT.test(driverId) || !SAFE_SEGMENT.test(filename)) return fail(res, STATUS_CODES.BAD_REQUEST, 'Ruta de archivo inválida');
+  const filePath = path.resolve(DRIVERS_ROOT, driverId, filename);
+  if (!filePath.startsWith(DRIVERS_ROOT + path.sep)) return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
+  return res.sendFile(filePath, { maxAge: '7d' }, (err) => {
+    if (err && !res.headersSent) fail(res, STATUS_CODES.NOT_FOUND, 'Archivo no encontrado');
+  });
+});
+
 export default router;

@@ -30,7 +30,20 @@ const UNIT_FIELDS = ['driver_name', 'fleet_type', 'name', 'tank_capacity_liters'
 const STATUSES = ['OPERATIVO_CONTRATO', 'DISPONIBLE', 'FUERA_DE_SERVICIO']; // Standby se quito el 05/10/2026 (052)
 const STATUS_LABEL = { OPERATIVO_CONTRATO: 'Operativo en contrato', DISPONIBLE: 'Disponible', FUERA_DE_SERVICIO: 'Fuera de servicio' };
 const STATUS_EDITORS = ['admin'];
-const SETTING_KEYS = ['MAINT_INTERVAL_LIVIANA', 'MAINT_INTERVAL_PESADA', 'DOC_ALERT_DAYS'];
+const SETTING_KEYS = ['MAINT_INTERVAL_LIVIANA', 'MAINT_INTERVAL_PESADA', 'DOC_ALERT_DAYS', 'IDLE_ALERT_DAYS'];
+const DAY_MS = 86400000;
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// Equipo parado (pedido de Lguerra, 07/10/2026): dias desde la ultima vez que
+// el GPS lo vio encendido o andando. Si nunca se lo vio moverse, cuenta desde
+// la primera lectura que hay de esa placa (los datos empiezan el 10/09/2026).
+const paradaDe = (mov, alertDays) => {
+  if (!mov) return null;
+  const ref = mov.last_moved_at || mov.first_seen;
+  if (!ref) return null;
+  const dias = Math.max(0, Math.floor((Date.now() - new Date(ref).getTime()) / DAY_MS));
+  return { dias, desde: ref, nunca_se_movio: !mov.last_moved_at, alerta: dias >= alertDays, dias_alerta: alertDays };
+};
 
 // La API v3 corta tras ~10 consultas seguidas: se guarda en memoria lo que
 // devolvio cada placa y solo se vuelve a preguntar pasados 15 minutos.
@@ -137,9 +150,14 @@ class Ficha {
   // (method_profile no tiene la clase) y 'listar' existe tambien en clases
   // del Tracker -- darselo a otro perfil le abriria esas tambien.
   listarFichas = async ({ caller_profile, caller_user_id } = {}) => {
-    const [unidades, snaps, encargados, docs, conLectura] = await Promise.all([
+    const [unidades, snaps, encargados, docs, conLectura, movimientos, frentes, conductores, ajustes] = await Promise.all([
       this.query('fleetListUnits'), this.snapshotsPorPlaca(), this.query('fleetCurrentManagers'), this.query('fleetDocsSummary'), this.query('fleetUnitsWithReadings'),
+      this.query('fleetLastMovement'), this.query('fleetCurrentAssignments'), this.query('fleetCurrentDrivers'), this.query('fleetGetSettings'),
     ]);
+    const idleDays = Number(ajustes.find((a) => a.key === 'IDLE_ALERT_DAYS')?.value) || 90;
+    const movPorPlaca = new Map(movimientos.map((m) => [m.plate_norm, m]));
+    const frentePorUnidad = new Map(frentes.map((x) => [String(x.unit_id), x]));
+    const conductorPorUnidad = new Map(conductores.map((x) => [String(x.unit_id), x]));
     const tieneLectura = new Set(conLectura.map((r) => String(r.unit_id)));
     const porUnidad = new Map(encargados.map((m) => [String(m.unit_id), m]));
     const docsPorUnidad = docs.reduce((acc, d) => {
@@ -158,6 +176,9 @@ class Ficha {
         // Odometro del GPS solo si ya se consulto (cache de la API v3): la lista no pregunta por cada placa.
         odometro_gps: gpsCache.get(normPlate(u.plate))?.data?.odometro_km ?? null,
         tiene_lectura: tieneLectura.has(String(u.id)),
+        parada: paradaDe(movPorPlaca.get(normPlate(u.plate)), idleDays),
+        frente: frentePorUnidad.get(String(u.id)) || null,
+        conductor: conductorPorUnidad.get(String(u.id)) || null,
         soy_encargado: mia,
         puede_editar: admin || mia,
         gps: s ? { status: s.status, is_stale: s.is_stale, location_text: s.location_text, location_category: s.location_category, last_report_at: s.last_report_at, ignition: s.ignition } : null,
@@ -171,7 +192,7 @@ class Ficha {
     const [unidad] = await this.query('fleetGetUnit', { id });
     if (!unidad) throw notFound(`Unidad con id ${id} no encontrada`);
 
-    const [documentos, servicios, eventos, snaps, gps, encargados, puedeEditar] = await Promise.all([
+    const [documentos, servicios, eventos, snaps, gps, encargados, puedeEditar, frentes, conductores, movimientos, ajustes] = await Promise.all([
       this.query('fleetListDocuments', { unit_id: id }),
       this.query('fleetListServices', { unit_id: id }),
       this.query('fleetListEvents', { unit_id: id }),
@@ -179,7 +200,13 @@ class Ficha {
       this.datosGps(unidad.plate),
       this.query('fleetManagerHistory', { unit_id: id }),
       canEditUnit(this.dbms, { caller_profile, caller_user_id, unit_id: id }),
+      this.query('fleetAssignmentHistory', { unit_id: id }),
+      this.query('fleetDriverHistory', { unit_id: id }),
+      this.query('fleetLastMovement'),
+      this.query('fleetGetSettings'),
     ]);
+    const idleDays = Number(ajustes.find((a) => a.key === 'IDLE_ALERT_DAYS')?.value) || 90;
+    const [conductorActual] = (await this.query('fleetCurrentDrivers')).filter((c) => Number(c.unit_id) === Number(id));
     const actual = encargados.find((m) => !m.ended_at) || null;
     // La lectura del GPS se guarda en el historial (una vez al dia) y el
     // odometro que se muestra es la ultima lectura de la serie.
@@ -198,6 +225,11 @@ class Ficha {
         ...unidad, documentos, servicios, eventos, snapshot, gps_v3: gps, odometro, lecturas,
         encargado: actual ? { user_id: Number(actual.user_id), nombre: actual.display_name, desde: actual.assigned_at } : null,
         encargados_historial: encargados,
+        frente: frentes.find((x) => !x.ended_at) || null,
+        frentes_historial: frentes,
+        conductor: conductorActual || null,
+        conductores_historial: conductores,
+        parada: paradaDe(movimientos.find((m) => m.plate_norm === normPlate(unidad.plate)), idleDays),
         puede_editar: puedeEditar,
         es_admin: isAdminCaller(caller_profile),
       },
@@ -365,6 +397,61 @@ class Ficha {
     if (!unit_id || !t) throw badRequest("Campos requeridos: 'unit_id' y 'texto'");
     await this.evento(unit_id, 'NOTA', t.length > 190 ? `${t.slice(0, 187)}...` : t, t.length > 190 ? t : null, caller_user);
     return { statusCode: STATUS_CODES.CREATED, message: 'Nota agregada' };
+  };
+
+  // Frente / contrato / sitio donde esta asignada la unidad (058). Una sola
+  // asignacion vigente: la nueva cierra la anterior en su fecha de inicio.
+  // Frente vacio = quitar la asignacion. Admin o el encargado de esa unidad.
+  asignarFrente = async ({ unit_id, frente, contrato, started_at, note, caller_user, caller_profile, caller_user_id }) => {
+    if (!unit_id) throw badRequest("Campo requerido: 'unit_id'");
+    await this.dbmsReady;
+    await assertUnitAccess(this.dbms, { caller_profile, caller_user_id, unit_id });
+    const fecha = clean(started_at, 'date') || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+    const nombre = clean(frente, 'text');
+    const cerradas = await this.query('fleetCloseAssignment', { unit_id: Number(unit_id), ended_at: fecha });
+    if (!nombre) {
+      if (cerradas.length) await this.evento(Number(unit_id), 'UBICACION', 'Sin frente asignado', `Antes: ${cerradas[0].frente}`, caller_user);
+      return { statusCode: STATUS_CODES.OK, message: 'Asignación quitada' };
+    }
+    if (nombre.length > 120) throw badRequest('El nombre del frente es demasiado largo.');
+    await this.query('fleetInsertAssignment', { unit_id: Number(unit_id), frente: nombre, contrato: clean(contrato, 'text') ?? null, started_at: fecha, note: clean(note, 'text') ?? null, created_by: caller_user || null });
+    await this.evento(Number(unit_id), 'UBICACION', `Frente: ${nombre}`, [clean(contrato, 'text') && `Contrato ${clean(contrato, 'text')}`, cerradas.length && `Antes: ${cerradas[0].frente}`].filter(Boolean).join(' · ') || null, caller_user);
+    return { statusCode: STATUS_CODES.CREATED, message: `Unidad asignada a ${nombre}` };
+  };
+
+  // Frentes ya usados, para sugerirlos al escribir (y contar unidades).
+  listarFrentes = async () => ({ statusCode: STATUS_CODES.OK, data: await this.query('fleetFrentesUsados') });
+
+  // Lectura diaria del odometro del GPS de TODA la flota (pedido de Lguerra,
+  // 07/10/2026): antes solo se guardaba al abrir la ficha. La corre el cron
+  // FLEET_GPS_ODOMETER_CRON (scheduler.js). La API v3 corta tras ~10
+  // consultas seguidas: una placa cada 7 s y, si corta, espera 1 min y sigue.
+  // Una sola lectura por unidad y por dia (registrarLecturaGps lo controla).
+  sincronizarOdometrosGps = async ({ pausaMs = 7000 } = {}) => {
+    const unidades = await this.query('fleetUnitsWithPlate');
+    const r = { total: unidades.length, guardadas: 0, sin_dato: 0, errores: 0 };
+    for (const u of unidades) {
+      for (let intento = 0; intento < 2; intento += 1) {
+        try {
+          const estado = await this.gps.getEstadoActualV3(u.plate);
+          const km = Number(estado?.Odometer) || null;
+          if (km) {
+            const antes = (await this.query('fleetListReadings', { unit_id: Number(u.id) })).length;
+            await this.lectura.registrarLecturaGps(u.id, km, estado.LastReported || estado.LastTime || null);
+            const despues = (await this.query('fleetListReadings', { unit_id: Number(u.id) })).length;
+            if (despues > antes) r.guardadas += 1;
+          } else r.sin_dato += 1;
+          break;
+        } catch (error) {
+          if (error?.isRateLimit && intento === 0) { await sleep(60000); continue; }
+          r.errores += 1;
+          console.error(`[Flota] Odómetro del GPS de ${u.code}:`, error?.message || error);
+          break;
+        }
+      }
+      await sleep(pausaMs);
+    }
+    return r;
   };
 
   getAjustes = async () => {

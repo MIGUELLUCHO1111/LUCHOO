@@ -1553,6 +1553,130 @@
     orderArray: ['unit_id', 'photo_url']
   },
 
+  # ---------- 058: frentes, conductores, equipos parados (07/10/2026) ----------
+  # Ultimo movimiento por placa: la ultima lectura del GPS en que estaba
+  # encendida o andando (snapshot y su resumen archivado). first_seen = desde
+  # cuando hay datos de esa placa.
+  'fleetLastMovement': {
+    query: "SELECT plate_norm, MAX(moved_at) AS last_moved_at, MIN(seen_at) AS first_seen FROM (SELECT regexp_replace(upper(plate), '[^A-Z0-9]', '', 'g') AS plate_norm, CASE WHEN status = 'ACTIVO' OR COALESCE(speed, 0) > 0 THEN COALESCE(last_report_at, fetched_at) END AS moved_at, fetched_at AS seen_at FROM public.tracker_snapshot WHERE plate IS NOT NULL UNION ALL SELECT regexp_replace(upper(plate), '[^A-Z0-9]', '', 'g'), CASE WHEN status = 'ACTIVO' THEN COALESCE(last_report_at, archived_at) END, archived_at FROM public.tracker_snapshot_summary WHERE plate IS NOT NULL) x GROUP BY plate_norm;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetCurrentAssignments': {
+    query: 'SELECT id, unit_id, frente, contrato, started_at::text AS started_at, note, created_by FROM public.fleet_unit_assignment WHERE ended_at IS NULL;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetAssignmentHistory': {
+    query: 'SELECT id, frente, contrato, started_at::text AS started_at, ended_at::text AS ended_at, note, created_by, created_at FROM public.fleet_unit_assignment WHERE unit_id = $1 ORDER BY started_at DESC, id DESC;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'fleetCloseAssignment': {
+    query: 'UPDATE public.fleet_unit_assignment SET ended_at = GREATEST($2::date, started_at) WHERE unit_id = $1 AND ended_at IS NULL RETURNING id, frente;',
+    structure_params: { unit_id: 'int', ended_at: 'string' },
+    orderArray: ['unit_id', 'ended_at']
+  },
+
+  'fleetInsertAssignment': {
+    query: 'INSERT INTO public.fleet_unit_assignment (unit_id, frente, contrato, started_at, note, created_by) VALUES ($1, $2, $3, $4::date, $5, $6) RETURNING id;',
+    structure_params: { unit_id: 'int', frente: 'string', contrato: 'string|null', started_at: 'string', note: 'string|null', created_by: 'string|null' },
+    orderArray: ['unit_id', 'frente', 'contrato', 'started_at', 'note', 'created_by']
+  },
+
+  'fleetFrentesUsados': {
+    query: 'SELECT frente, COUNT(*) FILTER (WHERE ended_at IS NULL)::int AS unidades FROM public.fleet_unit_assignment GROUP BY frente ORDER BY unidades DESC, frente;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetListDrivers': {
+    query: "SELECT d.id, d.full_name, d.cedula, d.phone, d.license_number, d.license_category, d.license_expires_at::text AS license_expires_at, (d.license_expires_at - CURRENT_DATE) AS license_days_left, d.photo_url, d.notes, d.is_active, d.created_at, COALESCE((SELECT json_agg(json_build_object('unit_id', u.id, 'code', u.code, 'plate', u.plate, 'fleet_type', u.fleet_type, 'desde', ud.started_at) ORDER BY u.code) FROM public.fleet_unit_driver ud JOIN public.fleet_unit u ON u.id = ud.unit_id AND u.deleted_at IS NULL WHERE ud.driver_id = d.id AND ud.ended_at IS NULL), '[]'::json) AS unidades FROM public.fleet_driver d WHERE d.deleted_at IS NULL ORDER BY d.is_active DESC, d.full_name;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetGetDriver': {
+    query: 'SELECT id, full_name, cedula, photo_url, deleted_at FROM public.fleet_driver WHERE id = $1;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'fleetFindDriverByCedula': {
+    query: 'SELECT id, full_name FROM public.fleet_driver WHERE deleted_at IS NULL AND cedula IS NOT NULL AND UPPER(cedula) = UPPER($1) AND id <> $2 LIMIT 1;',
+    structure_params: { cedula: 'string', id: 'int' },
+    orderArray: ['cedula', 'id']
+  },
+
+  'fleetInsertDriver': {
+    query: 'INSERT INTO public.fleet_driver (full_name, cedula, phone, license_number, license_category, license_expires_at, notes, is_active, created_by) VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9) RETURNING id;',
+    structure_params: { full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean', created_by: 'string|null' },
+    orderArray: ['full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active', 'created_by']
+  },
+
+  'fleetUpdateDriver': {
+    query: 'UPDATE public.fleet_driver SET full_name = $2, cedula = $3, phone = $4, license_number = $5, license_category = $6, license_expires_at = $7::date, notes = $8, is_active = $9, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int', full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean' },
+    orderArray: ['id', 'full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active']
+  },
+
+  'fleetDeleteDriver': {
+    query: 'UPDATE public.fleet_driver SET deleted_at = NOW(), is_active = FALSE WHERE id = $1 AND deleted_at IS NULL RETURNING id, full_name;',
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'fleetSetDriverPhoto': {
+    query: 'UPDATE public.fleet_driver SET photo_url = $2, updated_at = NOW() WHERE id = $1 RETURNING id;',
+    structure_params: { id: 'int', photo_url: 'string|null' },
+    orderArray: ['id', 'photo_url']
+  },
+
+  'fleetCurrentDrivers': {
+    query: 'SELECT ud.unit_id, d.id AS driver_id, d.full_name, d.phone, d.photo_url, d.license_expires_at::text AS license_expires_at, (d.license_expires_at - CURRENT_DATE) AS license_days_left, ud.started_at FROM public.fleet_unit_driver ud JOIN public.fleet_driver d ON d.id = ud.driver_id WHERE ud.ended_at IS NULL;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'fleetDriverHistory': {
+    query: 'SELECT ud.id, d.id AS driver_id, d.full_name, ud.started_at, ud.ended_at, ud.created_by FROM public.fleet_unit_driver ud JOIN public.fleet_driver d ON d.id = ud.driver_id WHERE ud.unit_id = $1 ORDER BY ud.started_at DESC, ud.id DESC;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'fleetCloseUnitDriver': {
+    query: 'UPDATE public.fleet_unit_driver SET ended_at = NOW() WHERE unit_id = $1 AND ended_at IS NULL RETURNING driver_id;',
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'fleetCloseDriverUnits': {
+    query: 'UPDATE public.fleet_unit_driver SET ended_at = NOW() WHERE driver_id = $1 AND ended_at IS NULL RETURNING unit_id;',
+    structure_params: { driver_id: 'int' },
+    orderArray: ['driver_id']
+  },
+
+  'fleetInsertUnitDriver': {
+    query: 'INSERT INTO public.fleet_unit_driver (unit_id, driver_id, created_by) VALUES ($1, $2, $3) RETURNING id;',
+    structure_params: { unit_id: 'int', driver_id: 'int', created_by: 'string|null' },
+    orderArray: ['unit_id', 'driver_id', 'created_by']
+  },
+
+  'fleetSetUnitDriverName': {
+    query: 'UPDATE public.fleet_unit SET driver_name = $2 WHERE id = $1 RETURNING id;',
+    structure_params: { unit_id: 'int', driver_name: 'string|null' },
+    orderArray: ['unit_id', 'driver_name']
+  },
+
+  'fleetUnitsWithPlate': {
+    query: "SELECT id, code, plate FROM public.fleet_unit WHERE deleted_at IS NULL AND plate IS NOT NULL AND plate <> '' ORDER BY code;",
+    structure_params: {},
+    orderArray: []
+  },
+
   'fleetInsertEvent': {
     query: 'INSERT INTO public.fleet_unit_event (unit_id, event_type, title, detail, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id;',
     structure_params: { unit_id: 'int', event_type: 'string', title: 'string', detail: 'string|null', created_by: 'string|null' },

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useAuth, useTheme } from "@/context";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/Sidebar/Sidebar";
+import { BackButton } from "./BackButton";
 
 import logoDark from "@/assets/img/fullpetro-dark.png";
 import logoWhite from "@/assets/img/fullpetro-white.png";
@@ -28,6 +29,9 @@ export const PageLayout = ({
   iconShadow = "shadow-brand-navy/30",
   maxWidth = "max-w-7xl",
   accentColor = "navy",
+  // Opcional: { to, label } muestra el boton "Regresar" junto al titulo
+  // (Flota y Tracker GPS, 07/10/2026). Sin esto la pagina queda igual.
+  back,
   children,
 }) => {
   const { user, logout } = useAuth();
@@ -58,6 +62,7 @@ export const PageLayout = ({
         >
           <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
             <div className="flex items-center gap-5">
+              {back && <BackButton {...back} />}
               <div className={`h-16 w-16 rounded-[24px] bg-gradient-to-br ${iconGradient} flex items-center justify-center shadow-lg ${iconShadow}`}>
                 <Icon size={32} className="text-white" />
               </div>

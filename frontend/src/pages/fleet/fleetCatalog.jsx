@@ -553,7 +553,7 @@ const FleetCatalog = () => {
   const pendientes = modelos.filter((m) => m.status === "PENDIENTE");
 
   return (
-    <PageLayout icon={LayoutGrid} title="Catálogo de Modelos" subtitle="FLOTA • MARCA, MODELO Y VERSIÓN DE CADA EQUIPO" maxWidth="max-w-[1400px]">
+    <PageLayout back={{ to: "/fleet", label: "Fichas de Vehículos" }} icon={LayoutGrid} title="Catálogo de Modelos" subtitle="FLOTA • MARCA, MODELO Y VERSIÓN DE CADA EQUIPO" maxWidth="max-w-[1400px]">
       {/* Resumen */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[["Modelos", modelos.length], ["Marcas", data.marcas?.length || 0], ["Sin foto", modelos.filter((m) => !m.photo_url).length]].map(([l, v]) => (
