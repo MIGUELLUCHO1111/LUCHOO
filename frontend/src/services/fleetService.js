@@ -38,6 +38,7 @@ const TX = {
   CONDUCTOR_GUARDAR: 213,
   CONDUCTOR_ELIMINAR: 214,
   CONDUCTOR_ASIGNAR: 215,
+  CONDUCTOR_OBTENER: 216,
 };
 
 // Direccion del backend: ver apiBase.js (red de la oficina, 07/10/2026).
@@ -129,6 +130,7 @@ const fleetService = {
 
   // Conductores (registro y asignacion a unidades)
   listarConductores: () => call(TX.CONDUCTORES_LISTAR),
+  obtenerConductor: (id) => call(TX.CONDUCTOR_OBTENER, { id }),
   guardarConductor: (conductor) => call(TX.CONDUCTOR_GUARDAR, conductor),
   eliminarConductor: (id) => call(TX.CONDUCTOR_ELIMINAR, { id }),
   asignarConductor: (unit_id, driver_id) => call(TX.CONDUCTOR_ASIGNAR, { unit_id, driver_id: driver_id || null }),

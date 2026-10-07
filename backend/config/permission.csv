@@ -202,3 +202,4 @@ id;sub_system;class;method;profile
 213;Flota;Conductor;guardarConductor;admin
 214;Flota;Conductor;eliminarConductor;admin
 215;Flota;Conductor;asignarConductor;admin,encargado_flota
+216;Flota;Conductor;obtenerConductor;admin,encargado_flota

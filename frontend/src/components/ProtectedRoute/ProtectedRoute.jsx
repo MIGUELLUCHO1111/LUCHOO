@@ -4,7 +4,7 @@ import { useAuth } from "@/context";
 import { AlertMessage } from "@/components";
 import { LowTankAlert } from "@/components/LowTankAlert/LowTankAlert";
 
-const DETAIL_ROUTES = [[/^\/fleet\/\d+$/, "/fleet"]];
+const DETAIL_ROUTES = [[/^\/fleet\/\d+$/, "/fleet"], [/^\/fleet\/drivers\/\d+$/, "/fleet/drivers"]];
 
 export const ProtectedRoute = () => {
   const { user, loading, allowedSections } = useAuth();

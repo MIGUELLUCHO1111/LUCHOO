@@ -14,6 +14,7 @@ const STATUS_CODES = config.STATUS_CODES;
 const badRequest = (message) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.BAD_REQUEST }));
 const notFound = (message) => new Error(JSON.stringify({ message, statusCode: STATUS_CODES.NOT_FOUND }));
 const txt = (v) => (v == null ? null : String(v).trim() || null);
+const FLOTAS = ['LIVIANA', 'PESADA', 'AMBAS'];
 const fecha = (v) => (v && /^\d{4}-\d{2}-\d{2}/.test(String(v)) ? String(v).slice(0, 10) : null);
 
 class Conductor {
@@ -33,8 +34,18 @@ class Conductor {
 
   listarConductores = async () => ({ statusCode: STATUS_CODES.OK, data: await this.query('fleetListDrivers') });
 
+  // Ficha del conductor (07/10/2026): sus datos + todas las unidades que ha
+  // manejado (vigentes primero).
+  obtenerConductor = async ({ id }) => {
+    if (!id) throw badRequest("Campo requerido: 'id'");
+    const conductor = (await this.query('fleetListDrivers')).find((d) => Number(d.id) === Number(id));
+    if (!conductor) throw notFound('Ese conductor no existe o fue dado de baja.');
+    const historial = await this.query('fleetDriverUnitHistory', { driver_id: Number(id) });
+    return { statusCode: STATUS_CODES.OK, data: { ...conductor, historial } };
+  };
+
   // Crear (sin id) o editar (con id). Solo admin.
-  guardarConductor = async ({ id, full_name, cedula, phone, license_number, license_category, license_expires_at, medical_expires_at, notes, is_active, caller_user, caller_profile }) => {
+  guardarConductor = async ({ id, full_name, cedula, phone, license_number, license_category, license_expires_at, medical_expires_at, fleet_type, notes, is_active, caller_user, caller_profile }) => {
     assertAdmin(caller_profile, 'registrar conductores');
     const nombre = txt(full_name);
     if (!nombre) throw badRequest('Indica el nombre del conductor.');
@@ -46,11 +57,14 @@ class Conductor {
     const datos = {
       full_name: nombre, cedula: ced, phone: txt(phone), license_number: txt(license_number)?.toUpperCase() || null,
       license_category: txt(license_category)?.toUpperCase() || null, license_expires_at: fecha(license_expires_at), medical_expires_at: fecha(medical_expires_at), notes: txt(notes),
+      fleet_type: FLOTAS.includes(fleet_type) ? fleet_type : null,
       is_active: is_active === undefined ? true : is_active === true || is_active === 'true',
     };
     if (id) {
       const [ok] = await this.query('fleetUpdateDriver', { id: Number(id), ...datos });
       if (!ok) throw notFound(`Conductor con id ${id} no encontrado`);
+      // Si ya maneja unidades, manda la flota de esas unidades.
+      await this.query('fleetSyncDriverFleet', { driver_id: Number(id) });
       return { statusCode: STATUS_CODES.OK, data: { id: Number(id) }, message: 'Conductor actualizado' };
     }
     const [nuevo] = await this.query('fleetInsertDriver', { ...datos, created_by: caller_user || null });
@@ -82,8 +96,12 @@ class Conductor {
       [conductor] = await this.query('fleetGetDriver', { id: Number(driver_id) });
       if (!conductor || conductor.deleted_at) throw notFound('Ese conductor no existe o fue dado de baja.');
     }
-    await this.query('fleetCloseUnitDriver', { unit_id: Number(unit_id) });
+    const anteriores = await this.query('fleetCloseUnitDriver', { unit_id: Number(unit_id) });
     if (conductor) await this.query('fleetInsertUnitDriver', { unit_id: Number(unit_id), driver_id: Number(conductor.id), created_by: caller_user || null });
+    // La flota del conductor (y la del que manejaba antes) se sincroniza con
+    // sus unidades, se asigne desde la ficha de la unidad o la del conductor.
+    const tocados = new Set([...anteriores.map((a) => Number(a.driver_id)), ...(conductor ? [Number(conductor.id)] : [])]);
+    for (const driver_id of tocados) await this.query('fleetSyncDriverFleet', { driver_id });
     const nombre = conductor ? conductor.full_name.toUpperCase() : 'ROTATIVO';
     await this.query('fleetSetUnitDriverName', { unit_id: Number(unit_id), driver_name: nombre });
     await this.evento(unit_id, `Conductor: ${nombre}`, conductor?.cedula ? `C.I. ${conductor.cedula}` : null, caller_user);

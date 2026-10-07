@@ -1594,7 +1594,7 @@
   },
 
   'fleetListDrivers': {
-    query: "SELECT d.id, d.full_name, d.cedula, d.phone, d.license_number, d.license_category, d.license_expires_at::text AS license_expires_at, (d.license_expires_at - CURRENT_DATE) AS license_days_left, d.photo_url, d.notes, d.is_active, d.created_at, d.license_file_url, d.license_file_mime, d.medical_file_url, d.medical_file_mime, d.medical_expires_at::text AS medical_expires_at, (d.medical_expires_at - CURRENT_DATE) AS medical_days_left, COALESCE((SELECT json_agg(json_build_object('unit_id', u.id, 'code', u.code, 'plate', u.plate, 'fleet_type', u.fleet_type, 'desde', ud.started_at) ORDER BY u.code) FROM public.fleet_unit_driver ud JOIN public.fleet_unit u ON u.id = ud.unit_id AND u.deleted_at IS NULL WHERE ud.driver_id = d.id AND ud.ended_at IS NULL), '[]'::json) AS unidades FROM public.fleet_driver d WHERE d.deleted_at IS NULL ORDER BY d.is_active DESC, d.full_name;",
+    query: "SELECT d.id, d.full_name, d.cedula, d.phone, d.license_number, d.license_category, d.license_expires_at::text AS license_expires_at, (d.license_expires_at - CURRENT_DATE) AS license_days_left, d.photo_url, d.notes, d.is_active, d.created_at, d.license_file_url, d.license_file_mime, d.medical_file_url, d.medical_file_mime, d.medical_expires_at::text AS medical_expires_at, (d.medical_expires_at - CURRENT_DATE) AS medical_days_left, d.fleet_type, d.updated_at, COALESCE((SELECT json_agg(json_build_object('unit_id', u.id, 'code', u.code, 'plate', u.plate, 'fleet_type', u.fleet_type, 'desde', ud.started_at) ORDER BY u.code) FROM public.fleet_unit_driver ud JOIN public.fleet_unit u ON u.id = ud.unit_id AND u.deleted_at IS NULL WHERE ud.driver_id = d.id AND ud.ended_at IS NULL), '[]'::json) AS unidades FROM public.fleet_driver d WHERE d.deleted_at IS NULL ORDER BY d.is_active DESC, d.full_name;",
     structure_params: {},
     orderArray: []
   },
@@ -1612,15 +1612,15 @@
   },
 
   'fleetInsertDriver': {
-    query: 'INSERT INTO public.fleet_driver (full_name, cedula, phone, license_number, license_category, license_expires_at, notes, is_active, created_by, medical_expires_at) VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10::date) RETURNING id;',
-    structure_params: { full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean', created_by: 'string|null', medical_expires_at: 'string|null' },
-    orderArray: ['full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active', 'created_by', 'medical_expires_at']
+    query: 'INSERT INTO public.fleet_driver (full_name, cedula, phone, license_number, license_category, license_expires_at, notes, is_active, created_by, medical_expires_at, fleet_type) VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10::date, $11) RETURNING id;',
+    structure_params: { full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean', created_by: 'string|null', medical_expires_at: 'string|null', fleet_type: 'string|null' },
+    orderArray: ['full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active', 'created_by', 'medical_expires_at', 'fleet_type']
   },
 
   'fleetUpdateDriver': {
-    query: 'UPDATE public.fleet_driver SET full_name = $2, cedula = $3, phone = $4, license_number = $5, license_category = $6, license_expires_at = $7::date, notes = $8, is_active = $9, medical_expires_at = $10::date, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
-    structure_params: { id: 'int', full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean', medical_expires_at: 'string|null' },
-    orderArray: ['id', 'full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active', 'medical_expires_at']
+    query: 'UPDATE public.fleet_driver SET full_name = $2, cedula = $3, phone = $4, license_number = $5, license_category = $6, license_expires_at = $7::date, notes = $8, is_active = $9, medical_expires_at = $10::date, fleet_type = $11, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int', full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean', medical_expires_at: 'string|null', fleet_type: 'string|null' },
+    orderArray: ['id', 'full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active', 'medical_expires_at', 'fleet_type']
   },
 
   'fleetDeleteDriver': {
@@ -1664,6 +1664,27 @@
     query: 'UPDATE public.fleet_unit_driver SET ended_at = NOW() WHERE unit_id = $1 AND ended_at IS NULL RETURNING driver_id;',
     structure_params: { unit_id: 'int' },
     orderArray: ['unit_id']
+  },
+
+  # Flota del conductor (060): se recalcula con sus unidades vigentes; si
+  # no le queda ninguna conserva la que tenia.
+  'fleetSyncDriverFleet': {
+    query: "UPDATE public.fleet_driver d SET fleet_type = COALESCE((SELECT CASE WHEN COUNT(DISTINCT u.fleet_type) > 1 THEN 'AMBAS' ELSE MAX(u.fleet_type) END FROM public.fleet_unit_driver ud JOIN public.fleet_unit u ON u.id = ud.unit_id AND u.deleted_at IS NULL WHERE ud.driver_id = d.id AND ud.ended_at IS NULL AND u.fleet_type IN ('LIVIANA', 'PESADA')), d.fleet_type) WHERE d.id = $1 RETURNING d.fleet_type;",
+    structure_params: { driver_id: 'int' },
+    orderArray: ['driver_id']
+  },
+
+  'fleetSyncDriversOfUnit': {
+    query: "UPDATE public.fleet_driver d SET fleet_type = COALESCE((SELECT CASE WHEN COUNT(DISTINCT u.fleet_type) > 1 THEN 'AMBAS' ELSE MAX(u.fleet_type) END FROM public.fleet_unit_driver ud JOIN public.fleet_unit u ON u.id = ud.unit_id AND u.deleted_at IS NULL WHERE ud.driver_id = d.id AND ud.ended_at IS NULL AND u.fleet_type IN ('LIVIANA', 'PESADA')), d.fleet_type) WHERE d.id IN (SELECT driver_id FROM public.fleet_unit_driver WHERE unit_id = $1 AND ended_at IS NULL) RETURNING d.id;",
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  # Ficha del conductor: todas las unidades que ha manejado.
+  'fleetDriverUnitHistory': {
+    query: 'SELECT ud.id, u.id AS unit_id, u.code, u.plate, u.fleet_type, ud.started_at, ud.ended_at, ud.created_by FROM public.fleet_unit_driver ud JOIN public.fleet_unit u ON u.id = ud.unit_id WHERE ud.driver_id = $1 ORDER BY ud.ended_at IS NOT NULL, ud.started_at DESC, ud.id DESC;',
+    structure_params: { driver_id: 'int' },
+    orderArray: ['driver_id']
   },
 
   'fleetCloseDriverUnits': {

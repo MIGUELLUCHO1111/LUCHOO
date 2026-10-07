@@ -24,6 +24,7 @@ import {
   HoursEquipment,
   FleetList,
   FleetDetail,
+  FleetDriverSheet,
   FleetCatalog,
   FleetDrivers
 } from "@/pages";
@@ -63,6 +64,7 @@ function App() {
             <Route path="/fleet" element={<FleetList />} />
             <Route path="/fleet/catalog" element={<FleetCatalog />} />
             <Route path="/fleet/drivers" element={<FleetDrivers />} />
+            <Route path="/fleet/drivers/:id" element={<FleetDriverSheet />} />
             <Route path="/fleet/:id" element={<FleetDetail />} />
           </Route>
 

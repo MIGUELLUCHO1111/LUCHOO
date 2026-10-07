@@ -306,6 +306,7 @@ class Ficha {
         name: campos.name !== undefined ? clean(campos.name, 'text') : actual.name,
         tank_capacity_liters: numStr(campos.tank_capacity_liters !== undefined ? clean(campos.tank_capacity_liters, 'num') : actual.tank_capacity_liters),
       });
+      if (fleetType !== actual.fleet_type) await this.query('fleetSyncDriversOfUnit', { unit_id: Number(id) });
     }
     if (Object.keys(patch).length) {
       await this.query('fleetEnsureProfile', { unit_id: id });

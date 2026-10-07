@@ -52,6 +52,20 @@ const licState = (c) => {
   return { txt: `Licencia vigente hasta ${fmtDate(c.license_expires_at)}`, cls: "text-emerald-600" };
 };
 
+const FLOTA_TXT = { LIVIANA: "Flota Liviana", PESADA: "Flota Pesada" };
+const gruposConductores = (drivers, fleetType) => {
+  const propia = FLOTA_TXT[fleetType];
+  const g = new Map();
+  if (propia) g.set(`Conductores de ${propia}`, []);
+  for (const d of drivers) {
+    const mismo = propia && (d.fleet_type === fleetType || d.fleet_type === "AMBAS");
+    const t = mismo ? `Conductores de ${propia}` : d.fleet_type ? `Otros (${d.fleet_type === "AMBAS" ? "Liviana y Pesada" : FLOTA_TXT[d.fleet_type]})` : "Sin flota definida";
+    if (!g.has(t)) g.set(t, []);
+    g.get(t).push(d);
+  }
+  return [...g.entries()].filter(([, l]) => l.length);
+};
+
 export const DriverTile = ({ unit, onChanged }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -102,11 +116,19 @@ export const DriverTile = ({ unit, onChanged }) => {
             <label className="block text-xs font-bold text-slate-600 dark:text-slate-300">Elegir conductor
               <select value={sel} onChange={(e) => setSel(e.target.value)} className={`${inputCls} mt-1`}>
                 <option value="">ROTATIVO (sin conductor fijo)</option>
-                {(drivers || []).map((d) => <option key={d.id} value={d.id}>{d.full_name}{d.cedula ? ` · ${d.cedula}` : ""}{d.unidades.length ? ` · maneja ${d.unidades.map((u) => u.code).join(", ")}` : ""}</option>)}
+                {gruposConductores(drivers || [], unit.fleet_type).map(([titulo, lista]) => (
+                  <optgroup key={titulo} label={titulo}>
+                    {lista.map((d) => <option key={d.id} value={d.id}>{d.full_name}{d.cedula ? ` · ${d.cedula}` : ""}{d.unidades.length ? ` · maneja ${d.unidades.map((u) => u.code).join(", ")}` : ""}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </label>
             {drivers && !drivers.length && <p className="mt-2 text-xs text-amber-600 font-bold">Todavía no hay conductores registrados.</p>}
-            <button type="button" onClick={() => navigate("/fleet/drivers")} className="mt-2 text-xs font-bold text-brand-navy dark:text-sky-300 hover:underline">Ir a Conductores (registrar uno nuevo) →</button>
+            <p className="mt-2 text-[11px] text-slate-500">Al guardar, la ficha del conductor queda sincronizada: ve esta unidad y su flota se ajusta sola.</p>
+            <div className="mt-1 flex flex-wrap gap-x-4">
+              {c && <button type="button" onClick={() => navigate(`/fleet/drivers/${c.driver_id}`)} className="text-xs font-bold text-brand-navy dark:text-sky-300 hover:underline">Ver ficha de {c.full_name} →</button>}
+              <button type="button" onClick={() => navigate("/fleet/drivers")} className="text-xs font-bold text-brand-navy dark:text-sky-300 hover:underline">Ir a Conductores (registrar uno nuevo) →</button>
+            </div>
             {unit.conductores_historial?.length > 0 && (
               <div className="mt-4">
                 <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1.5"><History size={12} /> Historial</p>
