@@ -1594,13 +1594,13 @@
   },
 
   'fleetListDrivers': {
-    query: "SELECT d.id, d.full_name, d.cedula, d.phone, d.license_number, d.license_category, d.license_expires_at::text AS license_expires_at, (d.license_expires_at - CURRENT_DATE) AS license_days_left, d.photo_url, d.notes, d.is_active, d.created_at, COALESCE((SELECT json_agg(json_build_object('unit_id', u.id, 'code', u.code, 'plate', u.plate, 'fleet_type', u.fleet_type, 'desde', ud.started_at) ORDER BY u.code) FROM public.fleet_unit_driver ud JOIN public.fleet_unit u ON u.id = ud.unit_id AND u.deleted_at IS NULL WHERE ud.driver_id = d.id AND ud.ended_at IS NULL), '[]'::json) AS unidades FROM public.fleet_driver d WHERE d.deleted_at IS NULL ORDER BY d.is_active DESC, d.full_name;",
+    query: "SELECT d.id, d.full_name, d.cedula, d.phone, d.license_number, d.license_category, d.license_expires_at::text AS license_expires_at, (d.license_expires_at - CURRENT_DATE) AS license_days_left, d.photo_url, d.notes, d.is_active, d.created_at, d.license_file_url, d.license_file_mime, d.medical_file_url, d.medical_file_mime, d.medical_expires_at::text AS medical_expires_at, (d.medical_expires_at - CURRENT_DATE) AS medical_days_left, COALESCE((SELECT json_agg(json_build_object('unit_id', u.id, 'code', u.code, 'plate', u.plate, 'fleet_type', u.fleet_type, 'desde', ud.started_at) ORDER BY u.code) FROM public.fleet_unit_driver ud JOIN public.fleet_unit u ON u.id = ud.unit_id AND u.deleted_at IS NULL WHERE ud.driver_id = d.id AND ud.ended_at IS NULL), '[]'::json) AS unidades FROM public.fleet_driver d WHERE d.deleted_at IS NULL ORDER BY d.is_active DESC, d.full_name;",
     structure_params: {},
     orderArray: []
   },
 
   'fleetGetDriver': {
-    query: 'SELECT id, full_name, cedula, photo_url, deleted_at FROM public.fleet_driver WHERE id = $1;',
+    query: 'SELECT id, full_name, cedula, photo_url, license_file_url, medical_file_url, deleted_at FROM public.fleet_driver WHERE id = $1;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
@@ -1612,21 +1612,34 @@
   },
 
   'fleetInsertDriver': {
-    query: 'INSERT INTO public.fleet_driver (full_name, cedula, phone, license_number, license_category, license_expires_at, notes, is_active, created_by) VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9) RETURNING id;',
-    structure_params: { full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean', created_by: 'string|null' },
-    orderArray: ['full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active', 'created_by']
+    query: 'INSERT INTO public.fleet_driver (full_name, cedula, phone, license_number, license_category, license_expires_at, notes, is_active, created_by, medical_expires_at) VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10::date) RETURNING id;',
+    structure_params: { full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean', created_by: 'string|null', medical_expires_at: 'string|null' },
+    orderArray: ['full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active', 'created_by', 'medical_expires_at']
   },
 
   'fleetUpdateDriver': {
-    query: 'UPDATE public.fleet_driver SET full_name = $2, cedula = $3, phone = $4, license_number = $5, license_category = $6, license_expires_at = $7::date, notes = $8, is_active = $9, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
-    structure_params: { id: 'int', full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean' },
-    orderArray: ['id', 'full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active']
+    query: 'UPDATE public.fleet_driver SET full_name = $2, cedula = $3, phone = $4, license_number = $5, license_category = $6, license_expires_at = $7::date, notes = $8, is_active = $9, medical_expires_at = $10::date, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;',
+    structure_params: { id: 'int', full_name: 'string', cedula: 'string|null', phone: 'string|null', license_number: 'string|null', license_category: 'string|null', license_expires_at: 'string|null', notes: 'string|null', is_active: 'boolean', medical_expires_at: 'string|null' },
+    orderArray: ['id', 'full_name', 'cedula', 'phone', 'license_number', 'license_category', 'license_expires_at', 'notes', 'is_active', 'medical_expires_at']
   },
 
   'fleetDeleteDriver': {
     query: 'UPDATE public.fleet_driver SET deleted_at = NOW(), is_active = FALSE WHERE id = $1 AND deleted_at IS NULL RETURNING id, full_name;',
     structure_params: { id: 'int' },
     orderArray: ['id']
+  },
+
+  # Licencia o carta medica del conductor (059). kind = licencia | medico.
+  'fleetSetDriverLicenseFile': {
+    query: 'UPDATE public.fleet_driver SET license_file_url = $2, license_file_mime = $3, updated_at = NOW() WHERE id = $1 RETURNING id;',
+    structure_params: { id: 'int', file_url: 'string|null', file_mime: 'string|null' },
+    orderArray: ['id', 'file_url', 'file_mime']
+  },
+
+  'fleetSetDriverMedicalFile': {
+    query: 'UPDATE public.fleet_driver SET medical_file_url = $2, medical_file_mime = $3, updated_at = NOW() WHERE id = $1 RETURNING id;',
+    structure_params: { id: 'int', file_url: 'string|null', file_mime: 'string|null' },
+    orderArray: ['id', 'file_url', 'file_mime']
   },
 
   'fleetSetDriverPhoto': {

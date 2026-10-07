@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Plus, Search, X, Phone, IdCard, Pencil, UserX, Camera, AlertTriangle, Truck } from "lucide-react";
+import { Users, Plus, Search, X, Phone, IdCard, Pencil, UserX, Camera, AlertTriangle, Truck, FileText, HeartPulse, Upload, ExternalLink } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { getCurrentProfile } from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -21,12 +21,44 @@ const licencia = (d) => {
   return { key: "vigente", label: `Licencia vigente · ${fmtDate(d.license_expires_at)}`, cls: "bg-emerald-600 text-white" };
 };
 
+const cartaMedica = (d) => {
+  if (!d.medical_expires_at) return { key: "sin", label: d.medical_file_url ? "Cargada (sin vencimiento)" : "Sin cargar", cls: "text-slate-500" };
+  const n = Number(d.medical_days_left);
+  if (n < 0) return { key: "vencida", label: `Vencida hace ${Math.abs(n)} d`, cls: "text-red-600" };
+  if (n <= 30) return { key: "por_vencer", label: n === 0 ? "Vence hoy" : `Vence en ${n} d`, cls: "text-amber-600" };
+  return { key: "vigente", label: `Vigente · ${fmtDate(d.medical_expires_at)}`, cls: "text-emerald-600" };
+};
+const DOC_TYPES = "image/jpeg,image/png,image/webp,application/pdf";
+const docOk = (file) => file && ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type) && file.size <= 10 * 1024 * 1024;
+
+// Selector de archivo del formulario (licencia o carta medica).
+const FilePick = ({ label, icon: Icon, file, hasCurrent, onPick }) => {
+  const ref = useRef(null);
+  return (
+    <button type="button" onClick={() => ref.current?.click()}
+      className={`flex items-center gap-3 rounded-2xl border-2 border-dashed px-3 py-2.5 text-left transition-colors ${file ? "border-emerald-500/50 bg-emerald-500/5" : "border-slate-200 dark:border-white/10 hover:border-brand-navy/40"}`}>
+      <span className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${file ? "bg-emerald-600 text-white" : "bg-brand-navy text-white"}`}><Icon size={16} /></span>
+      <span className="min-w-0">
+        <span className="block text-xs font-extrabold text-brand-navy dark:text-white">{label}</span>
+        <span className="block text-[10px] text-slate-500 truncate">{file ? file.name : hasCurrent ? "Ya cargada · clic para cambiarla" : "Foto o PDF, hasta 10 MB"}</span>
+      </span>
+      <input ref={ref} type="file" accept={DOC_TYPES} className="hidden" onChange={(e) => { onPick(e.target.files?.[0] || null); e.target.value = ""; }} />
+    </button>
+  );
+};
+
 const DriverForm = ({ driver, onClose, onSaved }) => {
   const [f, setF] = useState({
     full_name: driver?.full_name || "", cedula: driver?.cedula || "", phone: driver?.phone || "",
     license_number: driver?.license_number || "", license_category: driver?.license_category || "",
-    license_expires_at: driver?.license_expires_at || "", notes: driver?.notes || "", is_active: driver ? driver.is_active : true,
+    license_expires_at: driver?.license_expires_at || "", medical_expires_at: driver?.medical_expires_at || "", notes: driver?.notes || "", is_active: driver ? driver.is_active : true,
   });
+  const [files, setFiles] = useState({ licencia: null, medico: null });
+  const pickFile = (kind, file) => {
+    if (file && !docOk(file)) return setError("El archivo debe ser una foto (JPG, PNG, WEBP) o un PDF de hasta 10 MB.");
+    setError(null);
+    setFiles((x) => ({ ...x, [kind]: file }));
+  };
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
@@ -36,10 +68,14 @@ const DriverForm = ({ driver, onClose, onSaved }) => {
     setSaving(true);
     setError(null);
     try {
-      await fleetService.guardarConductor({ ...(driver ? { id: driver.id } : {}), ...f });
+      const res = await fleetService.guardarConductor({ ...(driver ? { id: driver.id } : {}), ...f });
+      const id = driver?.id || res?.id;
+      for (const kind of ["licencia", "medico"]) {
+        if (files[kind] && id) await fleetService.subirDocumentoConductor(id, kind, files[kind]);
+      }
       onSaved();
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setSaving(false);
     }
@@ -75,7 +111,14 @@ const DriverForm = ({ driver, onClose, onSaved }) => {
           <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Vencimiento de la licencia
             <input type="date" value={f.license_expires_at} onChange={(e) => set("license_expires_at", e.target.value)} className={`${inputCls} mt-1`} />
           </label>
-          <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 self-end pb-2">
+          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Vencimiento de la carta médica
+            <input type="date" value={f.medical_expires_at} onChange={(e) => set("medical_expires_at", e.target.value)} className={`${inputCls} mt-1`} />
+          </label>
+          <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FilePick label="Licencia de conducir" icon={IdCard} file={files.licencia} hasCurrent={!!driver?.license_file_url} onPick={(x) => pickFile("licencia", x)} />
+            <FilePick label="Carta médica" icon={HeartPulse} file={files.medico} hasCurrent={!!driver?.medical_file_url} onPick={(x) => pickFile("medico", x)} />
+          </div>
+          <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 pb-2">
             <input type="checkbox" checked={f.is_active} onChange={(e) => set("is_active", e.target.checked)} className="h-4 w-4" /> Activo
           </label>
           <label className="sm:col-span-2 text-xs font-bold text-slate-600 dark:text-slate-300">Notas
@@ -93,7 +136,33 @@ const DriverForm = ({ driver, onClose, onSaved }) => {
   );
 };
 
-const DriverCard = ({ d, isAdmin, onEdit, onRemove, onPhoto, i }) => {
+// Casilla de un documento del conductor en su tarjeta: ver / cargar / cambiar.
+const DocBox = ({ title, icon: Icon, url, mime, estado, isAdmin, onUpload }) => {
+  const ref = useRef(null);
+  const isImg = url && mime && mime.startsWith("image/");
+  return (
+    <div className={`flex items-center gap-2.5 rounded-2xl border p-2.5 ${url ? "border-slate-100 dark:border-white/5" : "border-dashed border-slate-300 dark:border-white/15"}`}>
+      <button type="button" disabled={!url} onClick={() => window.open(resolveFleetFileUrl(url), "_blank")} title={url ? "Abrir" : ""}
+        className={`h-11 w-11 rounded-xl overflow-hidden shrink-0 flex items-center justify-center ${url ? "bg-brand-navy text-white hover:ring-2 hover:ring-brand-gold" : "bg-slate-100 dark:bg-white/5 text-slate-400"}`}>
+        {isImg ? <img src={resolveFleetFileUrl(url)} alt={title} className="h-full w-full object-cover" /> : url ? <FileText size={18} /> : <Icon size={18} />}
+      </button>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-extrabold text-brand-navy dark:text-white leading-tight">{title}</p>
+        <p className={`text-[10px] font-bold truncate ${estado.cls}`}>{estado.label}</p>
+        {url && <button type="button" onClick={() => window.open(resolveFleetFileUrl(url), "_blank")} className="inline-flex items-center gap-0.5 text-[10px] font-bold text-brand-navy dark:text-sky-300 hover:underline"><ExternalLink size={10} /> Ver</button>}
+      </div>
+      {isAdmin && (
+        <>
+          <button type="button" onClick={() => ref.current?.click()} title={url ? "Cambiar" : "Cargar"}
+            className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-brand-navy/10 text-brand-navy dark:bg-white/10 dark:text-sky-300 hover:bg-brand-navy hover:text-white transition-colors"><Upload size={14} /></button>
+          <input ref={ref} type="file" accept={DOC_TYPES} className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) onUpload(file); e.target.value = ""; }} />
+        </>
+      )}
+    </div>
+  );
+};
+
+const DriverCard = ({ d, isAdmin, onEdit, onRemove, onPhoto, onDoc, i }) => {
   const navigate = useNavigate();
   const fileRef = useRef(null);
   const lic = licencia(d);
@@ -118,6 +187,12 @@ const DriverCard = ({ d, isAdmin, onEdit, onRemove, onPhoto, i }) => {
         </div>
       </div>
       <p className={`mt-3 rounded-xl px-3 py-1.5 text-xs font-extrabold ${lic.cls}`}>{lic.label}</p>
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <DocBox title="Licencia" icon={IdCard} url={d.license_file_url} mime={d.license_file_mime} isAdmin={isAdmin} onUpload={(file) => onDoc(d, "licencia", file)}
+          estado={d.license_file_url ? { label: "Imagen cargada", cls: "text-emerald-600" } : { label: "Falta la imagen", cls: "text-amber-600" }} />
+        <DocBox title="Carta médica" icon={HeartPulse} url={d.medical_file_url} mime={d.medical_file_mime} isAdmin={isAdmin} onUpload={(file) => onDoc(d, "medico", file)}
+          estado={!d.medical_file_url && !d.medical_expires_at ? { label: "Falta cargar", cls: "text-amber-600" } : cartaMedica(d)} />
+      </div>
       <div className="mt-3">
         <p className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mb-1.5">Unidades que maneja</p>
         {d.unidades.length ? (
@@ -155,8 +230,8 @@ const FleetDrivers = () => {
   useEffect(() => { load(); }, []);
 
   const counts = useMemo(() => {
-    const c = { todos: drivers.length, vencida: 0, por_vencer: 0, sin_unidad: 0 };
-    drivers.forEach((d) => { const k = licencia(d).key; if (c[k] !== undefined) c[k] += 1; if (!d.unidades.length) c.sin_unidad += 1; });
+    const c = { todos: drivers.length, vencida: 0, por_vencer: 0, medica: 0, sin_unidad: 0 };
+    drivers.forEach((d) => { const k = licencia(d).key; if (c[k] !== undefined) c[k] += 1; if (!d.unidades.length) c.sin_unidad += 1; if (["vencida", "por_vencer"].includes(cartaMedica(d).key)) c.medica += 1; });
     return c;
   }, [drivers]);
   const shown = useMemo(() => {
@@ -164,6 +239,7 @@ const FleetDrivers = () => {
     return drivers.filter((d) => {
       if (filtro === "vencida" || filtro === "por_vencer") { if (licencia(d).key !== filtro) return false; }
       if (filtro === "sin_unidad" && d.unidades.length) return false;
+      if (filtro === "medica" && !["vencida", "por_vencer"].includes(cartaMedica(d).key)) return false;
       if (!t) return true;
       return [d.full_name, d.cedula, d.phone, d.license_number, ...d.unidades.map((u) => u.code)].some((v) => String(v || "").toLowerCase().includes(t));
     });
@@ -173,11 +249,15 @@ const FleetDrivers = () => {
     if (!(await confirm(`¿Dar de baja a ${d.full_name}?${d.unidades.length ? ` Sus unidades (${d.unidades.map((u) => u.code).join(", ")}) quedarán como ROTATIVO.` : ""}`, { title: "Dar de baja", confirmText: "Dar de baja" }))) return;
     try { await fleetService.eliminarConductor(d.id); load(); } catch (e) { setError(e.message); }
   };
+  const doc = async (d, kind, file) => {
+    if (!docOk(file)) return setError("El archivo debe ser una foto (JPG, PNG, WEBP) o un PDF de hasta 10 MB.");
+    try { await fleetService.subirDocumentoConductor(d.id, kind, file); setError(null); load(); } catch (e) { setError(e.response?.data?.message || e.message); }
+  };
   const photo = async (d, file) => {
     try { await fleetService.subirFotoConductor(d.id, file); load(); } catch (e) { setError(e.response?.data?.message || e.message); }
   };
 
-  const FILTROS = [["todos", "Todos"], ["vencida", "Licencia vencida"], ["por_vencer", "Licencia por vencer"], ["sin_unidad", "Sin unidad"]];
+  const FILTROS = [["todos", "Todos"], ["vencida", "Licencia vencida"], ["por_vencer", "Licencia por vencer"], ["medica", "Carta médica vencida o por vencer"], ["sin_unidad", "Sin unidad"]];
   return (
     <PageLayout back={{ to: "/fleet", label: "Fichas de Vehículos" }} icon={Users} title="Conductores" subtitle={`FLOTA • ${drivers.length} CONDUCTOR(ES) REGISTRADO(S)`} maxWidth="max-w-[1400px]">
       <div className="flex flex-col sm:flex-row gap-3 mb-3">
@@ -193,7 +273,7 @@ const FleetDrivers = () => {
           </motion.button>
         )}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
         {FILTROS.map(([k, l]) => (
           <button key={k} type="button" onClick={() => setFiltro(k)}
             className={`relative h-11 rounded-xl text-sm font-extrabold transition-colors ${filtro === k ? "text-white" : "bg-white dark:bg-[#0f1115] border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-brand-navy/40"}`}>
@@ -212,7 +292,7 @@ const FleetDrivers = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-8">
-            {shown.map((d, i) => <DriverCard key={d.id} d={d} i={i} isAdmin={isAdmin} onEdit={setForm} onRemove={remove} onPhoto={photo} />)}
+            {shown.map((d, i) => <DriverCard key={d.id} d={d} i={i} isAdmin={isAdmin} onEdit={setForm} onRemove={remove} onPhoto={photo} onDoc={doc} />)}
           </div>
         )}
       <AnimatePresence>{form && <DriverForm driver={form === "nuevo" ? null : form} onClose={() => setForm(null)} onSaved={() => { setForm(null); load(); }} />}</AnimatePresence>

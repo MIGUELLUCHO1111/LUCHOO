@@ -132,6 +132,16 @@ const fleetService = {
   guardarConductor: (conductor) => call(TX.CONDUCTOR_GUARDAR, conductor),
   eliminarConductor: (id) => call(TX.CONDUCTOR_ELIMINAR, { id }),
   asignarConductor: (unit_id, driver_id) => call(TX.CONDUCTOR_ASIGNAR, { unit_id, driver_id: driver_id || null }),
+  /** Licencia de conducir o carta medica (kind = "licencia" | "medico"): foto o PDF. */
+  subirDocumentoConductor: async (driverId, kind, file) => {
+    const formData = new FormData();
+    formData.append("driver_id", driverId);
+    formData.append("kind", kind);
+    formData.append("profile", getCurrentProfile());
+    formData.append("file", file);
+    const res = await api.post("/fleet/drivers/document", formData, { headers: { "Content-Type": undefined } });
+    return res?.data?.data;
+  },
   subirFotoConductor: async (driverId, file) => {
     const formData = new FormData();
     formData.append("driver_id", driverId);

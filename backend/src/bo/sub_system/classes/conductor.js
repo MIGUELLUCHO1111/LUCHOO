@@ -34,7 +34,7 @@ class Conductor {
   listarConductores = async () => ({ statusCode: STATUS_CODES.OK, data: await this.query('fleetListDrivers') });
 
   // Crear (sin id) o editar (con id). Solo admin.
-  guardarConductor = async ({ id, full_name, cedula, phone, license_number, license_category, license_expires_at, notes, is_active, caller_user, caller_profile }) => {
+  guardarConductor = async ({ id, full_name, cedula, phone, license_number, license_category, license_expires_at, medical_expires_at, notes, is_active, caller_user, caller_profile }) => {
     assertAdmin(caller_profile, 'registrar conductores');
     const nombre = txt(full_name);
     if (!nombre) throw badRequest('Indica el nombre del conductor.');
@@ -45,7 +45,7 @@ class Conductor {
     }
     const datos = {
       full_name: nombre, cedula: ced, phone: txt(phone), license_number: txt(license_number)?.toUpperCase() || null,
-      license_category: txt(license_category)?.toUpperCase() || null, license_expires_at: fecha(license_expires_at), notes: txt(notes),
+      license_category: txt(license_category)?.toUpperCase() || null, license_expires_at: fecha(license_expires_at), medical_expires_at: fecha(medical_expires_at), notes: txt(notes),
       is_active: is_active === undefined ? true : is_active === true || is_active === 'true',
     };
     if (id) {

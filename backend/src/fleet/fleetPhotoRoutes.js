@@ -282,6 +282,52 @@ router.post('/drivers/photo', (req, res) => {
   });
 });
 
+// POST /fleet/drivers/document — campos: driver_id, kind (licencia|medico),
+// profile, file. Licencia de conducir y carta medica (059): foto o PDF hasta
+// 10 MB; solo queda el mas reciente de cada uno. Solo admin.
+const DRIVER_DOC_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'application/pdf': '.pdf' };
+const uploadDriverDoc = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => (DRIVER_DOC_EXT[file.mimetype] ? cb(null, true) : cb(new Error('INVALID_MIME'))),
+});
+router.post('/drivers/document', (req, res) => {
+  uploadDriverDoc.single('file')(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return fail(res, STATUS_CODES.BAD_REQUEST, uploadErr.message === 'INVALID_MIME' ? 'Tipo de archivo no permitido (foto JPG, PNG, WEBP o PDF)' : uploadErr.code === 'LIMIT_FILE_SIZE' ? 'El archivo pesa más de 10 MB' : uploadErr.message || 'Error al procesar el archivo');
+    }
+    try {
+      if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+      const id = parseInt(req.body?.driver_id, 10);
+      const kind = req.body?.kind;
+      const profile = req.body?.profile;
+      if (!Number.isInteger(id) || !profile || !['licencia', 'medico'].includes(kind)) return fail(res, STATUS_CODES.BAD_REQUEST, "Campos requeridos: 'driver_id', 'kind' (licencia|medico) y 'profile'");
+      if (!req.file) return fail(res, STATUS_CODES.BAD_REQUEST, "Falta el archivo 'file'");
+      if (!security.hasUserProfile(req.user.id, profile) || !security.hasPermission({ sub_system: 'Flota', class: 'Conductor', method: 'guardarConductor', profile })) {
+        return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));
+      }
+      if (req.file.mimetype === 'application/pdf' && req.file.buffer.subarray(0, 4).toString('latin1') !== '%PDF') return fail(res, STATUS_CODES.BAD_REQUEST, 'El archivo no es un PDF válido');
+      const dbms = new DBMS();
+      await dbms.init();
+      const driver = (await dbms.executeNamedQuery({ nameQuery: 'fleetGetDriver', params: { id } }))?.rows?.[0];
+      if (!driver || driver.deleted_at) return fail(res, STATUS_CODES.NOT_FOUND, 'Conductor no encontrado');
+      const dir = path.join(DRIVERS_ROOT, String(id));
+      await fs.mkdir(dir, { recursive: true });
+      const filename = `${kind}-${randomUUID()}${DRIVER_DOC_EXT[req.file.mimetype]}`;
+      await fs.writeFile(path.join(dir, filename), req.file.buffer);
+      const url = `/fleet/drivers/file/${id}/${filename}`;
+      await dbms.executeNamedQuery({ nameQuery: kind === 'licencia' ? 'fleetSetDriverLicenseFile' : 'fleetSetDriverMedicalFile', params: { id, file_url: url, file_mime: req.file.mimetype } });
+      const prevUrl = kind === 'licencia' ? driver.license_file_url : driver.medical_file_url;
+      const prev = prevUrl && prevUrl.split('/').pop();
+      if (prev && SAFE_SEGMENT.test(prev) && prev !== filename) await fs.unlink(path.join(dir, prev)).catch(() => {});
+      return res.status(STATUS_CODES.CREATED).json({ statusCode: STATUS_CODES.CREATED, data: { id, kind, file_url: url }, message: kind === 'licencia' ? 'Licencia guardada' : 'Carta médica guardada' });
+    } catch (error) {
+      console.error('[Flota] Error subiendo documento de conductor:', error);
+      return fail(res, STATUS_CODES.INTERNAL_SERVER_ERROR, config.getMessage('es', 'server_error'));
+    }
+  });
+});
+
 // GET /fleet/drivers/file/:driverId/:filename — solo con sesion.
 router.get('/drivers/file/:driverId/:filename', async (req, res) => {
   if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
