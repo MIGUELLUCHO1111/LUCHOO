@@ -37,6 +37,7 @@ const Tracker = () => {
   const [syncMessage, setSyncMessage] = useState(null);
 
   const [unidades, setUnidades] = useState([]);
+  const [unidadesError, setUnidadesError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -102,8 +103,12 @@ const Tracker = () => {
     try {
       const res = await trackerService.getAllUnidades();
       setUnidades(Array.isArray(res) ? res : []);
+      setUnidadesError(null);
     } catch (err) {
+      // Antes el error quedaba escondido y la tabla decia "Ninguna unidad
+      // registrada" (ej. si el servidor se estaba reiniciando): ahora avisa.
       console.error("Error cargando unidades:", err);
+      setUnidadesError(err.response?.data?.message || err.message || "Error de conexión");
     }
   };
 
@@ -652,7 +657,12 @@ const Tracker = () => {
                       return (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center py-8 text-slate-400">
-                            {unidades.length === 0 ? "Ninguna unidad registrada todavía." : "Ningún resultado con estos filtros."}
+                            {unidadesError ? (
+                              <span className="text-red-600 font-bold">
+                                No se pudo cargar la lista de unidades ({unidadesError}).{" "}
+                                <button type="button" onClick={loadUnidades} className="underline text-brand-navy dark:text-sky-300">Reintentar</button>
+                              </span>
+                            ) : unidades.length === 0 ? "Ninguna unidad registrada todavía." : "Ningún resultado con estos filtros."}
                           </TableCell>
                         </TableRow>
                       );
