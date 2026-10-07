@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
 import RecorridosPanel from "@/components/TrackerMap/RecorridosPanel";
-import DriverChip from "@/components/TrackerMap/DriverChip";
 import SuscriptoresTelegram from "./suscriptoresTelegram";
 import { formatHora, formatFechaISO, TURNOS, fleetTypeLabel, fleetTypeBadgeClass } from "@/lib/trackerFormat";
 
@@ -205,10 +204,7 @@ const TrackerAlerts = () => {
                     <Fragment key={a.id}>
                     <TableRow className={i % 2 === 0 ? "bg-transparent" : "bg-slate-50/60 dark:bg-white/[0.02]"}>
                       <TableCell className="text-sm whitespace-nowrap">{formatHora(a.triggered_at)}</TableCell>
-                      <TableCell className="text-sm">
-                        <div className="font-bold">{a.unit_code || a.plate || "-"}</div>
-                        {(a.driver_id || a.driver_name) && <div className="mt-1"><DriverChip s={a} /></div>}
-                      </TableCell>
+                      <TableCell className="text-sm">{a.unit_code || a.plate || "-"}</TableCell>
                       <TableCell className="text-sm">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fleetTypeBadgeClass(a.fleet_type)}`}>
                           {fleetTypeLabel(a.fleet_type)}
@@ -282,7 +278,7 @@ const TrackerAlerts = () => {
                           <TableCell colSpan={9} className="p-0 border-0">
                             <div className="p-4 bg-slate-50/60 dark:bg-white/[0.02]">
                               <RecorridosPanel
-                                unit={{ gps_unit_id: objetivo.gps_unit_id, unit_code: objetivo.unit_code, plate: objetivo.plate, driver_id: objetivo.driver_id, driver_full_name: objetivo.driver_full_name, driver_photo_url: objetivo.driver_photo_url, driver_name: objetivo.driver_name }}
+                                unit={{ gps_unit_id: objetivo.gps_unit_id, unit_code: objetivo.unit_code, plate: objetivo.plate }}
                                 onClose={() => setExpanded(null)}
                                 desde={objetivo.triggered_at}
                                 titulo={`Recorrido — ${tipoInfo.label}`}
