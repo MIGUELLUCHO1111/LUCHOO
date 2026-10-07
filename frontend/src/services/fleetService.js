@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "./apiBase";
 import api, { executeTransaction, getCurrentProfile } from "./api";
 
 // Flota -> Fichas de Vehiculos. Los numeros son los ids de
@@ -39,7 +40,7 @@ const TX = {
   CONDUCTOR_ASIGNAR: 215,
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+// Direccion del backend: ver apiBase.js (red de la oficina, 07/10/2026).
 
 /** Las fotos del catálogo vienen como ruta relativa (/fleet/models/file/...). */
 export const resolveFleetFileUrl = (url) => (url ? `${API_BASE_URL}${url}` : null);

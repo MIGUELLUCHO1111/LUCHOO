@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "./apiBase";
 import api, { executeTransaction, getCurrentProfile } from "./api";
 
 // Ids reales verificados contra la BD compartida tras mezclar con Fuel.Reporte
@@ -29,7 +30,7 @@ const TX = {
   QUITAR_ACCESO_SUSCRIPTOR: 166,
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+// Direccion del backend: ver apiBase.js (red de la oficina, 07/10/2026).
 
 /** Los anexos vienen como ruta relativa (`/tracker/attachments/file/...`); arma la URL completa. */
 export const resolveAttachmentUrl = (url) => (url ? `${API_BASE_URL}${url}` : null);

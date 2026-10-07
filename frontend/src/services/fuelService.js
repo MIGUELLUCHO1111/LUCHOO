@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "./apiBase";
 import api, { executeTransaction, getCurrentProfile } from "./api";
 import { notifyTanksChanged } from "@/lib/tankAlert";
 
@@ -28,7 +29,7 @@ const TX = {
   GET_FUEL_SUMMARY: 118,
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+// Direccion del backend: ver apiBase.js (red de la oficina, 07/10/2026).
 
 /** Las fotos vienen como ruta relativa (`/fuel/photos/file/...`); arma la URL completa. */
 export const resolvePhotoUrl = (url) => (url ? `${API_BASE_URL}${url}` : null);
