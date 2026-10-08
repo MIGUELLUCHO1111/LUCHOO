@@ -52,6 +52,9 @@ WORKDIR /app/backend
 COPY --from=backend-deps /src/backend/node_modules ./node_modules
 COPY backend/ ./
 COPY db/migrations /app/db/migrations
+# Base de una instalación desde cero (base vacía en producción): ver
+# backend/scripts/migrate.mjs.
+COPY db/schema.sql db/seed.sql /app/db/
 COPY --from=frontend /src/frontend/dist /app/frontend-dist
 COPY deploy/azure/ecosystem.azure.config.cjs deploy/azure/docker-entrypoint.sh /app/
 

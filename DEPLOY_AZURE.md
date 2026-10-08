@@ -49,10 +49,12 @@ Todo se hace desde el **portal de Azure** y **Azure Cloud Shell** (la terminal q
 
 ## 2. Antes de empezar: decisiones
 
-1. **Base de datos de origen.** Producción arranca con una copia (`pg_dump`) de UNA de las bases locales. Hay que elegir cuál:
-   - **Laptop de Luis:** tiene el historial real del Tracker y los suscriptores de Telegram.
-   - **PC de Julio:** tiene datos de **prueba generados** en Combustible (27/08–25/09) y Control de Horas (09/09–04/10). **No deben pasar a producción** tal cual.
-   - Opción recomendada: restaurar la base de Luis y aplicar encima las migraciones que le falten (paso 6). Si se quiere la de Julio, borrar antes los datos generados.
+1. **Base de datos: producción arranca VACÍA** (decisión de Julio, 08/10/2026). No se copia ninguna base local: al primer arranque se instala sola desde cero (sección 6). Trae solo lo necesario para empezar:
+   - **Configuración:** secciones del menú, perfiles, familias de equipos, ajustes, sitios conocidos del GPS y la definición del tanque de gasoil.
+   - **Usuario `admin01`**, con la contraseña que se defina en `INITIAL_ADMIN_PASSWORD`.
+   - **Las 68 unidades del registro de la flota** con su criticidad y planes de mantenimiento. El GPS las reconoce por placa y agrega solas las unidades nuevas que vaya reportando.
+   - **Los 2 suscriptores de Telegram de Luis**, activos.
+   - **Nada de operación:** sin llenados, horas, alertas, lecturas ni órdenes de trabajo. Tampoco archivos subidos.
 2. **Región:** `eastus2` (buena latencia desde Venezuela y de las más económicas). `brazilsouth` también sirve, pero es más cara.
 3. **Dominio:** sin dominio propio la app queda en `https://<nombre>.azurewebsites.net`, con HTTPS incluido. Con dominio (`app.fullpetro.com`) se agrega al final (paso 10).
 4. **Tamaño:** ver la sección 11 (costos).
@@ -160,55 +162,41 @@ az webapp config appsettings set -g $RG -n $APP --settings \
   FRONTEND_URL=https://$APP.azurewebsites.net \
   SECRET="$(openssl rand -hex 32)" JWT_SECRET="$(openssl rand -hex 32)" \
   RUN_MIGRATIONS_ON_START=true \
-  SCHEDULER_ENABLED=false
+  SCHEDULER_ENABLED=false \
+  INITIAL_ADMIN_PASSWORD='<contraseña larga para admin01>'
 ```
+`INITIAL_ADMIN_PASSWORD` es la contraseña del administrador `admin01` en la instalación desde cero (la del archivo `seed.sql` ya se compartió y no debe usarse en producción). **Después del primer inicio de sesión, bórrala de la configuración** (Portal → Configuration → quitar la variable).
 Después, en **Portal → la app → Configuration → Application settings**, agrega a mano los secretos y ajustes del Tracker que hoy están en `backend/.env` de la laptop de Luis: `FORESIGHT_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TRACKER_*`, `FLEET_*`, `MNT_*`, `RESEND_API_KEY`, `EMAIL`. Cópialos **tal cual** desde ese `.env` (nunca los pegues en el chat ni en un archivo del repo).
 
 `SCHEDULER_ENABLED=false` por ahora: así Azure **no manda nada a Telegram** mientras se prueba. Se enciende en el paso 7.
 
 ---
 
-## 6. Datos: base y archivos
+## 6. Primera instalación (base vacía)
 
-### 6.1 Copiar la base de datos
-En la computadora de origen (la elegida en el paso 2), en PowerShell:
-```powershell
-# 1. Respaldo (formato SQL plano: se restaura bien aunque el origen sea PostgreSQL 18 y Azure 17)
-& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -h localhost -U postgres -d fullpetro --no-owner --no-privileges -f fullpetro.sql
-```
-En Cloud Shell, dale permiso temporal a la IP pública de la oficina (búscala en https://ifconfig.me desde esa computadora):
-```bash
-az postgres flexible-server firewall-rule create -g $RG -n $PG --rule-name oficina-temporal \
-  --start-ip-address <IP_OFICINA> --end-ip-address <IP_OFICINA>
-```
-De vuelta en la computadora de origen:
-```powershell
-$env:PGPASSWORD = '<la contraseña PG_PASS>'
-$env:PGSSLMODE = 'require'
-& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h <PG>.postgres.database.azure.com -U fpadmin -d fullpetro -v ON_ERROR_STOP=1 -f fullpetro.sql
-Remove-Item Env:PGPASSWORD
-```
-Luego, **marca las migraciones** y aplica las que falten (desde la carpeta `backend` del proyecto, con un `.env` temporal que apunte a Azure, o desde Cloud Shell con Node):
-```bash
-node scripts/migrate.mjs --baseline   # solo si la base de origen tenía TODAS las migraciones aplicadas
-node scripts/migrate.mjs --status
-```
-Si no estás seguro de que el origen las tenga todas, **no uses `--baseline`**: deja `RUN_MIGRATIONS_ON_START=true` y revisa en el Log stream qué aplica y si alguna falla. Las que traen `IF NOT EXISTS` se pueden repetir sin daño.
+No hay que copiar nada. Con `RUN_MIGRATIONS_ON_START=true`, el **primer arranque** detecta que la base está vacía y la instala sola (`backend/scripts/migrate.mjs`):
+1. `db/schema.sql`: estructura de seguridad.
+2. `db/seed.sql`: usuario `admin01` y perfil `admin`.
+3. Todas las migraciones de `db/migrations`, en orden, registradas en `schema_migrations`.
+4. La contraseña de `admin01` pasa a ser `INITIAL_ADMIN_PASSWORD`.
 
-Al terminar, borra la regla temporal:
-```bash
-az postgres flexible-server firewall-rule delete -g $RG -n $PG --rule-name oficina-temporal --yes
-```
+En los siguientes arranques solo aplica las migraciones nuevas. Nunca vuelve a instalar sobre una base con datos.
 
-### 6.2 Copiar los archivos subidos
-Portal → cuenta de almacenamiento `$ST` → **File shares** → `uploads` → **Upload**: sube **el contenido** de `backend\uploads` de la computadora de origen, conservando las carpetas `fleet`, `fuel`, `maintenance` y `tracker`. Hoy son ~10 MB. Para cargas grandes se puede usar *Azure Storage Explorer*.
+Los **archivos subidos** (fotos, documentos) también empiezan vacíos: no hay que copiar nada a Azure Files.
+
+> Probado el 08/10/2026 en una base vacía local: estructura idéntica a la de desarrollo (73 tablas, mismas columnas e índices), 65 migraciones sin errores, login de `admin01` con la contraseña nueva, 68 unidades, tanque en 0 L, sin llenados ni actividad, 2 suscriptores de Telegram.
+
+**Si se olvida la contraseña del administrador:** desde una terminal con acceso a la base (Cloud Shell o la consola SSH del App Service):
+```bash
+NEW_PASSWORD='<nueva contraseña>' node scripts/set-admin-password.mjs
+```
 
 ### 6.3 Reiniciar y verificar
 ```bash
 az webapp restart -g $RG -n $APP
 az webapp log tail -g $RG -n $APP      # Ctrl+C para salir
 ```
-Abre `https://$APP.azurewebsites.net/health`. Tiene que decir `"status":"ok","db":"ok"`. Después entra a la app, inicia sesión y revisa: Estado de Flota, una ficha con foto, el reporte de combustible y el Control de Horas.
+Abre `https://$APP.azurewebsites.net/health`. Tiene que decir `"status":"ok","db":"ok"`. Después entra a la app con `admin01` y la contraseña de `INITIAL_ADMIN_PASSWORD` (y bórrala de la configuración). Revisa: Estado de Flota (68 unidades), Seguridad → Actividad, y que Combustible y Control de Horas estén vacíos.
 
 ---
 
@@ -294,4 +282,4 @@ az webapp config appsettings set -g $RG -n $APP --settings FRONTEND_URL=https://
 - [ ] Generar un reporte de turno en PDF funciona (Chromium dentro de la imagen).
 - [ ] Solo Azure tiene `SCHEDULER_ENABLED=true`; las máquinas locales tienen `false`.
 - [ ] Llega un solo aviso por Telegram por evento (no duplicados).
-- [ ] La regla temporal del firewall de PostgreSQL se borró.
+- [ ] `INITIAL_ADMIN_PASSWORD` se borró de la configuración después del primer inicio de sesión.

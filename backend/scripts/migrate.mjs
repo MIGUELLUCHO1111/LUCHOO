@@ -14,11 +14,20 @@
 //                                         restaurada con pg_dump de una que ya
 //                                         las tenía; se usa una sola vez)
 //   node scripts/migrate.mjs --dir <ruta> carpeta de migraciones distinta
+//
+// INSTALACIÓN DESDE CERO (base vacía, ej. producción en Azure): si la base no
+// tiene ninguna tabla del sistema, primero corre db/schema.sql (estructura de
+// seguridad) y db/seed.sql (usuario admin01 y perfil admin), y después todas
+// las migraciones. Si INITIAL_ADMIN_PASSWORD está definida, esa pasa a ser la
+// contraseña de admin01 (la del seed ya se compartió fuera del repo y no debe
+// usarse en producción). Solo ocurre con la base vacía: nunca toca una base
+// que ya tenga datos.
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pg from 'pg';
+import bcrypt from 'bcrypt';
 import { dbConfig } from '../config/db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,6 +38,7 @@ const MIGRATIONS_DIR = dirArg >= 0
   : path.resolve(process.env.MIGRATIONS_DIR || path.join(__dirname, '../../db/migrations'));
 const mode = args.includes('--status') ? 'status' : args.includes('--baseline') ? 'baseline' : 'apply';
 
+const BASE_DIR = path.resolve(process.env.DB_BASE_DIR || path.join(MIGRATIONS_DIR, '..'));
 const files = fs.readdirSync(MIGRATIONS_DIR).filter((f) => /^\d+_.+\.sql$/.test(f)).sort();
 
 const client = new pg.Client({ ...dbConfig, application_name: 'fullpetro-migrate' });
@@ -38,6 +48,20 @@ await client.connect();
 // pisarse: el segundo espera a que el primero termine.
 await client.query('SELECT pg_advisory_lock(727002)');
 try {
+  // ¿Base vacía? (no existe ni la tabla de usuarios)
+  const fresh = !(await client.query('SELECT to_regclass($1) AS t', ['public."user"'])).rows[0].t;
+  if (fresh && mode === 'status') {
+    console.log('La base está VACÍA: al aplicar se instalará desde cero (schema.sql + seed.sql + todas las migraciones).');
+  } else if (fresh && mode === 'apply') {
+    for (const f of ['schema.sql', 'seed.sql']) {
+      process.stdout.write(`Instalación desde cero: ${f} ... `);
+      await client.query(fs.readFileSync(path.join(BASE_DIR, f), 'utf8'));
+      console.log('OK');
+    }
+  } else if (fresh && mode === 'baseline') {
+    throw new Error('La base está vacía: --baseline no tiene sentido aquí. Corre el script sin opciones para instalar desde cero.');
+  }
+
   await client.query(`CREATE TABLE IF NOT EXISTS public.schema_migrations (
     filename TEXT PRIMARY KEY,
     applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -76,6 +100,16 @@ try {
         console.error(`\nFalló ${f}: ${err.message}\nNo se aplicó nada de esa migración; las siguientes tampoco. Corrígela y vuelve a correr el script.`);
         process.exitCode = 1;
         break;
+      }
+    }
+    // Contraseña inicial del administrador (solo en una instalación desde cero).
+    if (fresh && !process.exitCode) {
+      if (process.env.INITIAL_ADMIN_PASSWORD) {
+        const hash = await bcrypt.hash(process.env.INITIAL_ADMIN_PASSWORD, 10);
+        await client.query('UPDATE public."user" SET password_hash = $1 WHERE name = $2', [hash, 'admin01']);
+        console.log('Instalación desde cero: contraseña de admin01 = INITIAL_ADMIN_PASSWORD. Bórrala de la configuración después del primer inicio de sesión.');
+      } else {
+        console.log('ATENCIÓN: admin01 quedó con la contraseña del seed (ya compartida). Cámbiala YA con: node scripts/set-admin-password.mjs');
       }
     }
   }
