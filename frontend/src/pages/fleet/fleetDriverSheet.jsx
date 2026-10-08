@@ -258,6 +258,7 @@ const FleetDriverSheet = () => {
               <Dato label="Grado" value={d.license_category} />
               <div className="col-span-2"><Dato label="Vence la licencia" value={lv.txt} cls={lv.cls} /></div>
               <div className="col-span-2"><Dato label="Vence la carta médica" value={mv.txt} cls={mv.cls} /></div>
+              <div className="col-span-2"><Dato label="Autorización de manejo (empresa)" value={d.auth_file_url ? [d.auth_signed_at && `Firmada ${fmtDate(d.auth_signed_at)}`, d.auth_expires_at && `vence ${fmtDate(d.auth_expires_at)}`].filter(Boolean).join(" · ") || "Cargada" : null} /></div>
               <div className="col-span-2"><Dato label="Política de conducción firmada" value={d.policy_signed_at ? fmtDate(d.policy_signed_at) : d.policy_file_url ? "Sí (sin fecha)" : null} /></div>
               <div className="col-span-2"><Dato label={`Certificado flota pesada${pideCertPesada(d) ? " · requerido" : ""}`} value={hv.txt} cls={hv.cls} /></div>
               <div className="col-span-2"><Dato label="Flota" value={fleet ? fleet.label : null} /></div>

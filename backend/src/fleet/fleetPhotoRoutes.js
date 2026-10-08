@@ -288,6 +288,7 @@ const DRIVER_DOC_KINDS = {
   medico: { query: 'fleetSetDriverMedicalFile', col: 'medical_file_url', msg: 'Carta médica guardada' },
   politica: { query: 'fleetSetDriverPolicyFile', col: 'policy_file_url', msg: 'Política de conducción guardada' },
   pesada: { query: 'fleetSetDriverHeavyCertFile', col: 'heavy_cert_file_url', msg: 'Certificado de flota pesada guardado' },
+  autorizacion: { query: 'fleetSetDriverAuthFile', col: 'auth_file_url', msg: 'Autorización de manejo guardada' },
 };
 
 // POST /fleet/drivers/document — campos: driver_id, kind (licencia|medico|politica|pesada),
@@ -309,7 +310,7 @@ router.post('/drivers/document', (req, res) => {
       const id = parseInt(req.body?.driver_id, 10);
       const kind = req.body?.kind;
       const profile = req.body?.profile;
-      if (!Number.isInteger(id) || !profile || !DRIVER_DOC_KINDS[kind]) return fail(res, STATUS_CODES.BAD_REQUEST, "Campos requeridos: 'driver_id', 'kind' (licencia|medico|politica|pesada) y 'profile'");
+      if (!Number.isInteger(id) || !profile || !DRIVER_DOC_KINDS[kind]) return fail(res, STATUS_CODES.BAD_REQUEST, "Campos requeridos: 'driver_id', 'kind' (licencia|medico|politica|pesada|autorizacion) y 'profile'");
       if (!req.file) return fail(res, STATUS_CODES.BAD_REQUEST, "Falta el archivo 'file'");
       if (!security.hasUserProfile(req.user.id, profile) || !security.hasPermission({ sub_system: 'Flota', class: 'Conductor', method: 'guardarConductor', profile })) {
         return fail(res, STATUS_CODES.FORBIDDEN, config.getMessage('es', 'forbidden'));

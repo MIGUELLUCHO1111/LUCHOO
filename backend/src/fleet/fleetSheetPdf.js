@@ -193,6 +193,8 @@ export async function buildDriverSheetHtml(d, { generadoPor } = {}) {
   const DOCS = [
     { t: 'Licencia de conducir', url: d.license_file_url, mime: d.license_file_mime, vence: d.license_expires_at, e: estadoDoc(d.license_expires_at, d.license_days_left, { tieneArchivo: !!d.license_file_url }) },
     { t: 'Carta médica', url: d.medical_file_url, mime: d.medical_file_mime, vence: d.medical_expires_at, e: estadoDoc(d.medical_expires_at, d.medical_days_left, { tieneArchivo: !!d.medical_file_url }) },
+    { t: 'Autorización de manejo por la empresa', url: d.auth_file_url, mime: d.auth_file_mime, vence: d.auth_expires_at, extra: d.auth_signed_at ? `Firmada el ${fecha(d.auth_signed_at)}` : '',
+      e: !d.auth_file_url ? { txt: 'Falta la autorización', cls: 'bad' } : d.auth_expires_at ? estadoDoc(d.auth_expires_at, d.auth_days_left) : { txt: 'Firmada', cls: 'ok' } },
     { t: 'Política de conducción de vehículo corporativo', url: d.policy_file_url, mime: d.policy_file_mime, vence: null, extra: d.policy_signed_at ? `Firmada el ${fecha(d.policy_signed_at)}` : '', e: d.policy_file_url ? { txt: 'Firmada', cls: 'ok' } : { txt: 'Falta la firma', cls: 'warn' } },
     { t: 'Certificado de conducción de flota pesada', url: d.heavy_cert_file_url, mime: d.heavy_cert_file_mime, vence: d.heavy_cert_expires_at,
       e: !d.heavy_cert_file_url && !d.heavy_cert_expires_at ? (exigePesada ? { txt: 'Falta (Flota Pesada)', cls: 'bad' } : { txt: 'No requerido', cls: 'na' }) : estadoDoc(d.heavy_cert_expires_at, d.heavy_cert_days_left) },
@@ -221,6 +223,7 @@ export async function buildDriverSheetHtml(d, { generadoPor } = {}) {
         ${kv('Cédula', d.cedula)}${kv('Teléfono', d.phone)}
         ${kv('N° de licencia', d.license_number)}${kv('Grado', d.license_category)}
         ${kv('Vence la licencia', fecha(d.license_expires_at))}${kv('Vence la carta médica', fecha(d.medical_expires_at))}
+        ${kv('Autorización de manejo', d.auth_signed_at ? `Firmada ${fecha(d.auth_signed_at)}` : d.auth_file_url ? 'Sí' : '')}${kv('Vence la autorización', fecha(d.auth_expires_at))}
         ${kv('Política firmada', d.policy_signed_at ? fecha(d.policy_signed_at) : d.policy_file_url ? 'Sí' : '')}${kv('Certificado flota pesada', fecha(d.heavy_cert_expires_at))}
         ${kv('Flota', FLOTA[d.fleet_type], true)}
       </div></div>

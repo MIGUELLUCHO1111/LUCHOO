@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { Plus, X, IdCard, Pencil, Camera, AlertTriangle, FileText, HeartPulse, Upload, ExternalLink, Truck, Car, ScrollText, BadgeCheck } from "lucide-react";
+import { Plus, X, IdCard, Pencil, Camera, AlertTriangle, FileText, HeartPulse, Upload, ExternalLink, Truck, Car, ScrollText, BadgeCheck, Stamp } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
 import { Button } from "@/components/ui/button";
 import { inputCls, initials, fmtDate } from "./fleetParts";
@@ -37,14 +37,25 @@ export const certPesada = (d) => {
 export const politica = (d) => (d.policy_file_url
   ? { key: "firmada", label: d.policy_signed_at ? `Firmada el ${fmtDate(d.policy_signed_at)}` : "Firmada", cls: "text-emerald-600" }
   : { key: "falta", label: "Falta la firma", cls: "text-amber-600" });
-// Los cuatro documentos del conductor (kind = el de POST /fleet/drivers/document).
+// Autorizacion de manejo por la empresa (068): la firma el Presidente; se
+// exige a todos. Puede tener vencimiento o no.
+export const autorizacion = (d) => {
+  if (!d.auth_file_url) return { key: "falta", label: "Falta la autorización", cls: "text-red-600" };
+  if (!d.auth_expires_at) return { key: "firmada", label: d.auth_signed_at ? `Firmada el ${fmtDate(d.auth_signed_at)}` : "Firmada", cls: "text-emerald-600" };
+  const n = Number(d.auth_days_left);
+  if (n < 0) return { key: "vencida", label: `Vencida hace ${Math.abs(n)} d`, cls: "text-red-600" };
+  if (n <= 30) return { key: "por_vencer", label: n === 0 ? "Vence hoy" : `Vence en ${n} d`, cls: "text-amber-600" };
+  return { key: "vigente", label: `Vigente · ${fmtDate(d.auth_expires_at)}`, cls: "text-emerald-600" };
+};
+// Los documentos del conductor (kind = el de POST /fleet/drivers/document).
 export const DRIVER_DOCS = [
   { kind: "licencia", title: "Licencia de conducir", short: "Licencia", icon: IdCard, url: "license_file_url", mime: "license_file_mime", estado: (d) => licDocEstado(d) },
   { kind: "medico", title: "Carta médica", short: "Carta médica", icon: HeartPulse, url: "medical_file_url", mime: "medical_file_mime", estado: (d) => medDocEstado(d) },
+  { kind: "autorizacion", title: "Autorización de manejo por la empresa", short: "Autorización de manejo", icon: Stamp, url: "auth_file_url", mime: "auth_file_mime", estado: (d) => autorizacion(d) },
   { kind: "politica", title: "Política de conducción de vehículo corporativo", short: "Política de conducción", icon: ScrollText, url: "policy_file_url", mime: "policy_file_mime", estado: (d) => politica(d) },
   { kind: "pesada", title: "Certificado de conducción de flota pesada", short: "Certificado flota pesada", icon: BadgeCheck, url: "heavy_cert_file_url", mime: "heavy_cert_file_mime", estado: (d) => certPesada(d) },
 ];
-export const DOC_SAVED = { licencia: "Licencia guardada", medico: "Carta médica guardada", politica: "Política de conducción guardada", pesada: "Certificado de flota pesada guardado" };
+export const DOC_SAVED = { licencia: "Licencia guardada", medico: "Carta médica guardada", politica: "Política de conducción guardada", pesada: "Certificado de flota pesada guardado", autorizacion: "Autorización de manejo guardada" };
 export const DOC_TYPES = "image/jpeg,image/png,image/webp,application/pdf";
 export const docOk = (file) => file && ["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type) && file.size <= 10 * 1024 * 1024;
 export const photoOk = (file) => file && ["image/jpeg", "image/png", "image/webp"].includes(file.type) && file.size <= 8 * 1024 * 1024;
@@ -135,8 +146,9 @@ export const DriverForm = ({ driver, onClose, onSaved }) => {
     license_expires_at: driver?.license_expires_at || "", medical_expires_at: driver?.medical_expires_at || "",
     fleet_type: driver?.fleet_type || "", notes: driver?.notes || "", is_active: driver ? driver.is_active : true,
     policy_signed_at: driver?.policy_signed_at || "", heavy_cert_expires_at: driver?.heavy_cert_expires_at || "",
+    auth_signed_at: driver?.auth_signed_at || "", auth_expires_at: driver?.auth_expires_at || "",
   });
-  const [files, setFiles] = useState({ licencia: null, medico: null, politica: null, pesada: null, foto: null });
+  const [files, setFiles] = useState({ licencia: null, medico: null, autorizacion: null, politica: null, pesada: null, foto: null });
   const [preview, setPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -159,7 +171,7 @@ export const DriverForm = ({ driver, onClose, onSaved }) => {
       const res = await fleetService.guardarConductor({ ...(driver ? { id: driver.id } : {}), ...f, fleet_type: f.fleet_type || null });
       const id = driver?.id || res?.id;
       if (files.foto && id) await fleetService.subirFotoConductor(id, files.foto);
-      for (const kind of ["licencia", "medico", "politica", "pesada"]) {
+      for (const kind of ["licencia", "medico", "autorizacion", "politica", "pesada"]) {
         if (files[kind] && id) await fleetService.subirDocumentoConductor(id, kind, files[kind]);
       }
       onSaved(id);
@@ -232,6 +244,12 @@ export const DriverForm = ({ driver, onClose, onSaved }) => {
           </label>
           <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Vencimiento de la carta médica
             <input type="date" value={f.medical_expires_at} onChange={(e) => set("medical_expires_at", e.target.value)} className={`${inputCls} mt-1`} />
+          </label>
+          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Firma de la autorización de manejo
+            <input type="date" value={f.auth_signed_at} onChange={(e) => set("auth_signed_at", e.target.value)} className={`${inputCls} mt-1`} />
+          </label>
+          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Vencimiento de la autorización <span className="font-normal text-slate-400">(si tiene)</span>
+            <input type="date" value={f.auth_expires_at} onChange={(e) => set("auth_expires_at", e.target.value)} className={`${inputCls} mt-1`} />
           </label>
           <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Firma de la política de conducción
             <input type="date" value={f.policy_signed_at} onChange={(e) => set("policy_signed_at", e.target.value)} className={`${inputCls} mt-1`} />

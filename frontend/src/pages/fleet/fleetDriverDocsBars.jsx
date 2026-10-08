@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { IdCard, HeartPulse, ScrollText, BadgeCheck, ShieldCheck, AlertTriangle, Clock } from "lucide-react";
+import { IdCard, HeartPulse, ScrollText, BadgeCheck, Stamp, ShieldCheck, AlertTriangle, Clock } from "lucide-react";
 import { fmtDate } from "./fleetParts";
 
 // Barra de vigencia por documento del conductor (pedido de Lguerra,
@@ -36,6 +36,7 @@ export const vigenciaConductor = (d) => {
   return [
     { key: "licencia", label: "Licencia", icon: IdCard, ...porVencimiento(d.license_expires_at, d.license_days_left, !!d.license_file_url) },
     { key: "medico", label: "Carta médica", icon: HeartPulse, ...porVencimiento(d.medical_expires_at, d.medical_days_left, !!d.medical_file_url) },
+    { key: "autorizacion", label: "Autorización", icon: Stamp, ...(d.auth_file_url ? (d.auth_expires_at ? porVencimiento(d.auth_expires_at, d.auth_days_left, true) : { estado: "firmada", pct: 100, txt: d.auth_signed_at ? `Firmada ${fmtDate(d.auth_signed_at)}` : "Firmada" }) : { estado: "falta", pct: 0, txt: "Falta · requerida" }) },
     { key: "politica", label: "Política", icon: ScrollText, ...(d.policy_file_url ? { estado: "firmada", pct: 100, txt: d.policy_signed_at ? `Firmada ${fmtDate(d.policy_signed_at)}` : "Firmada" } : { estado: "falta", pct: 0, txt: "Falta la firma" }) },
     { key: "pesada", label: "Cert. pesada", icon: BadgeCheck, ...cert },
   ];

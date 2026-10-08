@@ -8,14 +8,14 @@ import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import { inputCls } from "./fleetParts";
 import DriverDocsBars from "./fleetDriverDocsBars";
-import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, driverInFleet, DRIVER_DOCS, certPesada, politica } from "./fleetDriverParts";
+import { licencia, cartaMedica, docOk, photoOk, DriverForm, DocBox, DriverFleetBadge, DriverPhoto, driverInFleet, DRIVER_DOCS, certPesada, politica, autorizacion } from "./fleetDriverParts";
 
 // Conductores de la flota (pedido de Lguerra, 07/10/2026): registro con
 // cedula, telefono, licencia y su vencimiento, foto, carta medica, a que flota
 // pertenece y que unidades maneja. Cada tarjeta abre la ficha del conductor
 // (/fleet/drivers/:id). Solo el admin registra/edita.
 // Politica sin firmar, o certificado de flota pesada faltante / vencido / por vencer.
-const pendiente = (d) => politica(d).key === "falta" || ["falta", "vencida", "por_vencer"].includes(certPesada(d).key);
+const pendiente = (d) => ["falta", "vencida", "por_vencer"].includes(autorizacion(d).key) || politica(d).key === "falta" || ["falta", "vencida", "por_vencer"].includes(certPesada(d).key);
 const FLEET_BAND = { LIVIANA: "bg-brand-navy", PESADA: "bg-[#FFCD11]", AMBAS: "bg-gradient-to-r from-brand-navy from-50% to-[#FFCD11] to-50%" };
 
 const DriverCard = ({ d, isAdmin, onEdit, onRemove, onPhoto, onDoc, i }) => {
@@ -134,7 +134,7 @@ const FleetDrivers = () => {
     ["LIVIANA", "Flota Liviana", Car, "bg-brand-navy"],
     ["PESADA", "Flota Pesada", Truck, "bg-[#FFCD11]"],
   ];
-  const FILTROS = [["todos", "Todos"], ["vencida", "Licencia vencida"], ["por_vencer", "Licencia por vencer"], ["medica", "Carta médica vencida o por vencer"], ["pendientes", "Política o certificado pendiente"], ["sin_unidad", "Sin unidad"]];
+  const FILTROS = [["todos", "Todos"], ["vencida", "Licencia vencida"], ["por_vencer", "Licencia por vencer"], ["medica", "Carta médica vencida o por vencer"], ["pendientes", "Autorización, política o certificado pendiente"], ["sin_unidad", "Sin unidad"]];
   return (
     <PageLayout back={{ to: "/fleet", label: "Fichas de Vehículos" }} icon={Users} title="Conductores" subtitle={`FLOTA • ${drivers.length} CONDUCTOR(ES) REGISTRADO(S)`} maxWidth="max-w-[1400px]">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">

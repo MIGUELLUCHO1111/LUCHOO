@@ -45,7 +45,7 @@ class Conductor {
   };
 
   // Crear (sin id) o editar (con id). Solo admin.
-  guardarConductor = async ({ id, full_name, cedula, phone, license_number, license_category, license_expires_at, medical_expires_at, fleet_type, policy_signed_at, heavy_cert_expires_at, notes, is_active, caller_user, caller_profile }) => {
+  guardarConductor = async ({ id, full_name, cedula, phone, license_number, license_category, license_expires_at, medical_expires_at, fleet_type, policy_signed_at, heavy_cert_expires_at, auth_signed_at, auth_expires_at, notes, is_active, caller_user, caller_profile }) => {
     assertAdmin(caller_profile, 'registrar conductores');
     const nombre = txt(full_name);
     if (!nombre) throw badRequest('Indica el nombre del conductor.');
@@ -59,6 +59,7 @@ class Conductor {
       license_category: txt(license_category)?.toUpperCase() || null, license_expires_at: fecha(license_expires_at), medical_expires_at: fecha(medical_expires_at), notes: txt(notes),
       fleet_type: FLOTAS.includes(fleet_type) ? fleet_type : null,
       policy_signed_at: fecha(policy_signed_at), heavy_cert_expires_at: fecha(heavy_cert_expires_at),
+      auth_signed_at: fecha(auth_signed_at), auth_expires_at: fecha(auth_expires_at),
       is_active: is_active === undefined ? true : is_active === true || is_active === 'true',
     };
     if (id) {
