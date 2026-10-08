@@ -20,3 +20,4 @@ scripts/modelo_interno
 backend/_*.mjs
 backend/_*.json
 check_equipos_response.ps1
+backend/_legacy
