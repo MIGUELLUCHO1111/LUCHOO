@@ -389,9 +389,9 @@ user  ──────created_by──> fuel_carga / fuel_pesada (auditoría)
 | Dato | Valor |
 |---|---|
 | Persona | `ADMIN-00001` — Administrador Sistema |
-| Usuario | `admin01` / `admin01@fullpetro.com` / **Admin1234** (hash bcrypt) |
+| Usuario | `admin` / `admin@fullpetro.com` (único usuario de una instalación desde cero; contraseña definida por Julio, solo su hash bcrypt en `seed.sql`) |
 | Perfil | `admin` — Administrador del sistema |
-| Vinculación | `user_profile` admin01 ↔ admin |
+| Vinculación | `user_profile` admin ↔ admin |
 
 > El perfil `admin` se **re-sincroniza** con `backend/config/permission.csv` al arrancar el backend (cada fila del CSV crea/actualiza la cadena subsystem→class→method→method_profile→transaction).
 >

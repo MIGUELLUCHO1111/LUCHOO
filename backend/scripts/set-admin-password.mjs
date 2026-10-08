@@ -13,7 +13,7 @@ import bcrypt from 'bcrypt';
 import pg from 'pg';
 import { dbConfig } from '../config/db.js';
 
-const username = process.env.ADMIN_USER || 'admin01';
+const username = process.env.ADMIN_USER || 'admin';
 const password = process.env.NEW_PASSWORD;
 
 if (!password || password.length < 10) {

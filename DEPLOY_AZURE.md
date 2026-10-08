@@ -51,7 +51,7 @@ Todo se hace desde el **portal de Azure** y **Azure Cloud Shell** (la terminal q
 
 1. **Base de datos: producción arranca VACÍA** (decisión de Julio, 08/10/2026). No se copia ninguna base local: al primer arranque se instala sola desde cero (sección 6). Trae solo lo necesario para empezar:
    - **Configuración:** secciones del menú, perfiles, familias de equipos, ajustes, sitios conocidos del GPS y la definición del tanque de gasoil.
-   - **Usuario `admin01`**, con la contraseña que se defina en `INITIAL_ADMIN_PASSWORD`.
+   - **Un solo usuario: `admin`**, perfil administrador, con la contraseña que definió Julio (en `db/seed.sql` solo está su versión cifrada).
    - **Las 68 unidades del registro de la flota** con su criticidad y planes de mantenimiento. El GPS las reconoce por placa y agrega solas las unidades nuevas que vaya reportando.
    - **Los 2 suscriptores de Telegram de Luis**, activos.
    - **Nada de operación:** sin llenados, horas, alertas, lecturas ni órdenes de trabajo. Tampoco archivos subidos.
@@ -162,10 +162,9 @@ az webapp config appsettings set -g $RG -n $APP --settings \
   FRONTEND_URL=https://$APP.azurewebsites.net \
   SECRET="$(openssl rand -hex 32)" JWT_SECRET="$(openssl rand -hex 32)" \
   RUN_MIGRATIONS_ON_START=true \
-  SCHEDULER_ENABLED=false \
-  INITIAL_ADMIN_PASSWORD='<contraseña larga para admin01>'
+  SCHEDULER_ENABLED=false
 ```
-`INITIAL_ADMIN_PASSWORD` es la contraseña del administrador `admin01` en la instalación desde cero (la del archivo `seed.sql` ya se compartió y no debe usarse en producción). **Después del primer inicio de sesión, bórrala de la configuración** (Portal → Configuration → quitar la variable).
+El usuario `admin` ya viene con su contraseña desde `db/seed.sql`. Si alguna vez se quisiera instalar con otra, se define `INITIAL_ADMIN_PASSWORD` antes del primer arranque y se borra después.
 Después, en **Portal → la app → Configuration → Application settings**, agrega a mano los secretos y ajustes del Tracker que hoy están en `backend/.env` de la laptop de Luis: `FORESIGHT_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TRACKER_*`, `FLEET_*`, `MNT_*`, `RESEND_API_KEY`, `EMAIL`. Cópialos **tal cual** desde ese `.env` (nunca los pegues en el chat ni en un archivo del repo).
 
 `SCHEDULER_ENABLED=false` por ahora: así Azure **no manda nada a Telegram** mientras se prueba. Se enciende en el paso 7.
@@ -176,15 +175,15 @@ Después, en **Portal → la app → Configuration → Application settings**, a
 
 No hay que copiar nada. Con `RUN_MIGRATIONS_ON_START=true`, el **primer arranque** detecta que la base está vacía y la instala sola (`backend/scripts/migrate.mjs`):
 1. `db/schema.sql`: estructura de seguridad.
-2. `db/seed.sql`: usuario `admin01` y perfil `admin`.
+2. `db/seed.sql`: el único usuario, `admin`, con el perfil `admin` y su contraseña.
 3. Todas las migraciones de `db/migrations`, en orden, registradas en `schema_migrations`.
-4. La contraseña de `admin01` pasa a ser `INITIAL_ADMIN_PASSWORD`.
+4. Si se definió `INITIAL_ADMIN_PASSWORD`, esa reemplaza la contraseña de `admin` (opcional).
 
 En los siguientes arranques solo aplica las migraciones nuevas. Nunca vuelve a instalar sobre una base con datos.
 
 Los **archivos subidos** (fotos, documentos) también empiezan vacíos: no hay que copiar nada a Azure Files.
 
-> Probado el 08/10/2026 en una base vacía local: estructura idéntica a la de desarrollo (73 tablas, mismas columnas e índices), 65 migraciones sin errores, login de `admin01` con la contraseña nueva, 68 unidades, tanque en 0 L, sin llenados ni actividad, 2 suscriptores de Telegram.
+> Probado el 08/10/2026 en una base vacía local: estructura idéntica a la de desarrollo (73 tablas, mismas columnas e índices), 65 migraciones sin errores, un solo usuario (`admin`) que entra con su contraseña, 68 unidades, tanque en 0 L, sin llenados ni actividad, 2 suscriptores de Telegram.
 
 **Si se olvida la contraseña del administrador:** desde una terminal con acceso a la base (Cloud Shell o la consola SSH del App Service):
 ```bash
@@ -196,7 +195,7 @@ NEW_PASSWORD='<nueva contraseña>' node scripts/set-admin-password.mjs
 az webapp restart -g $RG -n $APP
 az webapp log tail -g $RG -n $APP      # Ctrl+C para salir
 ```
-Abre `https://$APP.azurewebsites.net/health`. Tiene que decir `"status":"ok","db":"ok"`. Después entra a la app con `admin01` y la contraseña de `INITIAL_ADMIN_PASSWORD` (y bórrala de la configuración). Revisa: Estado de Flota (68 unidades), Seguridad → Actividad, y que Combustible y Control de Horas estén vacíos.
+Abre `https://$APP.azurewebsites.net/health`. Tiene que decir `"status":"ok","db":"ok"`. Después entra a la app con el usuario `admin` y su contraseña. Revisa: Estado de Flota (68 unidades), Seguridad → Actividad, y que Combustible y Control de Horas estén vacíos.
 
 ---
 
@@ -282,4 +281,4 @@ az webapp config appsettings set -g $RG -n $APP --settings FRONTEND_URL=https://
 - [ ] Generar un reporte de turno en PDF funciona (Chromium dentro de la imagen).
 - [ ] Solo Azure tiene `SCHEDULER_ENABLED=true`; las máquinas locales tienen `false`.
 - [ ] Llega un solo aviso por Telegram por evento (no duplicados).
-- [ ] `INITIAL_ADMIN_PASSWORD` se borró de la configuración después del primer inicio de sesión.
+- [ ] Se puede entrar con el usuario `admin`, y es el único usuario del sistema.

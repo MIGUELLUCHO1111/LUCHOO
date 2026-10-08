@@ -17,11 +17,10 @@
 //
 // INSTALACIÓN DESDE CERO (base vacía, ej. producción en Azure): si la base no
 // tiene ninguna tabla del sistema, primero corre db/schema.sql (estructura de
-// seguridad) y db/seed.sql (usuario admin01 y perfil admin), y después todas
-// las migraciones. Si INITIAL_ADMIN_PASSWORD está definida, esa pasa a ser la
-// contraseña de admin01 (la del seed ya se compartió fuera del repo y no debe
-// usarse en producción). Solo ocurre con la base vacía: nunca toca una base
-// que ya tenga datos.
+// seguridad) y db/seed.sql (el ÚNICO usuario, "admin", con su contraseña ya
+// definida), y después todas las migraciones. Si INITIAL_ADMIN_PASSWORD está
+// definida, reemplaza esa contraseña. Solo ocurre con la base vacía: nunca
+// toca una base que ya tenga datos.
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
@@ -106,10 +105,10 @@ try {
     if (fresh && !process.exitCode) {
       if (process.env.INITIAL_ADMIN_PASSWORD) {
         const hash = await bcrypt.hash(process.env.INITIAL_ADMIN_PASSWORD, 10);
-        await client.query('UPDATE public."user" SET password_hash = $1 WHERE name = $2', [hash, 'admin01']);
-        console.log('Instalación desde cero: contraseña de admin01 = INITIAL_ADMIN_PASSWORD. Bórrala de la configuración después del primer inicio de sesión.');
+        await client.query('UPDATE public."user" SET password_hash = $1 WHERE name = $2', [hash, 'admin']);
+        console.log('Instalación desde cero: contraseña de admin = INITIAL_ADMIN_PASSWORD. Bórrala de la configuración después del primer inicio de sesión.');
       } else {
-        console.log('ATENCIÓN: admin01 quedó con la contraseña del seed (ya compartida). Cámbiala YA con: node scripts/set-admin-password.mjs');
+        console.log('Instalación desde cero: usuario admin con la contraseña definida en db/seed.sql.');
       }
     }
   }

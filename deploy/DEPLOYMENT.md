@@ -107,7 +107,7 @@ for f in migrations/*.sql; do
 done
 ```
 
-> El usuario `admin01` (creado por `seed.sql`) queda disponible con la
+> El usuario `admin` (creado por `seed.sql`) queda disponible con la
 > contraseña que se generó al rotar la anterior (que estaba expuesta en texto
 > plano en este archivo y en `seed.sql` — ver el comentario ahí). Esa
 > contraseña se entregó fuera del repo; **cámbiala** desde la app en tu
