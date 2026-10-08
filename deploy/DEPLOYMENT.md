@@ -1,5 +1,7 @@
 # Guía de despliegue — Fullpetro (servidor 24/7)
 
+> **08/10/2026: el despliegue se hace en Azure — ver [`DEPLOY_AZURE.md`](../DEPLOY_AZURE.md) en la raíz.** Esta guía (servidor propio con NGINX + PM2) queda como referencia por si algún día se vuelve a un servidor físico.
+
 Esta guía asume un servidor Ubuntu 22.04+ (VPS o físico) al que tienes acceso
 por SSH como usuario con permisos `sudo`. No importa el proveedor (DigitalOcean,
 Hetzner, Linode, AWS Lightsail, o el servidor físico R730xd de la empresa) —
@@ -105,7 +107,7 @@ for f in migrations/*.sql; do
 done
 ```
 
-> El usuario `admin01` (creado por `seed.sql`) queda disponible con la
+> El usuario `admin` (creado por `seed.sql`) queda disponible con la
 > contraseña que se generó al rotar la anterior (que estaba expuesta en texto
 > plano en este archivo y en `seed.sql` — ver el comentario ahí). Esa
 > contraseña se entregó fuera del repo; **cámbiala** desde la app en tu

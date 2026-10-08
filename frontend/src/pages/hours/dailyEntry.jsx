@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useAuth, useConfirm } from "@/context";
+import { useReadOnly } from "@/lib/useReadOnly";
 import { veTodayISO } from "@/lib/trackerFormat";
 
 const emptyRow = () => ({
@@ -35,6 +36,9 @@ const shiftDate = (isoDate, days) => {
 
 const DailyEntry = () => {
   const { user } = useAuth();
+  // Sección en "solo ver" (065): se puede consultar cualquier día, pero los
+  // campos quedan bloqueados y "Guardar día" no aparece.
+  const readOnly = useReadOnly();
   const confirm = useConfirm();
 
   const [companies, setCompanies] = useState([]);
@@ -362,6 +366,7 @@ const DailyEntry = () => {
                             type="checkbox"
                             checked={includedIds.has(eq.id)}
                             onChange={() => toggleEquipo(eq)}
+                            disabled={readOnly}
                             className="accent-brand-navy"
                           />
                           {eq.code} {eq.name ? `- ${eq.name}` : ""}
@@ -441,6 +446,7 @@ const DailyEntry = () => {
                           step="0.5"
                           value={row.executed_hours}
                           onChange={(e) => updateRow(eq.id, "executed_hours", e.target.value)}
+                          disabled={readOnly}
                           className="w-24"
                         />
                       </TableCell>
@@ -451,6 +457,7 @@ const DailyEntry = () => {
                           step="0.5"
                           value={row.pto_hours}
                           onChange={(e) => updateRow(eq.id, "pto_hours", e.target.value)}
+                          disabled={readOnly}
                           className="w-24"
                         />
                       </TableCell>
@@ -463,6 +470,7 @@ const DailyEntry = () => {
                           step="0.5"
                           value={row.standby_hours}
                           onChange={(e) => updateRow(eq.id, "standby_hours", e.target.value)}
+                          disabled={readOnly}
                           className="w-24"
                         />
                       </TableCell>
@@ -474,6 +482,7 @@ const DailyEntry = () => {
                           step="0.5"
                           value={row.contracted_hours}
                           onChange={(e) => updateRow(eq.id, "contracted_hours", e.target.value)}
+                          disabled={readOnly}
                           className="w-24"
                         />
                       </TableCell>
@@ -484,6 +493,7 @@ const DailyEntry = () => {
                           placeholder="Opcional"
                           value={row.notes}
                           onChange={(e) => updateRow(eq.id, "notes", e.target.value)}
+                          disabled={readOnly}
                           className="w-40"
                         />
                       </TableCell>
@@ -512,6 +522,7 @@ const DailyEntry = () => {
               placeholder="Ej: 164"
               value={horasPto}
               onChange={(e) => setHorasPto(e.target.value)}
+              disabled={readOnly}
               className="w-32"
             />
           </CardContent>
@@ -552,6 +563,7 @@ const DailyEntry = () => {
       {projectId && !loadingDay && (
         <div className="flex justify-end mt-4">
           <Button
+            data-write
             onClick={handleSave}
             disabled={saving}
             className="rounded-xl font-bold flex items-center gap-2 px-6 h-11 bg-brand-navy hover:bg-brand-navy-light text-white text-sm"

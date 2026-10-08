@@ -1,4 +1,7 @@
 import Tokenizer from '../tokenizer/tokenizer.js';
+import { TOKEN_EXPIRES_IN, REFRESHED_TOKEN_HEADER, REFRESH_AFTER_SECONDS } from '../session/sessionPolicy.js';
+import { touchUser } from '../security/activityTracker.js';
+import { clientIp } from '../utils/clientIp.js';
 
 const tokenizer = new Tokenizer();
 
@@ -12,6 +15,14 @@ const tokenizer = new Tokenizer();
  */
 export default function authMiddleware(req, res, next) {
   req.user = null;
+  resolveUser(req, res);
+  // Actividad de usuarios (066): cualquier petición con sesión cuenta como
+  // "está usando el sistema" (se guarda por lotes, ver activityTracker.js).
+  if (req.user?.id != null) touchUser(req.user.id, clientIp(req));
+  return next();
+}
+
+function resolveUser(req, res) {
 
   // 1. Bearer token
   const authHeader = req.headers?.authorization;
@@ -20,8 +31,19 @@ export default function authMiddleware(req, res, next) {
     const payload = token ? tokenizer.verifyToken(token) : null;
     if (payload?.userId != null) {
       req.user = { id: payload.userId, username: payload.username, via: 'token' };
+      // Cierre por inactividad (08/10/2026): cada petición con un pase de más
+      // de 1 minuto recibe uno nuevo de 30 minutos (ver session/sessionPolicy.js).
+      // La pantalla lo guarda (interceptor de api.js). Así solo vence si pasan
+      // 30 minutos sin ninguna petición.
+      const ageSeconds = Math.floor(Date.now() / 1000) - (payload.iat || 0);
+      if (ageSeconds >= REFRESH_AFTER_SECONDS) {
+        res.setHeader(
+          REFRESHED_TOKEN_HEADER,
+          tokenizer.generateToken({ userId: payload.userId, username: payload.username }, TOKEN_EXPIRES_IN),
+        );
+      }
     }
-    return next();
+    return;
   }
 
   // 2. Cookie de sesión
@@ -29,6 +51,4 @@ export default function authMiddleware(req, res, next) {
   if (sessionUser) {
     req.user = { ...sessionUser, via: 'session' };
   }
-
-  return next();
 }

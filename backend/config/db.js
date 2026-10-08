@@ -21,20 +21,49 @@ types.setTypeParser(20, (val) => parseInt(val, 10));
 // más timeouts explícitos: sin idleTimeoutMillis una conexión colgada no se
 // libera nunca, y sin connectionTimeoutMillis una petición se queda esperando
 // indefinidamente si el pool está agotado en vez de fallar rápido.
+//
+// Azure (08/10/2026): con varias instancias, el total de conexiones es
+// DB_POOL_MAX x procesos por instancia x instancias, y tiene que quedar por
+// debajo del max_connections del servidor de Azure (ver DEPLOY_AZURE.md,
+// "Conexiones a la base"). Por eso el tamaño ahora es configurable.
+// DB_SSL=true es obligatorio en Azure Database for PostgreSQL (rechaza
+// conexiones sin cifrar); el certificado de Azure lo firma una CA pública
+// que Node ya trae, así que se valida normalmente (rejectUnauthorized).
+// DB_STATEMENT_TIMEOUT_MS corta una consulta que se quede colgada en vez de
+// retener una conexión del pool indefinidamente (0 = sin límite, como antes).
+const intEnv = (name, fallback) => {
+  const n = Number.parseInt(process.env[name], 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+
 const dbConfig = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
-  max: 6,
+  max: intEnv('DB_POOL_MAX', 6),
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: intEnv('DB_CONNECTION_TIMEOUT_MS', 5000),
+  statement_timeout: intEnv('DB_STATEMENT_TIMEOUT_MS', 0) || undefined,
+  application_name: process.env.DB_APPLICATION_NAME || 'fullpetro-backend',
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined,
+  // Keep-alive de TCP (08/10/2026): entre la app y la base en Azure hay
+  // equipos de red que cortan en silencio las conexiones inactivas; sin esto,
+  // una conexión "muerta" solo se descubre al usarla (y esa petición falla).
+  // Con keep-alive el sistema operativo la sondea y la detecta antes.
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 };
 
 const pool = new Pool(dbConfig);
 
+// Antes se imprimía en CADA conexión nueva del pool (decenas de líneas
+// iguales en el log); ahora solo la primera de cada proceso.
+let loggedFirstConnection = false;
 pool.on('connect', () => {
+  if (loggedFirstConnection) return;
+  loggedFirstConnection = true;
   console.log(getMessage(config.LANGUAGE, 'db_connected_success'));
 });
 
@@ -42,4 +71,5 @@ pool.on('error', (err) => {
   console.error(getMessage(config.LANGUAGE, 'db_connected_error'), err);
 });
 
+export { dbConfig };
 export default pool;

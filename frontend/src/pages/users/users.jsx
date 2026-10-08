@@ -18,6 +18,7 @@ import {
 import { PageLayout } from "@/components/layout/PageLayout";
 import { useConfirm } from "@/context";
 import { readJSON, writeJSON, isPendingTransaction } from "@/lib/storage";
+import { passwordProblem, PASSWORD_RULE_TEXT } from "@/lib/passwordPolicy";
 
 const USERS_STORAGE_KEY = "fullpetro_users_local";
 const PROFILES_STORAGE_KEY = "fullpetro_profiles_local";
@@ -134,8 +135,10 @@ const Users = () => {
     setError(null);
 
     const isNew = !editingId;
-    if (isNew && form.password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
+    // Misma regla que exige el servidor (08/10/2026); al editar solo si se
+    // escribió una contraseña nueva.
+    if ((isNew || form.password) && passwordProblem(form.password)) {
+      setError(passwordProblem(form.password));
       setSubmitting(false);
       return;
     }
@@ -384,7 +387,8 @@ const Users = () => {
                       <Input
                         required={!editingId}
                         type="password"
-                        minLength={6}
+                        minLength={8}
+                        title={PASSWORD_RULE_TEXT}
                         placeholder="••••••"
                         value={form.password}
                         onChange={(e) =>

@@ -27,6 +27,13 @@ const TX = {
   GET_MOVEMENTS_BY_TANK: 116,
   REGISTER_MOVEMENT: 117,
   GET_FUEL_SUMMARY: 118,
+  // Transferencias entre unidades (064_fuel_transfer.sql).
+  CREATE_TRANSFER: 188,
+  GET_ALL_TRANSFERS: 189,
+  GET_TRANSFER_BY_ID: 190,
+  UPDATE_TRANSFER: 191,
+  DELETE_TRANSFER: 192,
+  GET_TRANSFER_PRICE: 193,
 };
 
 // Direccion del backend: ver apiBase.js (red de la oficina, 07/10/2026).
@@ -131,6 +138,25 @@ const fuelService = {
   },
 
   // ---------- Fotos de llenado (fuera del dispatcher, multipart real) ----------
+  // ---------- Transferencias (064) ----------
+  // El dispatcher responde 200 aunque el método falle: se convierte en error
+  // con el mensaje real para mostrarlo en pantalla.
+  async callTransfer(tx, data = {}) {
+    let res;
+    try {
+      res = await executeTransaction(tx, data);
+    } catch (e) {
+      throw new Error(e.response?.data?.message || e.message);
+    }
+    if (res?.data?.statusCode >= 400) throw new Error(res.data.message || "No se pudo completar la operación");
+    return unwrap(res);
+  },
+  createTransfer(data) { return this.callTransfer(TX.CREATE_TRANSFER, data); },
+  getAllTransfers() { return this.callTransfer(TX.GET_ALL_TRANSFERS); },
+  getTransferById(id) { return this.callTransfer(TX.GET_TRANSFER_BY_ID, { id }); },
+  updateTransfer(id, data) { return this.callTransfer(TX.UPDATE_TRANSFER, { id, ...data }); },
+  deleteTransfer(id) { return this.callTransfer(TX.DELETE_TRANSFER, { id }); },
+  getTransferPrice(vehicle_id) { return this.callTransfer(TX.GET_TRANSFER_PRICE, { vehicle_id }); },
   uploadFuelPhoto({ targetType, targetId, file }) {
     const formData = new FormData();
     formData.append("target_type", targetType);

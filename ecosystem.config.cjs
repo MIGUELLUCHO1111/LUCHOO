@@ -3,10 +3,10 @@
 //
 // instances: empezar en 8 (no 'max'/28 -- Postgres y el sistema operativo
 // también necesitan CPU, ver DEPLOYMENT.md sección "Dimensionamiento").
-// exec_mode 'cluster': balancea peticiones HTTP entre procesos. Los cron del
-// Tracker GPS (sync/alertas/archivado/notificaciones) son seguros en este
-// modo -- backend/src/tracker/scheduler.js ya detecta NODE_APP_INSTANCE y
-// solo el proceso 0 los programa, así no se duplican.
+// exec_mode 'cluster': balancea peticiones HTTP entre procesos. Los cron
+// (Tracker, Mantenimiento, Flota) corren en UN solo proceso: lo decide un
+// advisory lock de PostgreSQL (backend/src/scheduler/leader.js), que sirve
+// igual con un PM2 que con varias instancias en Azure.
 module.exports = {
   apps: [
     {

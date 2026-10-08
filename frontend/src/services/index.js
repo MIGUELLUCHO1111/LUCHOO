@@ -8,3 +8,5 @@ export { default as optionService } from "./optionService";
 export { default as trackerService, resolveAttachmentUrl, resolveReportFileUrl } from "./trackerService";
 export { default as hoursService } from "./hoursService";
 export { default as fleetService, resolveFleetFileUrl } from "./fleetService";
+export { default as maintenanceService, resolveMntFileUrl } from "./maintenanceService";
+export { default as activityService } from "./activityService";

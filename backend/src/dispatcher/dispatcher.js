@@ -1,6 +1,8 @@
 import SS from '../session/sessionWrapper.js';
 import Config from '../../config/config.js';
 import Security from '../security/security.js';
+import { recordAction } from '../security/activityTracker.js';
+import { isReadMethod } from '../bo/sub_system/classes/option.js';
 
 // Transacciones de "autoservicio": cualquier usuario autenticado puede
 // ejecutarlas para SU perfil, sin necesitar un method_profile explícito.
@@ -35,16 +37,20 @@ export default class Dispatcher {
         };
       }
 
+      // 400/403 reales (08/10/2026): antes estos casos respondían 200 con un
+      // texto suelto, y la pantalla podía tomarlo como éxito.
       if (!txId) {
-        return this.config.getMessage(lang, 'missing_transaction_id');
+        return { statusCode: 400, message: this.config.getMessage(lang, 'missing_transaction_id') };
       }
       if (!profile) {
         return { statusCode: 400, message: 'Perfil no especificado en la petición' };
       }
 
       const userId = request.user.id;
+      // También cae aquí un usuario eliminado o desactivado con la sesión aún
+      // abierta: ya no figura en el mapa de perfiles (getUsersProfiles).
       if (!this.security.hasUserProfile(userId, profile)) {
-        return this.config.getMessage(lang, 'profile_not_assigned');
+        return { statusCode: 403, message: 'Tu usuario no tiene ese perfil asignado o fue desactivado.' };
       }
 
       const permissionRoute = this.security.resolveTransaction(txId);
@@ -61,7 +67,14 @@ export default class Dispatcher {
       const isSelfService = SELF_SERVICE_METHODS.has(routeKey);
 
       if (!isSelfService && !this.security.hasPermission(permission)) {
-        return this.config.getMessage(lang, 'missing_required_fields'); // O 'unauthorized_action'
+        // Antes devolvía 200 con el texto "missing_required_fields": la pantalla
+        // lo tomaba como éxito y parecía que se había guardado. Ahora es un 403
+        // real con un mensaje claro (importa sobre todo con las secciones en
+        // "solo ver", 065: ahí cualquier intento de guardar llega aquí).
+        return {
+          statusCode: this.config.STATUS_CODES?.FORBIDDEN || 403,
+          message: 'No tienes permiso para esta acción. Si tu acceso a esta sección es de solo lectura, pide a un administrador que te lo amplíe.',
+        };
       }
 
       // `profile` ya fue verificado arriba contra el usuario autenticado real
@@ -75,6 +88,9 @@ export default class Dispatcher {
       // cada cambio en el historial de la Ficha de Vehiculos (fleet_unit_event).
       const callerUser = request.user.username || request.user.name || null;
       // caller_user_id: para que Flota valide que un encargado solo toque SUS unidades.
+      // Actividad de usuarios (066): una acción más en este módulo; cuenta
+      // como escritura si no es una función de consulta.
+      recordAction(userId, permissionRoute.sub_system, !isReadMethod(permissionRoute.method));
       return await this.security.execute(txId, { ...parameters, caller_profile: profile, caller_user: callerUser, caller_user_id: userId });
 
     } catch (error) {

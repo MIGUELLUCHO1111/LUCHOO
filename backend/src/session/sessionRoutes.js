@@ -1,10 +1,16 @@
 import express from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { clientIp } from '../utils/clientIp.js';
+import { TOKEN_EXPIRES_IN, SESSION_IDLE_MINUTES } from './sessionPolicy.js';
+import { recordSessionEvent } from '../security/activityTracker.js';
+import { passwordProblem } from '../security/passwordPolicy.js';
+import pool from '../../config/db.js';
 import PgRateLimitStore from '../security/pgRateLimitStore.js';
 const router = express.Router();
 import Session from './session.js';
 const session = new Session();
 import SessionWrapper from './sessionWrapper.js';
+import Security from '../security/security.js';
 const sessionWrapper = new SessionWrapper();
 import Validator from '../../utils/validator.js';
 const validator = new Validator();
@@ -14,9 +20,7 @@ const config = new Config();
 const getMessage = config.getMessage.bind(config);
 const { STATUS_CODES } = config;
 import Tokenizer from '../tokenizer/tokenizer.js';
-import Mailer from '../mailer/mailer.js';
 const tokenizer = new Tokenizer();
-const mailer = new Mailer();
 
 // Limita intentos en rutas sensibles (login/registro/recuperación de contraseña).
 // Store en Postgres (no MemoryStore): el conteo es el mismo sin importar qué
@@ -30,18 +34,26 @@ function createAuthLimiter(routeName) {
     standardHeaders: true,
     legacyHeaders: false,
     store: new PgRateLimitStore(),
-    keyGenerator: (req) => `${routeName}:${ipKeyGenerator(req.ip)}`,
+    // clientIp quita el puerto que agrega Azure App Service (ver utils/clientIp.js);
+    // la validación de req.ip de la librería se apaga porque justamente ese
+    // puerto la haría quejarse en cada petición.
+    keyGenerator: (req) => `${routeName}:${ipKeyGenerator(clientIp(req))}`,
+    validate: { ip: false },
     message: { error: 'Demasiados intentos, intente de nuevo más tarde' },
   });
 }
 
 const registerLimiter = createAuthLimiter('register');
 const loginLimiter = createAuthLimiter('login');
-const forgotPasswordLimiter = createAuthLimiter('forgot-password');
-const resetPasswordLimiter = createAuthLimiter('reset-password');
 
 // Registro de usuario
 router.post('/register', registerLimiter, async (req, res) => {
+  // Seguridad (08/10/2026): antes cualquiera, sin sesión, podía crearse un
+  // usuario. La app no usa esta ruta (los usuarios se crean en Seguridad →
+  // Usuarios, con su permiso); queda solo para un administrador logueado.
+  if (!req.user || !new Security().hasUserProfile(req.user.id, 'admin')) {
+    return res.status(STATUS_CODES.FORBIDDEN).json({ message: 'Solo un administrador puede registrar usuarios.' });
+  }
   try {
     // Schema de validación para registro
     const registerSchema = {
@@ -70,6 +82,9 @@ router.post('/register', registerLimiter, async (req, res) => {
         errors: validation.errors,
       });
     }
+
+    const weak = passwordProblem(req.body?.password);
+    if (weak) return res.status(STATUS_CODES.BAD_REQUEST).json({ message: weak });
 
     const userData = await session.register(req.body);
     sessionWrapper.setSession(req, { user: userData });
@@ -108,22 +123,35 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 
     const userData = await session.login(req.body);
-    if (!userData)
+    const ip = clientIp(req);
+    const userAgent = req.headers['user-agent'];
+    if (!userData) {
+      // Auditoría (066): intento fallido. Si el usuario existe pero está
+      // eliminado o desactivado se marca aparte (LOGIN_BLOCKED). El mensaje al
+      // usuario es el mismo en ambos casos, para no revelar qué cuentas existen.
+      const blocked = await pool
+        .query('SELECT id FROM public."user" WHERE name = $1 AND (deleted_at IS NOT NULL OR is_active = false) LIMIT 1', [username])
+        .then((r) => r.rows[0]?.id || null)
+        .catch(() => null);
+      await recordSessionEvent({ userId: blocked, username, event: blocked ? 'LOGIN_BLOCKED' : 'LOGIN_FAIL', ip, userAgent });
       return res
         .status(STATUS_CODES.UNAUTHORIZED)
         .json({ error: getMessage(config.LANGUAGE, 'login_error') });
+    }
     sessionWrapper.setSession(req, { user: userData });
+    await recordSessionEvent({ userId: userData.id, username: userData.username, event: 'LOGIN_OK', ip, userAgent });
 
     // Token para clientes sin cookies (apps nativas / integraciones)
     const token = tokenizer.generateToken(
       { userId: userData.id, username: userData.username },
-      process.env.AUTH_TOKEN_EXPIRES || '1h',
+      TOKEN_EXPIRES_IN,
     );
 
     res.json({
       message: getMessage(config.LANGUAGE, 'login_success'),
       user: userData,
       token,
+      session_idle_minutes: SESSION_IDLE_MINUTES,
     });
   } catch (error) {
     res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
@@ -151,7 +179,7 @@ router.get('/me', async (req, res) => {
           .json({ error: 'Usuario del token no encontrado' });
       }
       delete fullUser.password;
-      return res.json({ ...fullUser, via: 'token' });
+      return res.json({ ...fullUser, via: 'token', session_idle_minutes: SESSION_IDLE_MINUTES });
     } catch (err) {
       return res
         .status(STATUS_CODES.INTERNAL_SERVER_ERROR)
@@ -159,130 +187,43 @@ router.get('/me', async (req, res) => {
     }
   }
 
-  // Sesión web → el usuario completo ya está en la sesión
+  // Sesión web → el usuario completo ya está en la sesión, pero se confirma
+  // que siga activo (seguridad 08/10/2026): si un administrador lo eliminó o
+  // lo desactivó mientras tenía la sesión abierta, se le cierra aquí en vez
+  // de dejarlo dentro hasta que la cookie venza.
+  try {
+    const stillActive = await session.getUserById(req.user.id);
+    if (!stillActive) {
+      await sessionWrapper.destroySession(req).catch(() => {});
+      return res
+        .status(STATUS_CODES.UNAUTHORIZED)
+        .json({ error: 'Tu usuario fue desactivado. Inicia sesión con otra cuenta o contacta a un administrador.' });
+    }
+  } catch {
+    return res
+      .status(STATUS_CODES.INTERNAL_SERVER_ERROR)
+      .json({ message: getMessage(config.LANGUAGE, 'server_error') });
+  }
   const { password: _, ...safeUser } = req.user;
-  res.json(safeUser);
+  res.json({ ...safeUser, session_idle_minutes: SESSION_IDLE_MINUTES });
 });
 
 // Recuperacion de contrasena
-router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
-  const { email } = req.body || {};
+// "Olvidé mi contraseña" y su enlace de recuperación se quitaron (08/10/2026,
+// decisión de Julio): solo un administrador cambia contraseñas, desde
+// Seguridad > Usuarios. Las rutas /forgot-password y /reset-password ya no existen.
 
-  await sessionWrapper.destroySession(req);
-
-  const forgotPasswordSchema = {
-    email: {
-      type: 'email',
-      options: { required: true },
-    },
-  };
-
-  const validation = validator.validateObject(req.body, forgotPasswordSchema);
-  if (!validation.isValid) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      message: getMessage(config.LANGUAGE, 'validation_error'),
-      errors: validation.errors,
-    });
-  }
-
-  try {
-    const userData = await session.getUserByEmail(email);
-    if (userData) {
-      const token = tokenizer.generateToken({
-        id: userData.id,
-        username: userData.username,
-        email: userData.email,
-      });
-      const origin = process.env.FRONTEND_URL || req.headers.origin;
-      await mailer.sendRecoveryEmail({
-        email: userData.email,
-        token,
-        origin,
-        username: userData.username,
-      });
-    }
-
-    return res.json({
-      message: config.getMessage(config.LANGUAGE, 'recovery_email_sent'),
-    });
-  } catch (error) {
-    console.error('Error en forgot-password:', error);
-    return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
-      message: config.getMessage(config.LANGUAGE, 'server_error'),
-      error,
-    });
-  }
-});
-
-router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
-  const { token, password, confirmPassword } = req.body || {};
-
-  // Terminar la sesion si existe
-  await sessionWrapper.destroySession(req);
-
-  const resetPasswordSchema = {
-    token: {
-      type: 'string',
-      options: { required: true },
-    },
-    password: {
-      type: 'string',
-      options: {
-        required: true,
-        requireSpecialChars: true,
-      },
-    },
-    confirmPassword: {
-      type: 'string',
-      options: { required: true },
-    },
-  };
-
-  const validation = validator.validateObject(req.body, resetPasswordSchema);
-  if (!validation.isValid) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      message: getMessage(config.LANGUAGE, 'validation_error'),
-      errors: validation.errors,
-    });
-  }
-
-  if (password !== confirmPassword) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      error: getMessage(config.LANGUAGE, 'passwords_do_not_match'),
-    });
-  }
-
-  const tokenPayload = tokenizer.verifyToken(token);
-  if (!tokenPayload?.id) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      error: config.getMessage(config.LANGUAGE, 'invalid_or_expired_token'),
-    });
-  }
-
-  try {
-    const userData = await session.updatePasswordById({
-      userId: tokenPayload.id,
-      password,
-    });
-    if (!userData) {
-      return res
-        .status(STATUS_CODES.NOT_FOUND)
-        .json({ error: getMessage(config.LANGUAGE, 'user_not_found') });
-    }
-    return res.json({
-      message: getMessage(config.LANGUAGE, 'password_reset_success'),
-      user: userData,
-    });
-  } catch (error) {
-    console.error('Error en reset-password:', error);
-    return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
-      message: getMessage(config.LANGUAGE, 'server_error'),
-      error,
-    });
-  }
-});
-// Logout
 router.post('/logout', async (req, res) => {
+  // Auditoría (066): la pantalla manda reason "idle" cuando cierra por inactividad.
+  if (req.user?.id != null) {
+    await recordSessionEvent({
+      userId: req.user.id,
+      username: req.user.username,
+      event: req.body?.reason === 'idle' ? 'LOGOUT_IDLE' : 'LOGOUT',
+      ip: clientIp(req),
+      userAgent: req.headers['user-agent'],
+    });
+  }
   if (!sessionWrapper.authenticate(req))
     return res
       .status(STATUS_CODES.UNAUTHORIZED)

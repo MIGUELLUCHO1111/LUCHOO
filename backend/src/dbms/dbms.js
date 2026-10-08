@@ -335,11 +335,23 @@ export default class DBMS {
   }
 
   beginTransaction = async () => {
+    let client;
     try {
-      const client = await this.connection();
+      client = await this.connection();
       await client.query('BEGIN');
       return client;
     } catch (error) {
+      // Si el BEGIN falla (ej. la base se reinicia justo en ese momento), la
+      // conexión ya se había tomado del pool: hay que devolverla, o se pierde
+      // para siempre (08/10/2026). release(err) la descarta en vez de
+      // reutilizar una conexión que pudo quedar rota.
+      if (client) {
+        try {
+          client.release(error);
+        } catch {
+          // ya liberada
+        }
+      }
       this.utils.handleError({
         message: 'Error iniciando la transacción',
         statusCode: this.STATUS_CODES.DB_ERROR,

@@ -210,7 +210,7 @@ const FuelTank = () => {
       )}
 
       <div className="flex justify-end mb-4">
-        <Button
+        <Button data-write
           onClick={() => { resetForm(); setShowForm(!showForm); }}
           className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
         >
@@ -379,7 +379,7 @@ const FuelTank = () => {
                       >
                         <History size={14} />
                       </Button>
-                      <Button
+                      <Button data-write
                         variant="outline"
                         size="icon"
                         onClick={() => handleEdit(t)}
@@ -388,7 +388,7 @@ const FuelTank = () => {
                       >
                         <Pencil size={14} />
                       </Button>
-                      <Button
+                      <Button data-write
                         variant="outline"
                         size="icon"
                         onClick={() => handleDelete(t)}
@@ -418,7 +418,7 @@ const FuelTank = () => {
                     </div>
                   </div>
 
-                  <Button
+                  <Button data-write
                     variant="outline"
                     onClick={() => openMovementModal(t)}
                     className="rounded-xl flex items-center gap-2 text-sm"

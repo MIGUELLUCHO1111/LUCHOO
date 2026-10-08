@@ -107,7 +107,7 @@ const Equipment = () => {
             <X size={16} /> Cancelar
           </Button>
         ) : (
-          <Button
+          <Button data-write
             onClick={() => navigate("/fleet")}
             title="Las unidades nuevas se crean solo en Flota → Fichas de Vehículos"
             className="rounded-xl font-bold flex items-center gap-2 px-5 h-10 bg-brand-navy hover:bg-brand-navy-light text-white transition-transform hover:scale-105 text-sm"
@@ -232,10 +232,10 @@ const Equipment = () => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="outline" size="icon" onClick={() => handleEdit(e)} className="h-8 w-8 rounded-lg">
+                      <Button data-write variant="outline" size="icon" onClick={() => handleEdit(e)} className="h-8 w-8 rounded-lg">
                         <Pencil size={14} />
                       </Button>
-                      <Button
+                      <Button data-write
                         variant="outline"
                         size="icon"
                         onClick={() => handleDelete(e.id, e.code)}

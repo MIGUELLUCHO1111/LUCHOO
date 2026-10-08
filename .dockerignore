@@ -1,0 +1,23 @@
+# Nunca dentro de la imagen: secretos, dependencias locales, archivos subidos
+# (en Azure viven en Azure Files) y material pesado que la app no usa.
+**/node_modules
+**/.env
+**/.env.*
+!backend/.env.example
+backend/uploads
+frontend/dist
+.git
+.github
+.claude
+informes
+scripts/modelo_interno
+*.log
+*.xlsx
+*.docx
+*.pptx
+*.pdf
+*.har
+backend/_*.mjs
+backend/_*.json
+check_equipos_response.ps1
+backend/_legacy

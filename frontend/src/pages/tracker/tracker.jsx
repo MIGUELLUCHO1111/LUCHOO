@@ -570,7 +570,7 @@ const Tracker = () => {
                   <X size={16} /> Cancelar
                 </Button>
               ) : (
-                <Button
+                <Button data-write
                   onClick={() => navigate("/fleet")}
                   title="Las unidades nuevas se crean solo en Flota → Fichas de Vehículos"
                   className="rounded-xl font-bold flex items-center gap-2 px-4 h-9 bg-brand-navy hover:bg-brand-navy-light text-white text-sm shrink-0"
@@ -679,10 +679,10 @@ const Tracker = () => {
                         <TableCell className="text-sm">{u.driver_name || "-"}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button variant="outline" size="icon" onClick={() => handleEdit(u)} className="h-8 w-8 rounded-lg">
+                            <Button data-write variant="outline" size="icon" onClick={() => handleEdit(u)} className="h-8 w-8 rounded-lg">
                               <Pencil size={14} />
                             </Button>
-                            <Button variant="outline" size="icon" onClick={() => handleDelete(u.id, u.code)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
+                            <Button data-write variant="outline" size="icon" onClick={() => handleDelete(u.id, u.code)} className="h-8 w-8 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">
                               <Trash2 size={14} />
                             </Button>
                           </div>

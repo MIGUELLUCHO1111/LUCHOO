@@ -5,7 +5,7 @@
     orderArray: ['username']
   },
   'getUsersProfiles': {
-    query: 'SELECT u.id AS user_id, u.name AS username, p.id AS profile_id, p.name AS profile_name FROM public."user" u JOIN public."user_profile" up ON u.id = up.user_id JOIN public."profile" p ON up.profile_id = p.id;',
+    query: 'SELECT u.id AS user_id, u.name AS username, p.id AS profile_id, p.name AS profile_name FROM public."user" u JOIN public."user_profile" up ON u.id = up.user_id JOIN public."profile" p ON up.profile_id = p.id WHERE u.deleted_at IS NULL AND COALESCE(u.is_active, true);',
     structure_params: {},
     orderArray: []
   },
@@ -30,7 +30,7 @@
     orderArray: ['id']
   },
   'getOptionsByProfileId': {
-    query: 'SELECT o.id AS option_id, o.name, o.description FROM public.option_profile op JOIN public.option o ON o.id = op.option_id WHERE op.profile_id = $1 ORDER BY o.id;',
+    query: 'SELECT o.id AS option_id, o.name, o.description, op.read_only FROM public.option_profile op JOIN public.option o ON o.id = op.option_id WHERE op.profile_id = $1 ORDER BY o.id;',
     structure_params: { profile_id: 'int' },
     orderArray: ['profile_id']
   },
@@ -97,8 +97,51 @@
   # Re-sincronización de permisos por sección (Option.resyncSectionPermissions,
   # al arrancar): qué secciones tiene cada perfil, y vincular una función ya
   # existente a un perfil sin crear transacciones (method.name es UNIQUE).
+  # Solo lectura por sección (065): marca o desmarca una asignación.
+  'setOptionProfileReadOnly': {
+    query: 'UPDATE public.option_profile SET read_only = $3 WHERE profile_id = $1 AND option_id = $2 RETURNING profile_id, option_id, read_only;',
+    structure_params: { profile_id: 'int', option_id: 'int', read_only: 'boolean' },
+    orderArray: ['profile_id', 'option_id', 'read_only']
+  },
+
+  # Secciones de un perfil con su modo (para calcular qué funciones de
+  # escritura conserva por OTRAS secciones con acceso completo).
+  'getOptionsOfProfileWithMode': {
+    query: 'SELECT o.name AS option_name, op.read_only FROM public.option_profile op JOIN public.option o ON o.id = op.option_id WHERE op.profile_id = $1;',
+    structure_params: { profile_id: 'int' },
+    orderArray: ['profile_id']
+  },
+
+  # ---------- Seguridad > Actividad de usuarios (066) ----------
+  # "Hoy" y los días se cuentan en hora de Caracas (la base en Azure está en UTC).
+  'auditUsersOverview': {
+    query: 'SELECT u.id, u.name AS username, u.email, COALESCE(u.is_active, true) AS is_active, p.first_name, p.last_name, u.last_login_at, u.last_seen_at, u.last_ip, (SELECT COALESCE(string_agg(pr.name, '', '' ORDER BY pr.name), '''') FROM public.user_profile up JOIN public.profile pr ON pr.id = up.profile_id WHERE up.user_id = u.id) AS profiles, COALESCE(t.actions, 0) AS actions_today, COALESCE(t.writes, 0) AS writes_today, (SELECT COUNT(*) FROM public.user_activity_daily d WHERE d.user_id = u.id AND d.fecha > (NOW() AT TIME ZONE ''America/Caracas'')::date - 7) AS active_days_7, (SELECT COALESCE(SUM(d.actions), 0) FROM public.user_activity_daily d WHERE d.user_id = u.id AND d.fecha > (NOW() AT TIME ZONE ''America/Caracas'')::date - 7) AS actions_7, (SELECT COUNT(*) FROM public.user_session_event e WHERE e.user_id = u.id AND e.event = ''LOGIN_OK'' AND e.created_at > NOW() - INTERVAL ''7 days'') AS logins_7 FROM public."user" u LEFT JOIN public.person p ON p.id = u.person_id LEFT JOIN public.user_activity_daily t ON t.user_id = u.id AND t.fecha = (NOW() AT TIME ZONE ''America/Caracas'')::date WHERE u.deleted_at IS NULL ORDER BY u.last_seen_at DESC NULLS LAST, u.name;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  # Intentos fallidos o bloqueados recientes de TODOS (incluye nombres de
+  # usuario que no existen: alguien probando contraseñas).
+  'auditRecentFailures': {
+    query: 'SELECT e.username, e.event, e.ip, e.created_at FROM public.user_session_event e WHERE e.event IN (''LOGIN_FAIL'', ''LOGIN_BLOCKED'') AND e.created_at > NOW() - INTERVAL ''7 days'' ORDER BY e.created_at DESC LIMIT 50;',
+    structure_params: {},
+    orderArray: []
+  },
+
+  'auditUserDaily': {
+    query: 'SELECT fecha, first_seen, last_seen, actions, writes, modules FROM public.user_activity_daily WHERE user_id = $1 AND fecha > (NOW() AT TIME ZONE ''America/Caracas'')::date - $2::int ORDER BY fecha DESC;',
+    structure_params: { user_id: 'int', days: 'int' },
+    orderArray: ['user_id', 'days']
+  },
+
+  'auditUserEvents': {
+    query: 'SELECT e.event, e.ip, e.user_agent, e.created_at FROM public.user_session_event e WHERE e.user_id = $1 OR (e.user_id IS NULL AND e.username = (SELECT name FROM public."user" WHERE id = $1)) ORDER BY e.created_at DESC LIMIT 40;',
+    structure_params: { user_id: 'int' },
+    orderArray: ['user_id']
+  },
+
   'getOptionProfileNames': {
-    query: 'SELECT o.name AS option_name, p.name AS profile_name FROM public.option_profile op JOIN public.option o ON o.id = op.option_id JOIN public.profile p ON p.id = op.profile_id;',
+    query: 'SELECT o.name AS option_name, p.name AS profile_name, op.read_only FROM public.option_profile op JOIN public.option o ON o.id = op.option_id JOIN public.profile p ON p.id = op.profile_id;',
     structure_params: {},
     orderArray: []
   },
@@ -145,7 +188,7 @@
     orderArray: ['username', 'password', 'person_id']
   },
   'getUserById': {
-    query: 'SELECT u.id AS id, u.name AS username, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci, (SELECT COALESCE(json_agg(json_build_object(''id'', pr.id, ''name'', pr.name)), ''[]''::json) FROM public.user_profile up JOIN public.profile pr ON pr.id = up.profile_id WHERE up.user_id = u.id) AS profiles FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.id = $1;',
+    query: 'SELECT u.id AS id, u.name AS username, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci, (SELECT COALESCE(json_agg(json_build_object(''id'', pr.id, ''name'', pr.name)), ''[]''::json) FROM public.user_profile up JOIN public.profile pr ON pr.id = up.profile_id WHERE up.user_id = u.id) AS profiles FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.id = $1 AND u.deleted_at IS NULL AND COALESCE(u.is_active, true);',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
@@ -165,7 +208,7 @@
     orderArray: ['username']
   },
   'getUser': {
-    query: 'SELECT u.id AS id, u.name AS username, u.password_hash AS password, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci, (SELECT COALESCE(json_agg(json_build_object(''id'', pr.id, ''name'', pr.name)), ''[]''::json) FROM public.user_profile up JOIN public.profile pr ON pr.id = up.profile_id WHERE up.user_id = u.id) AS profiles FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.name = $1;',
+    query: 'SELECT u.id AS id, u.name AS username, u.password_hash AS password, u.email AS email, p.first_name AS name, p.last_name AS lastname, p.document_id AS ci, (SELECT COALESCE(json_agg(json_build_object(''id'', pr.id, ''name'', pr.name)), ''[]''::json) FROM public.user_profile up JOIN public.profile pr ON pr.id = up.profile_id WHERE up.user_id = u.id) AS profiles FROM public."user" u LEFT JOIN public.person p ON u.person_id = p.id WHERE u.name = $1 AND u.deleted_at IS NULL AND COALESCE(u.is_active, true);',
     structure_params: { username: 'string' },
     orderArray: ['username']
   },
@@ -856,13 +899,13 @@
   },
 
   'insertFuelFoto': {
-    query: 'INSERT INTO public.fuel_foto (refuel_id, pesada_id, url, thumbnail_url, mime_type, size_bytes, uploaded_by) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, refuel_id, pesada_id, url, thumbnail_url, mime_type, size_bytes, uploaded_at;',
-    structure_params: { refuel_id: 'int|null', pesada_id: 'int|null', url: 'string', thumbnail_url: 'string|null', mime_type: 'string|null', size_bytes: 'int|null', uploaded_by: 'int|null' },
-    orderArray: ['refuel_id', 'pesada_id', 'url', 'thumbnail_url', 'mime_type', 'size_bytes', 'uploaded_by']
+    query: 'INSERT INTO public.fuel_foto (refuel_id, pesada_id, url, thumbnail_url, mime_type, size_bytes, uploaded_by, transfer_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, refuel_id, pesada_id, transfer_id, url, thumbnail_url, mime_type, size_bytes, uploaded_at;',
+    structure_params: { refuel_id: 'int|null', pesada_id: 'int|null', url: 'string', thumbnail_url: 'string|null', mime_type: 'string|null', size_bytes: 'int|null', uploaded_by: 'int|null', transfer_id: 'int|null' },
+    orderArray: ['refuel_id', 'pesada_id', 'url', 'thumbnail_url', 'mime_type', 'size_bytes', 'uploaded_by', 'transfer_id']
   },
 
   'getFuelFotoById': {
-    query: 'SELECT id, refuel_id, pesada_id, url FROM public.fuel_foto WHERE id = $1;',
+    query: 'SELECT id, refuel_id, pesada_id, transfer_id, url FROM public.fuel_foto WHERE id = $1;',
     structure_params: { id: 'int' },
     orderArray: ['id']
   },
@@ -871,6 +914,56 @@
     query: 'DELETE FROM public.fuel_foto WHERE id = $1 RETURNING id, url;',
     structure_params: { id: 'int' },
     orderArray: ['id']
+  },
+
+  # Combustible > Transferencias (064): una unidad le pasa combustible a otra (ej. montacargas a gasolina). Litros y costo se mueven del origen al destino.
+  'createTransferencia': {
+    query: "INSERT INTO public.fuel_transfer (transaction_no, from_vehicle_id, to_vehicle_id, filled_at, liters, fuel_type, unit_price_usd, amount, measurement_value, measurement_type, responsible_id, notes, created_by) VALUES ($1, $2, $3, $4::timestamptz, $5::numeric, $6, $7::numeric, $8::numeric, $9::numeric, $10, $11, $12, $13) RETURNING id;",
+    structure_params: { transaction_no: 'string', from_vehicle_id: 'int', to_vehicle_id: 'int', filled_at: 'string', liters: 'string', fuel_type: 'string', unit_price_usd: 'string|null', amount: 'string|null', measurement_value: 'string|null', measurement_type: 'string|null', responsible_id: 'int|null', notes: 'string|null', created_by: 'int|null' },
+    orderArray: ['transaction_no', 'from_vehicle_id', 'to_vehicle_id', 'filled_at', 'liters', 'fuel_type', 'unit_price_usd', 'amount', 'measurement_value', 'measurement_type', 'responsible_id', 'notes', 'created_by']
+  },
+
+  'updateTransferencia': {
+    query: "UPDATE public.fuel_transfer SET from_vehicle_id = $2, to_vehicle_id = $3, liters = $4::numeric, unit_price_usd = $5::numeric, amount = $6::numeric, measurement_value = $7::numeric, measurement_type = $8, responsible_id = $9, notes = $10, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id;",
+    structure_params: { id: 'int', from_vehicle_id: 'int', to_vehicle_id: 'int', liters: 'string', unit_price_usd: 'string|null', amount: 'string|null', measurement_value: 'string|null', measurement_type: 'string|null', responsible_id: 'int|null', notes: 'string|null' },
+    orderArray: ['id', 'from_vehicle_id', 'to_vehicle_id', 'liters', 'unit_price_usd', 'amount', 'measurement_value', 'measurement_type', 'responsible_id', 'notes']
+  },
+
+  'deleteTransferencia': {
+    query: "UPDATE public.fuel_transfer SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id, transaction_no;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getTransferenciaById': {
+    query: "SELECT t.id, t.transaction_no, t.from_vehicle_id, fu.code AS from_code, fu.plate AS from_plate, fu.fleet_type AS from_fleet_type, t.to_vehicle_id, tu.code AS to_code, tu.plate AS to_plate, tu.fleet_type AS to_fleet_type, t.filled_at, t.liters, t.fuel_type, t.unit_price_usd, t.amount, t.measurement_value, t.measurement_type, t.responsible_id, TRIM(COALESCE(pe.first_name, '') || ' ' || COALESCE(pe.last_name, '')) AS responsible_name, t.notes, t.created_at, (SELECT COALESCE(json_agg(json_build_object('id', f.id, 'url', f.url, 'mime_type', f.mime_type)), '[]'::json) FROM public.fuel_foto f WHERE f.transfer_id = t.id) AS photos FROM public.fuel_transfer t JOIN public.fleet_unit fu ON fu.id = t.from_vehicle_id JOIN public.fleet_unit tu ON tu.id = t.to_vehicle_id LEFT JOIN public.person pe ON pe.id = t.responsible_id WHERE t.id = $1 AND t.deleted_at IS NULL;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'getAllTransferencias': {
+    query: "SELECT t.id, t.transaction_no, t.from_vehicle_id, fu.code AS from_code, fu.plate AS from_plate, fu.fleet_type AS from_fleet_type, t.to_vehicle_id, tu.code AS to_code, tu.plate AS to_plate, tu.fleet_type AS to_fleet_type, t.filled_at, t.liters, t.fuel_type, t.unit_price_usd, t.amount, t.measurement_value, t.measurement_type, t.responsible_id, TRIM(COALESCE(pe.first_name, '') || ' ' || COALESCE(pe.last_name, '')) AS responsible_name, t.notes, t.created_at, (SELECT COALESCE(json_agg(json_build_object('id', f.id, 'url', f.url, 'mime_type', f.mime_type)), '[]'::json) FROM public.fuel_foto f WHERE f.transfer_id = t.id) AS photos FROM public.fuel_transfer t JOIN public.fleet_unit fu ON fu.id = t.from_vehicle_id JOIN public.fleet_unit tu ON tu.id = t.to_vehicle_id LEFT JOIN public.person pe ON pe.id = t.responsible_id WHERE t.deleted_at IS NULL ORDER BY t.filled_at DESC;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'checkTransferExists': {
+    query: "SELECT id FROM public.fuel_transfer WHERE id = $1 AND deleted_at IS NULL;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # Precio por litro de la última carga con monto de una unidad: precio por defecto de una transferencia.
+  'getLastFuelUnitPrice': {
+    query: "SELECT ROUND(amount / liters, 4) AS unit_price, filled_at FROM public.fuel_carga WHERE vehicle_id = $1 AND deleted_at IS NULL AND amount > 0 AND liters > 0 ORDER BY filled_at DESC LIMIT 1;",
+    structure_params: { vehicle_id: 'int' },
+    orderArray: ['vehicle_id']
+  },
+
+  'getFuelSummaryTransfers': {
+    query: "SELECT t.from_vehicle_id, fu.code AS from_code, fu.name AS from_name, LOWER(COALESCE(fu.fleet_type, 'LIVIANA')) AS from_fleet, t.to_vehicle_id, tu.code AS to_code, tu.name AS to_name, LOWER(COALESCE(tu.fleet_type, 'LIVIANA')) AS to_fleet, t.liters, t.amount FROM public.fuel_transfer t JOIN public.fleet_unit fu ON fu.id = t.from_vehicle_id JOIN public.fleet_unit tu ON tu.id = t.to_vehicle_id WHERE t.filled_at BETWEEN $1 AND $2 AND t.deleted_at IS NULL;",
+    structure_params: { from: 'string', to: 'string' },
+    orderArray: ['from', 'to']
   },
 
   # ---------- Reportes (resumen de combustible) ----------
@@ -2052,5 +2145,381 @@
     query: 'SELECT DISTINCT unit_id FROM public.fleet_unit_reading WHERE voided_at IS NULL;',
     structure_params: {},
     orderArray: []
+  },
+
+  # ============================================================
+  # Mantenimiento (059_maintenance.sql) -- transacciones 250-299
+  # ============================================================
+
+  # Mantenimiento (062): ajustes, criticidad, OT, incidencias.
+  'mntGetSettings': {
+    query: "SELECT key, value FROM public.mnt_setting ORDER BY key;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntUpsertSetting': {
+    query: "INSERT INTO public.mnt_setting (key, value, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW() RETURNING key, value;",
+    structure_params: { key: 'string', value: 'string|null' },
+    orderArray: ['key', 'value']
+  },
+
+  'mntListCriticality': {
+    query: "SELECT u.id AS unit_id, u.code, u.plate, u.fleet_type, u.name, COALESCE(c.level, 'NO_CRITICO') AS level, COALESCE(c.source, 'CATEGORIA') AS source, c.note, c.updated_by, c.updated_at FROM public.fleet_unit u LEFT JOIN public.mnt_unit_criticality c ON c.unit_id = u.id WHERE u.deleted_at IS NULL ORDER BY u.code;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntGetUnitCriticality': {
+    query: "SELECT COALESCE((SELECT level FROM public.mnt_unit_criticality WHERE unit_id = $1), 'NO_CRITICO') AS level;",
+    structure_params: { unit_id: 'int' },
+    orderArray: ['unit_id']
+  },
+
+  'mntUpsertCriticality': {
+    query: "INSERT INTO public.mnt_unit_criticality (unit_id, level, source, note, updated_by, updated_at) VALUES ($1, $2, 'MANUAL', $3, $4, NOW()) ON CONFLICT (unit_id) DO UPDATE SET level = EXCLUDED.level, source = 'MANUAL', note = EXCLUDED.note, updated_by = EXCLUDED.updated_by, updated_at = NOW() RETURNING unit_id, level, source, note;",
+    structure_params: { unit_id: 'int', level: 'string', note: 'string|null', updated_by: 'string|null' },
+    orderArray: ['unit_id', 'level', 'note', 'updated_by']
+  },
+
+  'mntListUnitsForMnt': {
+    query: "SELECT u.id, u.code, u.plate, u.fleet_type, u.name, COALESCE(c.level, 'NO_CRITICO') AS criticality, COALESCE(p.operational_status, 'DISPONIBLE') AS operational_status, p.status_cause, (SELECT COUNT(*)::int FROM public.mnt_work_order w WHERE w.unit_id = u.id AND w.status NOT IN ('CERRADA', 'RECHAZADA', 'ANULADA')) AS open_orders, (SELECT COUNT(*)::int FROM public.mnt_incident i WHERE i.unit_id = u.id AND i.status = 'ABIERTA') AS open_incidents FROM public.fleet_unit u LEFT JOIN public.mnt_unit_criticality c ON c.unit_id = u.id LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id WHERE u.deleted_at IS NULL ORDER BY u.code;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntGetUnit': {
+    query: "SELECT u.id, u.code, u.plate, u.fleet_type, u.name, u.deleted_at, p.operational_status, p.status_cause FROM public.fleet_unit u LEFT JOIN public.fleet_unit_profile p ON p.unit_id = u.id WHERE u.id = $1;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  # La condición operativa de la ficha de Flota la cambia Mantenimiento (respuestas de Julio, 30/09/2026).
+  'mntSetUnitStatus': {
+    query: "INSERT INTO public.fleet_unit_profile (unit_id, operational_status, status_cause, updated_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (unit_id) DO UPDATE SET operational_status = EXCLUDED.operational_status, status_cause = EXCLUDED.status_cause, updated_at = NOW() RETURNING unit_id;",
+    structure_params: { unit_id: 'int', status: 'string', cause: 'string|null' },
+    orderArray: ['unit_id', 'status', 'cause']
+  },
+
+  'mntOtherOpenOutOfService': {
+    query: "SELECT COUNT(*)::int AS n FROM public.mnt_work_order WHERE unit_id = $1 AND id <> $2 AND out_of_service AND status NOT IN ('CERRADA', 'RECHAZADA', 'ANULADA');",
+    structure_params: { unit_id: 'int', exclude_id: 'int' },
+    orderArray: ['unit_id', 'exclude_id']
+  },
+
+  'mntNextNumber': {
+    query: "INSERT INTO public.mnt_counter (year, last_seq) VALUES ($1, 1) ON CONFLICT (year) DO UPDATE SET last_seq = public.mnt_counter.last_seq + 1 RETURNING last_seq;",
+    structure_params: { year: 'int' },
+    orderArray: ['year']
+  },
+
+  'mntInsertWorkOrder': {
+    query: "INSERT INTO public.mnt_work_order (number, unit_id, kind, level, status, priority, title, description, criticality_at_open, estimated_cost_usd, special_purchase, out_of_service, meter, open_meter_value, technician, provider, regularize_due_at, opened_by, opened_by_user_id, approved_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::numeric, $11, $12, $13, $14::numeric, $15, $16, $17::timestamptz, $18, $19, CASE WHEN $5::varchar = 'APROBADA' THEN NOW() END) RETURNING id;",
+    structure_params: { number: 'string', unit_id: 'int', kind: 'string', level: 'string|null', status: 'string', priority: 'string', title: 'string', description: 'string|null', criticality: 'string|null', estimated_cost_usd: 'string|null', special_purchase: 'boolean', out_of_service: 'boolean', meter: 'string|null', open_meter_value: 'string|null', technician: 'string|null', provider: 'string|null', regularize_due_at: 'string|null', opened_by: 'string|null', opened_by_user_id: 'int|null' },
+    orderArray: ['number', 'unit_id', 'kind', 'level', 'status', 'priority', 'title', 'description', 'criticality', 'estimated_cost_usd', 'special_purchase', 'out_of_service', 'meter', 'open_meter_value', 'technician', 'provider', 'regularize_due_at', 'opened_by', 'opened_by_user_id']
+  },
+
+  'mntGetWorkOrder': {
+    query: "SELECT w.*, u.code AS unit_code, u.plate AS unit_plate, u.fleet_type AS unit_fleet_type, u.name AS unit_name, (SELECT COALESCE(json_agg(json_build_object('role', a.role, 'decision', a.decision, 'user_name', a.user_name, 'user_id', a.user_id, 'note', a.note, 'created_at', a.created_at) ORDER BY a.created_at), '[]'::json) FROM public.mnt_work_order_approval a WHERE a.work_order_id = w.id) AS approvals, (SELECT COUNT(*)::int FROM public.mnt_work_order_task t WHERE t.work_order_id = w.id) AS tasks_total, (SELECT COUNT(*)::int FROM public.mnt_work_order_task t WHERE t.work_order_id = w.id AND t.done) AS tasks_done, (SELECT COALESCE(SUM(pt.quantity * COALESCE(pt.unit_cost_usd, 0)), 0) FROM public.mnt_work_order_part pt WHERE pt.work_order_id = w.id) AS parts_cost_usd, (SELECT COUNT(*)::int FROM public.mnt_incident i WHERE i.work_order_id = w.id) AS incidents_count FROM public.mnt_work_order w JOIN public.fleet_unit u ON u.id = w.unit_id WHERE w.id = $1;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'mntListWorkOrders': {
+    query: "SELECT w.*, u.code AS unit_code, u.plate AS unit_plate, u.fleet_type AS unit_fleet_type, u.name AS unit_name, (SELECT COALESCE(json_agg(json_build_object('role', a.role, 'decision', a.decision, 'user_name', a.user_name, 'user_id', a.user_id, 'note', a.note, 'created_at', a.created_at) ORDER BY a.created_at), '[]'::json) FROM public.mnt_work_order_approval a WHERE a.work_order_id = w.id) AS approvals, (SELECT COUNT(*)::int FROM public.mnt_work_order_task t WHERE t.work_order_id = w.id) AS tasks_total, (SELECT COUNT(*)::int FROM public.mnt_work_order_task t WHERE t.work_order_id = w.id AND t.done) AS tasks_done, (SELECT COALESCE(SUM(pt.quantity * COALESCE(pt.unit_cost_usd, 0)), 0) FROM public.mnt_work_order_part pt WHERE pt.work_order_id = w.id) AS parts_cost_usd, (SELECT COUNT(*)::int FROM public.mnt_incident i WHERE i.work_order_id = w.id) AS incidents_count FROM public.mnt_work_order w JOIN public.fleet_unit u ON u.id = w.unit_id WHERE ($1::bigint IS NULL OR w.unit_id = $1) ORDER BY CASE WHEN w.status IN ('CERRADA', 'RECHAZADA', 'ANULADA') THEN 1 ELSE 0 END, w.opened_at DESC LIMIT 500;",
+    structure_params: { unit_id: 'int|null' },
+    orderArray: ['unit_id']
+  },
+
+  # Solo cambia las claves presentes en el JSON (patch).
+  'mntUpdateWorkOrder': {
+    query: "UPDATE public.mnt_work_order w SET title = CASE WHEN x.p ? 'title' THEN x.p->>'title' ELSE w.title END, description = CASE WHEN x.p ? 'description' THEN x.p->>'description' ELSE w.description END, priority = CASE WHEN x.p ? 'priority' THEN x.p->>'priority' ELSE w.priority END, level = CASE WHEN x.p ? 'level' THEN x.p->>'level' ELSE w.level END, estimated_cost_usd = CASE WHEN x.p ? 'estimated_cost_usd' THEN (x.p->>'estimated_cost_usd')::numeric ELSE w.estimated_cost_usd END, special_purchase = CASE WHEN x.p ? 'special_purchase' THEN (x.p->>'special_purchase')::boolean ELSE w.special_purchase END, technician = CASE WHEN x.p ? 'technician' THEN x.p->>'technician' ELSE w.technician END, provider = CASE WHEN x.p ? 'provider' THEN x.p->>'provider' ELSE w.provider END, labor_hours = CASE WHEN x.p ? 'labor_hours' THEN (x.p->>'labor_hours')::numeric ELSE w.labor_hours END, failure_system = CASE WHEN x.p ? 'failure_system' THEN x.p->>'failure_system' ELSE w.failure_system END, functional_test = CASE WHEN x.p ? 'functional_test' THEN (x.p->>'functional_test')::boolean ELSE w.functional_test END, result = CASE WHEN x.p ? 'result' THEN x.p->>'result' ELSE w.result END, updated_at = NOW() FROM (SELECT $2::jsonb AS p) x WHERE w.id = $1 RETURNING w.id;",
+    structure_params: { id: 'int', patch: 'string' },
+    orderArray: ['id', 'patch']
+  },
+
+  'mntSetWorkOrderStatus': {
+    query: "UPDATE public.mnt_work_order SET status = $2, approved_at = CASE WHEN $2::varchar = 'APROBADA' THEN COALESCE(approved_at, NOW()) ELSE approved_at END, started_at = CASE WHEN $2::varchar = 'EN_EJECUCION' THEN COALESCE(started_at, NOW()) ELSE started_at END, executed_at = CASE WHEN $2::varchar = 'EJECUTADA' THEN NOW() ELSE executed_at END, closed_at = CASE WHEN $2::varchar IN ('CERRADA', 'RECHAZADA', 'ANULADA') THEN NOW() ELSE closed_at END, closed_by = CASE WHEN $2::varchar IN ('CERRADA', 'RECHAZADA', 'ANULADA') THEN $3 ELSE closed_by END, reject_reason = CASE WHEN $2::varchar = 'RECHAZADA' THEN $4 ELSE reject_reason END, void_reason = CASE WHEN $2::varchar = 'ANULADA' THEN $4 ELSE void_reason END, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', status: 'string', actor: 'string|null', reason: 'string|null' },
+    orderArray: ['id', 'status', 'actor', 'reason']
+  },
+
+  'mntUpdateWorkOrderFlag': {
+    query: "UPDATE public.mnt_work_order SET out_of_service = $2, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', out_of_service: 'boolean' },
+    orderArray: ['id', 'out_of_service']
+  },
+
+  'mntSetPrevStatus': {
+    query: "UPDATE public.mnt_work_order SET prev_operational_status = $2, prev_status_cause = $3 WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', prev_status: 'string|null', prev_cause: 'string|null' },
+    orderArray: ['id', 'prev_status', 'prev_cause']
+  },
+
+  'mntSetCloseMeter': {
+    query: "UPDATE public.mnt_work_order SET close_meter_value = $2::numeric, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', value: 'string|null' },
+    orderArray: ['id', 'value']
+  },
+
+  'mntSetRegularized': {
+    query: "UPDATE public.mnt_work_order SET regularized_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'mntInsertApproval': {
+    query: "INSERT INTO public.mnt_work_order_approval (work_order_id, role, decision, note, user_id, user_name) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (work_order_id, role) DO NOTHING RETURNING id;",
+    structure_params: { work_order_id: 'int', role: 'string', decision: 'string', note: 'string|null', user_id: 'int|null', user_name: 'string|null' },
+    orderArray: ['work_order_id', 'role', 'decision', 'note', 'user_id', 'user_name']
+  },
+
+  'mntListTasks': {
+    query: "SELECT id, description, done, done_at, done_by FROM public.mnt_work_order_task WHERE work_order_id = $1 ORDER BY id;",
+    structure_params: { work_order_id: 'int' },
+    orderArray: ['work_order_id']
+  },
+
+  'mntInsertTask': {
+    query: "INSERT INTO public.mnt_work_order_task (work_order_id, description) VALUES ($1, $2) RETURNING id;",
+    structure_params: { work_order_id: 'int', description: 'string' },
+    orderArray: ['work_order_id', 'description']
+  },
+
+  'mntSetTaskDone': {
+    query: "UPDATE public.mnt_work_order_task SET done = $3, done_at = CASE WHEN $3 THEN NOW() END, done_by = CASE WHEN $3 THEN $4 END WHERE id = $1 AND work_order_id = $2 RETURNING id;",
+    structure_params: { id: 'int', work_order_id: 'int', done: 'boolean', done_by: 'string|null' },
+    orderArray: ['id', 'work_order_id', 'done', 'done_by']
+  },
+
+  'mntDeleteTask': {
+    query: "DELETE FROM public.mnt_work_order_task WHERE id = $1 AND work_order_id = $2 RETURNING id;",
+    structure_params: { id: 'int', work_order_id: 'int' },
+    orderArray: ['id', 'work_order_id']
+  },
+
+  'mntListParts': {
+    query: "SELECT id, part_number, description, quantity, unit_cost_usd, provider, reason, created_by, created_at FROM public.mnt_work_order_part WHERE work_order_id = $1 ORDER BY id;",
+    structure_params: { work_order_id: 'int' },
+    orderArray: ['work_order_id']
+  },
+
+  'mntInsertPart': {
+    query: "INSERT INTO public.mnt_work_order_part (work_order_id, part_number, description, quantity, unit_cost_usd, provider, reason, created_by) VALUES ($1, $2, $3, $4::numeric, $5::numeric, $6, $7, $8) RETURNING id;",
+    structure_params: { work_order_id: 'int', part_number: 'string|null', description: 'string', quantity: 'string', unit_cost_usd: 'string|null', provider: 'string|null', reason: 'string|null', created_by: 'string|null' },
+    orderArray: ['work_order_id', 'part_number', 'description', 'quantity', 'unit_cost_usd', 'provider', 'reason', 'created_by']
+  },
+
+  'mntDeletePart': {
+    query: "DELETE FROM public.mnt_work_order_part WHERE id = $1 AND work_order_id = $2 RETURNING id;",
+    structure_params: { id: 'int', work_order_id: 'int' },
+    orderArray: ['id', 'work_order_id']
+  },
+
+  'mntListFiles': {
+    query: "SELECT id, url, original_name, mime_type, size_bytes, uploaded_by, created_at FROM public.mnt_work_order_file WHERE work_order_id = $1 ORDER BY id;",
+    structure_params: { work_order_id: 'int' },
+    orderArray: ['work_order_id']
+  },
+
+  'mntInsertFile': {
+    query: "INSERT INTO public.mnt_work_order_file (work_order_id, url, original_name, mime_type, size_bytes, uploaded_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, url;",
+    structure_params: { work_order_id: 'int', url: 'string', original_name: 'string|null', mime_type: 'string|null', size_bytes: 'int|null', uploaded_by: 'string|null' },
+    orderArray: ['work_order_id', 'url', 'original_name', 'mime_type', 'size_bytes', 'uploaded_by']
+  },
+
+  'mntGetFile': {
+    query: "SELECT id, work_order_id, url FROM public.mnt_work_order_file WHERE id = $1;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'mntDeleteFile': {
+    query: "DELETE FROM public.mnt_work_order_file WHERE id = $1 RETURNING id, url;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'mntListEvents': {
+    query: "SELECT id, title, detail, created_by, created_at FROM public.mnt_work_order_event WHERE work_order_id = $1 ORDER BY created_at DESC, id DESC;",
+    structure_params: { work_order_id: 'int' },
+    orderArray: ['work_order_id']
+  },
+
+  'mntInsertEvent': {
+    query: "INSERT INTO public.mnt_work_order_event (work_order_id, title, detail, created_by) VALUES ($1, $2, $3, $4) RETURNING id;",
+    structure_params: { work_order_id: 'int', title: 'string', detail: 'string|null', created_by: 'string|null' },
+    orderArray: ['work_order_id', 'title', 'detail', 'created_by']
+  },
+
+  'mntListIncidents': {
+    query: "SELECT i.*, u.code AS unit_code, u.plate AS unit_plate, u.fleet_type AS unit_fleet_type, w.number AS work_order_number, w.status AS work_order_status FROM public.mnt_incident i JOIN public.fleet_unit u ON u.id = i.unit_id LEFT JOIN public.mnt_work_order w ON w.id = i.work_order_id WHERE ($1::bigint IS NULL OR i.unit_id = $1) AND ($2::bigint IS NULL OR i.work_order_id = $2) ORDER BY CASE i.status WHEN 'ABIERTA' THEN 0 WHEN 'EN_OT' THEN 1 ELSE 2 END, CASE i.priority WHEN 'CRITICA' THEN 0 WHEN 'ALTA' THEN 1 WHEN 'MEDIA' THEN 2 ELSE 3 END, i.created_at DESC LIMIT 500;",
+    structure_params: { unit_id: 'int|null', work_order_id: 'int|null' },
+    orderArray: ['unit_id', 'work_order_id']
+  },
+
+  'mntGetIncident': {
+    query: "SELECT * FROM public.mnt_incident WHERE id = $1;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'mntInsertIncident': {
+    query: "INSERT INTO public.mnt_incident (unit_id, title, description, priority, failure_system, source, reported_by, reported_by_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;",
+    structure_params: { unit_id: 'int', title: 'string', description: 'string|null', priority: 'string', failure_system: 'string|null', source: 'string', reported_by: 'string|null', reported_by_user_id: 'int|null' },
+    orderArray: ['unit_id', 'title', 'description', 'priority', 'failure_system', 'source', 'reported_by', 'reported_by_user_id']
+  },
+
+  'mntUpdateIncident': {
+    query: "UPDATE public.mnt_incident i SET title = CASE WHEN x.p ? 'title' THEN x.p->>'title' ELSE i.title END, description = CASE WHEN x.p ? 'description' THEN x.p->>'description' ELSE i.description END, priority = CASE WHEN x.p ? 'priority' THEN x.p->>'priority' ELSE i.priority END, failure_system = CASE WHEN x.p ? 'failure_system' THEN x.p->>'failure_system' ELSE i.failure_system END, status = CASE WHEN x.p ? 'status' THEN x.p->>'status' ELSE i.status END, close_note = CASE WHEN x.p ? 'close_note' THEN x.p->>'close_note' ELSE i.close_note END, updated_at = NOW() FROM (SELECT $2::jsonb AS p) x WHERE i.id = $1 RETURNING i.id;",
+    structure_params: { id: 'int', patch: 'string' },
+    orderArray: ['id', 'patch']
+  },
+
+  'mntLinkIncidents': {
+    query: "UPDATE public.mnt_incident SET work_order_id = $2, status = 'EN_OT', updated_at = NOW() WHERE id = ANY (string_to_array($1, ',')::bigint[]) AND status = 'ABIERTA' AND unit_id = $3 RETURNING id;",
+    structure_params: { ids: 'string', work_order_id: 'int', unit_id: 'int' },
+    orderArray: ['ids', 'work_order_id', 'unit_id']
+  },
+
+  'mntSetIncidentsByWorkOrder': {
+    query: "UPDATE public.mnt_incident SET status = $2, work_order_id = CASE WHEN $2::varchar = 'ABIERTA' THEN NULL ELSE work_order_id END, updated_at = NOW() WHERE work_order_id = $1 AND status = 'EN_OT' RETURNING id;",
+    structure_params: { work_order_id: 'int', status: 'string' },
+    orderArray: ['work_order_id', 'status']
+  },
+
+  # Mantenimiento segunda entrega (063): plan preventivo, catálogos, evidencias.
+  'mntListPlans': {
+    query: "SELECT p.*, (SELECT COUNT(*)::int FROM public.mnt_unit_plan up WHERE up.plan_id = p.id) AS units_with_base FROM public.mnt_plan p ORDER BY p.active DESC, COALESCE(p.families, p.fleet_type), p.name;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntGetPlan': {
+    query: "SELECT * FROM public.mnt_plan WHERE id = $1;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'mntInsertPlan': {
+    query: "INSERT INTO public.mnt_plan (name, families, fleet_type, meter, every_meter, every_days, tasks, reference) VALUES ($1, $2, $3, $4, $5::numeric, $6, $7, $8) RETURNING id;",
+    structure_params: { name: 'string', families: 'string|null', fleet_type: 'string|null', meter: 'string|null', every_meter: 'string|null', every_days: 'int|null', tasks: 'string|null', reference: 'string|null' },
+    orderArray: ['name', 'families', 'fleet_type', 'meter', 'every_meter', 'every_days', 'tasks', 'reference']
+  },
+
+  'mntUpdatePlan': {
+    query: "UPDATE public.mnt_plan SET name = $2, families = $3, fleet_type = $4, meter = $5, every_meter = $6::numeric, every_days = $7, tasks = $8, reference = $9, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', name: 'string', families: 'string|null', fleet_type: 'string|null', meter: 'string|null', every_meter: 'string|null', every_days: 'int|null', tasks: 'string|null', reference: 'string|null' },
+    orderArray: ['id', 'name', 'families', 'fleet_type', 'meter', 'every_meter', 'every_days', 'tasks', 'reference']
+  },
+
+  'mntSetPlanActive': {
+    query: "UPDATE public.mnt_plan SET active = $2, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', active: 'boolean' },
+    orderArray: ['id', 'active']
+  },
+
+  'mntListUnitPlans': {
+    query: "SELECT unit_id, plan_id, last_done_at::text AS last_done_at, last_done_meter, source, work_order_id, updated_by, updated_at FROM public.mnt_unit_plan;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntUpsertUnitPlan': {
+    query: "INSERT INTO public.mnt_unit_plan (unit_id, plan_id, last_done_at, last_done_meter, source, work_order_id, updated_by, updated_at) VALUES ($1, $2, $3::date, $4::numeric, $5, $6, $7, NOW()) ON CONFLICT (unit_id, plan_id) DO UPDATE SET last_done_at = EXCLUDED.last_done_at, last_done_meter = EXCLUDED.last_done_meter, source = EXCLUDED.source, work_order_id = EXCLUDED.work_order_id, updated_by = EXCLUDED.updated_by, updated_at = NOW() RETURNING unit_id;",
+    structure_params: { unit_id: 'int', plan_id: 'int', last_done_at: 'string', last_done_meter: 'string|null', source: 'string', work_order_id: 'int|null', updated_by: 'string|null' },
+    orderArray: ['unit_id', 'plan_id', 'last_done_at', 'last_done_meter', 'source', 'work_order_id', 'updated_by']
+  },
+
+  # Última lectura por unidad y medidor: ficha de Flota + odómetro/horómetro anotado en Combustible (igual que resumenLecturas de lectura.js).
+  'mntUnitMeters': {
+    query: "SELECT DISTINCT ON (unit_id, meter) unit_id, meter, value, read_at, source FROM (SELECT unit_id, meter, value, read_at, source FROM public.fleet_unit_reading WHERE voided_at IS NULL UNION ALL SELECT vehicle_id, 'KM', odometer, filled_at, 'COMBUSTIBLE' FROM public.fuel_carga WHERE deleted_at IS NULL AND odometer IS NOT NULL UNION ALL SELECT vehicle_id, CASE WHEN measurement_type = 'horas' THEN 'HORAS' ELSE 'KM' END, measurement_value, filled_at, 'COMBUSTIBLE' FROM public.fuel_pesada WHERE deleted_at IS NULL AND measurement_value IS NOT NULL UNION ALL SELECT to_vehicle_id, CASE WHEN measurement_type = 'horas' THEN 'HORAS' ELSE 'KM' END, measurement_value, filled_at, 'COMBUSTIBLE' FROM public.fuel_transfer WHERE deleted_at IS NULL AND measurement_value IS NOT NULL) x ORDER BY unit_id, meter, read_at DESC;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  # Horas ejecutadas por día (Control de Horas) para estimar el horómetro desde la última lectura.
+  'mntRecentHours': {
+    query: "SELECT equipment_id AS unit_id, fecha::text AS fecha, SUM(executed_hours) AS hours FROM public.hours_daily_entry WHERE fecha >= CURRENT_DATE - 400 GROUP BY equipment_id, fecha;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntOpenPlanOrders': {
+    query: "SELECT id, number, unit_id, plan_id, status FROM public.mnt_work_order WHERE plan_id IS NOT NULL AND status NOT IN ('CERRADA', 'RECHAZADA', 'ANULADA');",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntPauseWorkOrder': {
+    query: "UPDATE public.mnt_work_order SET paused_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'mntResumeWorkOrder': {
+    query: "UPDATE public.mnt_work_order SET wait_parts_minutes = wait_parts_minutes + GREATEST(0, ROUND(EXTRACT(EPOCH FROM (NOW() - COALESCE(paused_at, NOW()))) / 60))::int, paused_at = NULL, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int' },
+    orderArray: ['id']
+  },
+
+  'mntSetWorkOrderPlan': {
+    query: "UPDATE public.mnt_work_order SET plan_id = $2, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', plan_id: 'int|null' },
+    orderArray: ['id', 'plan_id']
+  },
+
+  'mntSetWorkOrderProvider': {
+    query: "UPDATE public.mnt_work_order SET provider_id = $2, provider = COALESCE((SELECT name FROM public.mnt_provider WHERE id = $2), provider), updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', provider_id: 'int|null' },
+    orderArray: ['id', 'provider_id']
+  },
+
+  'mntListServices': {
+    query: "SELECT id, name, system, kind, est_minutes, description, active, updated_at FROM public.mnt_service ORDER BY active DESC, name;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntInsertService': {
+    query: "INSERT INTO public.mnt_service (name, system, kind, est_minutes, description) VALUES ($1, $2, $3, $4, $5) RETURNING id;",
+    structure_params: { name: 'string', system: 'string|null', kind: 'string', est_minutes: 'int|null', description: 'string|null' },
+    orderArray: ['name', 'system', 'kind', 'est_minutes', 'description']
+  },
+
+  'mntUpdateService': {
+    query: "UPDATE public.mnt_service SET name = $2, system = $3, kind = $4, est_minutes = $5, description = $6, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', name: 'string', system: 'string|null', kind: 'string', est_minutes: 'int|null', description: 'string|null' },
+    orderArray: ['id', 'name', 'system', 'kind', 'est_minutes', 'description']
+  },
+
+  'mntSetServiceActive': {
+    query: "UPDATE public.mnt_service SET active = $2, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', active: 'boolean' },
+    orderArray: ['id', 'active']
+  },
+
+  'mntListProviders': {
+    query: "SELECT p.*, (SELECT COUNT(*)::int FROM public.mnt_work_order w WHERE w.provider_id = p.id) AS orders FROM public.mnt_provider p ORDER BY p.active DESC, p.name;",
+    structure_params: {},
+    orderArray: []
+  },
+
+  'mntInsertProvider': {
+    query: "INSERT INTO public.mnt_provider (name, type, rif, contact, phone, email, notes) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;",
+    structure_params: { name: 'string', type: 'string|null', rif: 'string|null', contact: 'string|null', phone: 'string|null', email: 'string|null', notes: 'string|null' },
+    orderArray: ['name', 'type', 'rif', 'contact', 'phone', 'email', 'notes']
+  },
+
+  'mntUpdateProvider': {
+    query: "UPDATE public.mnt_provider SET name = $2, type = $3, rif = $4, contact = $5, phone = $6, email = $7, notes = $8, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', name: 'string', type: 'string|null', rif: 'string|null', contact: 'string|null', phone: 'string|null', email: 'string|null', notes: 'string|null' },
+    orderArray: ['id', 'name', 'type', 'rif', 'contact', 'phone', 'email', 'notes']
+  },
+
+  'mntSetProviderActive': {
+    query: "UPDATE public.mnt_provider SET active = $2, updated_at = NOW() WHERE id = $1 RETURNING id;",
+    structure_params: { id: 'int', active: 'boolean' },
+    orderArray: ['id', 'active']
   }
 }

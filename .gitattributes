@@ -1,0 +1,2 @@
+# Scripts que corren en Linux (contenedor de Azure): siempre con fin de línea LF
+*.sh text eol=lf

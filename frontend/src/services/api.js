@@ -16,11 +16,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password"];
+const PUBLIC_ROUTES = ["/login"];
+
+// Cierre por inactividad (08/10/2026): el servidor renueva el pase en la
+// cabecera X-Auth-Token; aquí se guarda, y se anota cuándo fue el último
+// contacto con el servidor (lo usa IdleSessionGuard para decidir si renovar
+// en segundo plano mientras la persona sigue activa sin pedir nada).
+export const SESSION_END_REASON_KEY = "session_end_reason";
+let lastServerContact = Date.now();
+export const getLastServerContact = () => lastServerContact;
 
 // Interceptor: maneja errores globales
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const refreshed = res.headers?.["x-auth-token"];
+    if (refreshed && localStorage.getItem("token")) localStorage.setItem("token", refreshed);
+    lastServerContact = Date.now();
+    return res;
+  },
   (err) => {
     const status = err.response?.status;
     const isPublicRoute = PUBLIC_ROUTES.includes(window.location.pathname);
@@ -31,6 +44,11 @@ api.interceptors.response.use(
     // ya maneja su propio formulario.
     if (status === 401 && !isPublicRoute) {
       localStorage.removeItem("token");
+      // La pantalla de login explica por qué se cerró (si no lo cerró ya el
+      // contador de inactividad con su propio motivo).
+      if (!sessionStorage.getItem(SESSION_END_REASON_KEY)) {
+        sessionStorage.setItem(SESSION_END_REASON_KEY, "expired");
+      }
       window.location.href = "/login";
     }
 

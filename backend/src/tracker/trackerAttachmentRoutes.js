@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 import DBMS from '../dbms/dbms.js';
 import Config from '../../config/config.js';
 import Security from '../security/security.js';
+import { uploadsPath } from '../../config/paths.js';
+import { userCanAny, denyFile } from '../security/fileAccess.js';
 
 // Ruta aparte del dispatcher JSON (mismo espíritu que fuelPhotoRoutes.js):
 // anexos del reporte diario del Tracker que no vienen por la API de
@@ -19,7 +21,7 @@ const security = new Security();
 const { STATUS_CODES } = config;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOADS_ROOT = path.resolve(__dirname, '../../uploads/tracker');
+const UPLOADS_ROOT = uploadsPath('tracker');
 
 const MIME_EXT = {
   'application/pdf': '.pdf',
@@ -202,6 +204,8 @@ router.delete('/attachments/:id', async (req, res) => {
 
 // GET /tracker/attachments/file/:fecha/:filename — sirve el archivo (requiere sesión).
 router.get('/attachments/file/:fecha/:filename', async (req, res) => {
+  // Seguridad (08/10/2026): además de la sesión, permiso de Reportes de Turno.
+  if (req.user && !userCanAny(req, [{ sub_system: 'Tracker', class: 'Reporte', methods: ['generarReporte'] }, { sub_system: 'Tracker', class: 'ReporteArchivo', methods: ['listar'] }])) return denyFile(req, res);
   if (!req.user) {
     return res.status(STATUS_CODES.UNAUTHORIZED).json({
       statusCode: STATUS_CODES.UNAUTHORIZED,
