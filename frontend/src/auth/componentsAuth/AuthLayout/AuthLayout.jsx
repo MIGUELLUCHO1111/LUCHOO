@@ -139,14 +139,6 @@ export const AuthLayout = () => {
                     >
                       Contraseña
                     </FieldLabel>
-                    <Button
-                      variant="link"
-                      type="button"
-                      onClick={() => navigate("/forgot-password")}
-                      className="px-0 h-auto text-[10px] font-medium text-brand-navy hover:text-brand-navy-dark dark:text-brand-gold cursor-pointer"
-                    >
-                      ¿Olvidaste tu contraseña?
-                    </Button>
                   </div>
                   <div className="relative group">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground z-10 pointer-events-none" />

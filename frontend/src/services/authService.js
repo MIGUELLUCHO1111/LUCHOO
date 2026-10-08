@@ -75,19 +75,6 @@ const authService = {
     return Boolean(localStorage.getItem(TOKEN_KEY));
   },
 
-  async forgotPassword(email) {
-    const { data } = await api.post("/user/forgot-password", { email });
-    return data;
-  },
-
-  async resetPassword(token, password, confirmPassword) {
-    const { data } = await api.post("/user/reset-password", {
-      token,
-      password,
-      confirmPassword,
-    });
-    return data;
-  },
 };
 
 export default authService;

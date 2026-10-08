@@ -94,9 +94,18 @@ az postgres flexible-server create -g $RG -n $PG -l $LOC \
 
 az postgres flexible-server db create -g $RG -s $PG -d fullpetro
 ```
-- `--public-access 0.0.0.0` deja entrar **solo a servicios de Azure** (la app). Para restaurar la base desde la oficina, más adelante se agrega una regla para la IP pública de la oficina (paso 6).
+- `--public-access 0.0.0.0` deja entrar **solo a servicios de Azure** (la app y Cloud Shell).
 - Si en el portal ya aparece la versión **18** (la local es 18.6), se puede usar `--version 18`.
 - Revisa `max_connections` del servidor (Portal → servidor → *Server parameters*) para la cuenta de la sección 9.
+
+### 4.1b Usuario de la app con permisos limitados (seguridad)
+La app **no** usa el administrador de PostgreSQL: usa `fullpetro_app`, que solo puede leer y escribir datos (no crear, cambiar, vaciar ni borrar tablas). El administrador solo lo usan las migraciones al arrancar, que además le dan a `fullpetro_app` sus permisos sobre cada tabla nueva. Se crea una sola vez:
+```bash
+APP_DB_PASS='<otra contraseña larga, distinta de PG_PASS>'
+psql "host=$PG.postgres.database.azure.com port=5432 dbname=fullpetro user=$PG_ADMIN password=$PG_PASS sslmode=require" \
+  -c "CREATE ROLE fullpetro_app LOGIN PASSWORD '$APP_DB_PASS';"
+```
+> Probado el 08/10/2026 en local: con este usuario la app arranca, inicia sesión, lee y guarda normalmente; crear, borrar, cambiar o vaciar tablas da "permiso denegado".
 
 ### 4.2 Azure Files (archivos subidos)
 ```bash
@@ -156,7 +165,8 @@ az webapp config appsettings set -g $RG -n $APP --settings \
   WEBSITES_PORT=8080 \
   NODE_ENV=production \
   DB_HOST=$PG.postgres.database.azure.com DB_PORT=5432 DB_NAME=fullpetro \
-  DB_USER=$PG_ADMIN DB_PASSWORD="$PG_PASS" DB_SSL=true \
+  DB_USER=fullpetro_app DB_PASSWORD="$APP_DB_PASS" DB_SSL=true \
+  MIGRATION_DB_USER=$PG_ADMIN MIGRATION_DB_PASSWORD="$PG_PASS" \
   DB_POOL_MAX=8 DB_STATEMENT_TIMEOUT_MS=30000 \
   COOKIE_SECURE=true \
   FRONTEND_URL=https://$APP.azurewebsites.net \
@@ -165,7 +175,7 @@ az webapp config appsettings set -g $RG -n $APP --settings \
   SCHEDULER_ENABLED=false
 ```
 El usuario `admin` ya viene con su contraseña desde `db/seed.sql`. Si alguna vez se quisiera instalar con otra, se define `INITIAL_ADMIN_PASSWORD` antes del primer arranque y se borra después.
-Después, en **Portal → la app → Configuration → Application settings**, agrega a mano los secretos y ajustes del Tracker que hoy están en `backend/.env` de la laptop de Luis: `FORESIGHT_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TRACKER_*`, `FLEET_*`, `MNT_*`, `RESEND_API_KEY`, `EMAIL`. Cópialos **tal cual** desde ese `.env` (nunca los pegues en el chat ni en un archivo del repo).
+Después, en **Portal → la app → Configuration → Application settings**, agrega a mano los secretos y ajustes del Tracker que hoy están en `backend/.env` de la laptop de Luis: `FORESIGHT_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TRACKER_*`, `FLEET_*`, `MNT_*`. Cópialos **tal cual** desde ese `.env` (nunca los pegues en el chat ni en un archivo del repo).
 
 `SCHEDULER_ENABLED=false` por ahora: así Azure **no manda nada a Telegram** mientras se prueba. Se enciende en el paso 7.
 
@@ -249,7 +259,7 @@ Portal → la app → **Custom domains** → *Add custom domain* (`app.fullpetro
 ```bash
 az webapp config appsettings set -g $RG -n $APP --settings FRONTEND_URL=https://app.fullpetro.com
 ```
-(`FRONTEND_URL` arma el enlace del correo de "olvidé mi contraseña".)
+(`FRONTEND_URL` es el dominio público de la app; también se acepta para las peticiones entre sitios.)
 
 ---
 
@@ -282,3 +292,5 @@ az webapp config appsettings set -g $RG -n $APP --settings FRONTEND_URL=https://
 - [ ] Solo Azure tiene `SCHEDULER_ENABLED=true`; las máquinas locales tienen `false`.
 - [ ] Llega un solo aviso por Telegram por evento (no duplicados).
 - [ ] Se puede entrar con el usuario `admin`, y es el único usuario del sistema.
+- [ ] La app se conecta con `fullpetro_app` (no con el administrador de PostgreSQL).
+- [ ] La pantalla de inicio de sesión no tiene "¿Olvidaste tu contraseña?": las contraseñas las cambia un administrador en Seguridad → Usuarios.

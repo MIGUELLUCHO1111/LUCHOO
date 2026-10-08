@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    const publicRoutes = ["/login", "/forgot-password", "/reset-password"];
+    const publicRoutes = ["/login"];
     const isPublicRoute = publicRoutes.includes(window.location.pathname);
 
     if (!isPublicRoute) {
@@ -99,42 +99,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const forgotPassword = async ({ email }) => {
-    setIsSubmitting(true);
-    setAuthError(null);
-    try {
-      const data = await authService.forgotPassword(email);
-      return data;
-    } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        "Error al enviar el correo de recuperación";
-      setAuthError(message);
-      throw new Error(message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const resetPassword = async ({ token, password, confirmPassword }) => {
-    setIsSubmitting(true);
-    setAuthError(null);
-    try {
-      const data = await authService.resetPassword(
-        token,
-        password,
-        confirmPassword
-      );
-      return data;
-    } catch (err) {
-      const message =
-        err.response?.data?.message || "Error al restablecer la contraseña";
-      setAuthError(message);
-      throw new Error(message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  // "Olvidé mi contraseña" se quitó (08/10/2026): solo un administrador
+  // cambia contraseñas, desde Seguridad > Usuarios.
 
   return (
     <AuthContext.Provider
@@ -147,8 +113,6 @@ export const AuthProvider = ({ children }) => {
         authError,
         login,
         logout,
-        forgotPassword,
-        resetPassword,
         checkAuth,
       }}
     >

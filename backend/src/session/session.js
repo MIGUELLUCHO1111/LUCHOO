@@ -58,49 +58,9 @@ class Session {
     return res?.rows?.[0];
   }
 
-  // Obtener usuario por email
-  async getUserByEmail(email) {
-    await this.dbmsReady;
-    try {
-      const res = await this.dbms.executeNamedQuery({
-        nameQuery: 'getUserByEmail',
-        params: { email },
-      });
-      return res?.rows?.[0] || null;
-    } catch (err) {
-      throw new Error(err.message);
-    }
-  }
-
-  // Actualizar contraseña por ID
-  async updatePasswordById({ userId, password }) {
-    await this.dbmsReady;
-    const hashedPassword = await bcrypt.hash(password, 12);
-    try {
-      const res = await this.dbms.executeNamedQuery({
-        nameQuery: 'updateUserPassword',
-        params: { password: hashedPassword, userId },
-      });
-      return res?.rows?.[0] || null;
-    } catch (err) {
-      throw new Error(err.message);
-    }
-  }
-
-  // Recuperar contraseña por usuario
-  async resetPasswordByUsername({ username, password }) {
-    await this.dbmsReady;
-    const hashedPassword = await bcrypt.hash(password, 12);
-    try {
-      const res = await this.dbms.executeNamedQuery({
-        nameQuery: 'updateUserPasswordByUsername',
-        params: { password: hashedPassword, username },
-      });
-      return res?.rows?.[0] || null;
-    } catch (err) {
-      throw new Error(err.message);
-    }
-  }
+  // getUserByEmail / updatePasswordById / resetPasswordByUsername se quitaron
+  // junto con "olvidé mi contraseña" (08/10/2026): las contraseñas solo las
+  // cambia un administrador desde Seguridad > Usuarios (Users.Usuario).
 }
 
 export default Session;

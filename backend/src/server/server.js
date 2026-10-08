@@ -86,9 +86,37 @@ class Server {
     // un subdominio distinto al backend (app.tudominio.com vs
     // api.tudominio.com, ver DEPLOYMENT.md) y necesita poder cargar esos
     // archivos; el default de helmet ('same-origin') los bloquearía.
+    // Política de contenido (CSP, seguridad 08/10/2026): cuando este proceso
+    // sirve la app (Azure, FRONTEND_DIST_DIR), el navegador solo ejecuta código
+    // de este mismo sitio; si algún día apareciera una inyección de HTML no
+    // podría cargar scripts de afuera ni mandar datos a otro servidor. Fuentes
+    // externas reales: solo las teselas del mapa (OpenStreetMap). Estilos en
+    // línea permitidos (React y las animaciones los usan). blob:/data: para las
+    // vistas previas de fotos y PDF. Sin la app (desarrollo, API sola) queda
+    // apagada como antes. upgrade-insecure-requests solo con HTTPS real.
+    const csp = this.frontendDist
+      ? {
+          useDefaults: false,
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org'],
+            fontSrc: ["'self'", 'data:'],
+            connectSrc: ["'self'"],
+            frameSrc: ["'self'", 'blob:'],
+            workerSrc: ["'self'", 'blob:'],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+            frameAncestors: ["'self'"],
+            ...(process.env.COOKIE_SECURE === 'true' ? { upgradeInsecureRequests: [] } : {}),
+          },
+        }
+      : false;
     this.app.use(
       helmet({
-        contentSecurityPolicy: false,
+        contentSecurityPolicy: csp,
         crossOriginResourcePolicy: { policy: 'cross-origin' },
       }),
     );

@@ -40,7 +40,20 @@ const mode = args.includes('--status') ? 'status' : args.includes('--baseline') 
 const BASE_DIR = path.resolve(process.env.DB_BASE_DIR || path.join(MIGRATIONS_DIR, '..'));
 const files = fs.readdirSync(MIGRATIONS_DIR).filter((f) => /^\d+_.+\.sql$/.test(f)).sort();
 
-const client = new pg.Client({ ...dbConfig, application_name: 'fullpetro-migrate' });
+// Usuario de la base para migrar (seguridad, 08/10/2026). En producción la
+// app usa un usuario que SOLO lee y escribe datos (DB_USER); las migraciones,
+// que crean y cambian tablas, usan otro con más permisos (MIGRATION_DB_USER /
+// MIGRATION_DB_PASSWORD). Sin esas variables se usa DB_USER, como en
+// desarrollo. Al terminar se le dan al usuario de la app los permisos sobre
+// todo lo que exista (tablas nuevas incluidas).
+const migrationUser = process.env.MIGRATION_DB_USER || dbConfig.user;
+const appUser = dbConfig.user;
+const client = new pg.Client({
+  ...dbConfig,
+  user: migrationUser,
+  password: process.env.MIGRATION_DB_USER ? process.env.MIGRATION_DB_PASSWORD : dbConfig.password,
+  application_name: 'fullpetro-migrate',
+});
 await client.connect();
 
 // Dos procesos migrando a la vez (dos instancias arrancando juntas) no deben
@@ -111,6 +124,20 @@ try {
         console.log('Instalación desde cero: usuario admin con la contraseña definida en db/seed.sql.');
       }
     }
+  }
+
+  // Permisos del usuario de la app: solo leer y escribir datos (no crear,
+  // cambiar ni borrar tablas). Se repite en cada corrida para cubrir las
+  // tablas que agreguen las migraciones nuevas.
+  if (mode === 'apply' && !process.exitCode && appUser && appUser !== migrationUser) {
+    const role = `"${String(appUser).replace(/"/g, '""')}"`;
+    await client.query(`GRANT USAGE ON SCHEMA public TO ${role}`);
+    await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${role}`);
+    await client.query(`GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO ${role}`);
+    await client.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO ${role}`);
+    // Lo que no es de la app, se le quita por si alguna vez lo tuvo.
+    await client.query(`REVOKE CREATE ON SCHEMA public FROM ${role}`);
+    console.log(`Permisos de solo datos (leer/escribir) otorgados a ${appUser}.`);
   }
 } finally {
   await client.query('SELECT pg_advisory_unlock(727002)').catch(() => {});

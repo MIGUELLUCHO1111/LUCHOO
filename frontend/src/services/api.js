@@ -16,7 +16,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-const PUBLIC_ROUTES = ["/login", "/forgot-password", "/reset-password"];
+const PUBLIC_ROUTES = ["/login"];
 
 // Cierre por inactividad (08/10/2026): el servidor renueva el pase en la
 // cabecera X-Auth-Token; aquí se guarda, y se anota cuándo fue el último

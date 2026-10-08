@@ -1,8 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { 
   Login, 
-  Forgot, 
-  ResetPassword, 
   Dashboard, 
   NotFound, 
   FuelReports,
@@ -46,8 +44,6 @@ function App() {
         <Routes>
           <Route path='/' element={<Login />}/>
           <Route path='/login' element={<Login />} />
-          <Route path='/forgot-password' element={<Forgot />} />
-          <Route path='/reset-password' element={<ResetPassword />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />

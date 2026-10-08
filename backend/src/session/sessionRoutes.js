@@ -3,6 +3,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { clientIp } from '../utils/clientIp.js';
 import { TOKEN_EXPIRES_IN, SESSION_IDLE_MINUTES } from './sessionPolicy.js';
 import { recordSessionEvent } from '../security/activityTracker.js';
+import { passwordProblem } from '../security/passwordPolicy.js';
 import pool from '../../config/db.js';
 import PgRateLimitStore from '../security/pgRateLimitStore.js';
 const router = express.Router();
@@ -19,9 +20,7 @@ const config = new Config();
 const getMessage = config.getMessage.bind(config);
 const { STATUS_CODES } = config;
 import Tokenizer from '../tokenizer/tokenizer.js';
-import Mailer from '../mailer/mailer.js';
 const tokenizer = new Tokenizer();
-const mailer = new Mailer();
 
 // Limita intentos en rutas sensibles (login/registro/recuperación de contraseña).
 // Store en Postgres (no MemoryStore): el conteo es el mismo sin importar qué
@@ -46,8 +45,6 @@ function createAuthLimiter(routeName) {
 
 const registerLimiter = createAuthLimiter('register');
 const loginLimiter = createAuthLimiter('login');
-const forgotPasswordLimiter = createAuthLimiter('forgot-password');
-const resetPasswordLimiter = createAuthLimiter('reset-password');
 
 // Registro de usuario
 router.post('/register', registerLimiter, async (req, res) => {
@@ -85,6 +82,9 @@ router.post('/register', registerLimiter, async (req, res) => {
         errors: validation.errors,
       });
     }
+
+    const weak = passwordProblem(req.body?.password);
+    if (weak) return res.status(STATUS_CODES.BAD_REQUEST).json({ message: weak });
 
     const userData = await session.register(req.body);
     sessionWrapper.setSession(req, { user: userData });
@@ -209,125 +209,10 @@ router.get('/me', async (req, res) => {
 });
 
 // Recuperacion de contrasena
-router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
-  const { email } = req.body || {};
+// "Olvidé mi contraseña" y su enlace de recuperación se quitaron (08/10/2026,
+// decisión de Julio): solo un administrador cambia contraseñas, desde
+// Seguridad > Usuarios. Las rutas /forgot-password y /reset-password ya no existen.
 
-  await sessionWrapper.destroySession(req);
-
-  const forgotPasswordSchema = {
-    email: {
-      type: 'email',
-      options: { required: true },
-    },
-  };
-
-  const validation = validator.validateObject(req.body, forgotPasswordSchema);
-  if (!validation.isValid) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      message: getMessage(config.LANGUAGE, 'validation_error'),
-      errors: validation.errors,
-    });
-  }
-
-  try {
-    const userData = await session.getUserByEmail(email);
-    if (userData) {
-      const token = tokenizer.generateToken({
-        id: userData.id,
-        username: userData.username,
-        email: userData.email,
-      });
-      // FRONTEND_URL puede traer varias URL separadas por coma (CORS); el
-      // enlace del correo usa la primera, que es la pública (en Azure, el dominio).
-      const origin = (process.env.FRONTEND_URL || '').split(',')[0].trim() || req.headers.origin;
-      await mailer.sendRecoveryEmail({
-        email: userData.email,
-        token,
-        origin,
-        username: userData.username,
-      });
-    }
-
-    return res.json({
-      message: config.getMessage(config.LANGUAGE, 'recovery_email_sent'),
-    });
-  } catch (error) {
-    console.error('Error en forgot-password:', error);
-    return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
-      message: config.getMessage(config.LANGUAGE, 'server_error'),
-      error,
-    });
-  }
-});
-
-router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
-  const { token, password, confirmPassword } = req.body || {};
-
-  // Terminar la sesion si existe
-  await sessionWrapper.destroySession(req);
-
-  const resetPasswordSchema = {
-    token: {
-      type: 'string',
-      options: { required: true },
-    },
-    password: {
-      type: 'string',
-      options: {
-        required: true,
-        requireSpecialChars: true,
-      },
-    },
-    confirmPassword: {
-      type: 'string',
-      options: { required: true },
-    },
-  };
-
-  const validation = validator.validateObject(req.body, resetPasswordSchema);
-  if (!validation.isValid) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      message: getMessage(config.LANGUAGE, 'validation_error'),
-      errors: validation.errors,
-    });
-  }
-
-  if (password !== confirmPassword) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      error: getMessage(config.LANGUAGE, 'passwords_do_not_match'),
-    });
-  }
-
-  const tokenPayload = tokenizer.verifyToken(token);
-  if (!tokenPayload?.id) {
-    return res.status(STATUS_CODES.BAD_REQUEST).json({
-      error: config.getMessage(config.LANGUAGE, 'invalid_or_expired_token'),
-    });
-  }
-
-  try {
-    const userData = await session.updatePasswordById({
-      userId: tokenPayload.id,
-      password,
-    });
-    if (!userData) {
-      return res
-        .status(STATUS_CODES.NOT_FOUND)
-        .json({ error: getMessage(config.LANGUAGE, 'user_not_found') });
-    }
-    return res.json({
-      message: getMessage(config.LANGUAGE, 'password_reset_success'),
-      user: userData,
-    });
-  } catch (error) {
-    console.error('Error en reset-password:', error);
-    return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
-      message: getMessage(config.LANGUAGE, 'server_error'),
-      error,
-    });
-  }
-});
-// Logout
 router.post('/logout', async (req, res) => {
   // Auditoría (066): la pantalla manda reason "idle" cuando cierra por inactividad.
   if (req.user?.id != null) {

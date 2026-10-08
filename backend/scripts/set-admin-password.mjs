@@ -12,12 +12,19 @@ import 'dotenv/config';
 import bcrypt from 'bcrypt';
 import pg from 'pg';
 import { dbConfig } from '../config/db.js';
+import { passwordProblem } from '../src/security/passwordPolicy.js';
 
 const username = process.env.ADMIN_USER || 'admin';
 const password = process.env.NEW_PASSWORD;
 
-if (!password || password.length < 10) {
-  console.error('Define NEW_PASSWORD con al menos 10 caracteres. Ej.: NEW_PASSWORD=\'...\' node scripts/set-admin-password.mjs');
+if (!password) {
+  console.error("Define NEW_PASSWORD. Ej.: NEW_PASSWORD='...' node scripts/set-admin-password.mjs");
+  process.exit(1);
+}
+// Misma política que el resto del sistema (src/security/passwordPolicy.js).
+const weak = passwordProblem(password);
+if (weak) {
+  console.error(weak);
   process.exit(1);
 }
 

@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import DBMS from '../../../dbms/dbms.js';
 import Config from '../../../../config/config.js';
 import Security from '../../../security/security.js';
+import { passwordProblem } from '../../../security/passwordPolicy.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
@@ -23,6 +24,12 @@ export class Usuario {
           statusCode: STATUS_CODES.BAD_REQUEST,
         }),
       );
+    }
+
+    // Contraseña fuerte, validada en el servidor (08/10/2026).
+    const weak = passwordProblem(password);
+    if (weak) {
+      throw new Error(JSON.stringify({ message: weak, statusCode: STATUS_CODES.BAD_REQUEST }));
     }
 
     await this.dbmsReady;
@@ -135,6 +142,10 @@ export class Usuario {
       }
 
       if (password) {
+        const weak = passwordProblem(password);
+        if (weak) {
+          throw new Error(JSON.stringify({ message: weak, statusCode: STATUS_CODES.BAD_REQUEST }));
+        }
         const password_hash = await bcrypt.hash(password, 10);
         await this.dbms.executeNamedQuery({
           nameQuery: 'updateUserPassword',
