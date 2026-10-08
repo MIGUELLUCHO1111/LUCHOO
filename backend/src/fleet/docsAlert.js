@@ -18,6 +18,8 @@ const DOC_LABEL = {
   DIELECTRICA: 'Prueba dieléctrica',
   REVISION: 'Revisión técnica',
   TITULO: 'Título de propiedad',
+  TRIMESTRES: 'Trimestres vehiculares',
+  ROCT: 'ROCT (Registro de Operadoras de Transporte de Carga)',
 };
 const TELEGRAM_MAX = 3800; // Telegram corta en 4096 caracteres
 

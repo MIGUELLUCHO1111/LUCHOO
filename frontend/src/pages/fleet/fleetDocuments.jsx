@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ShieldCheck, BadgeCheck, CarFront, Umbrella, ClipboardCheck, Construction, Weight, Zap, ScrollText, FilePlus2,
+  ShieldCheck, BadgeCheck, CarFront, Umbrella, ClipboardCheck, Construction, Weight, Zap, ScrollText, FilePlus2, CalendarClock, Route,
   Upload, FileText, Image as ImageIcon, RefreshCw, Trash2, Paperclip, AlertTriangle, ChevronDown,
 } from "lucide-react";
 import { fleetService, resolveFleetFileUrl } from "@/services";
@@ -25,6 +25,9 @@ export const DOC_DEFS = {
   DIELECTRICA: { label: "Prueba dieléctrica", long: "Aislamiento del camión cesta", icon: Zap, number: "N° de informe", provider: "Realizada por", expires: true },
   REVISION: { label: "Revisión técnica", long: "Inspección técnica de la unidad", icon: ClipboardCheck, number: "N° de revisión", provider: "Taller / inspector", expires: true },
   TITULO: { label: "Título de propiedad", long: "Documento de propiedad", icon: ScrollText, number: "N° de título", provider: "Emitido por", expires: false },
+  // Pedido de Lguerra (08/10/2026): opcionales con vencimiento.
+  TRIMESTRES: { label: "Trimestres vehiculares", long: "Impuesto vehicular trimestral pagado", icon: CalendarClock, number: "N° de planilla / recibo", provider: "Alcaldía", expires: true },
+  ROCT: { label: "ROCT", long: "Registro de Operadoras de Transporte de Carga", icon: Route, number: "N° de registro", provider: "Emitido por", expires: true },
   OTRO: { label: "Otro documento", long: "Cualquier otro soporte", icon: FilePlus2, number: "Número", provider: "Emitido por", expires: false },
 };
 export const docLabel = (t) => DOC_DEFS[t]?.label || t;
