@@ -39,7 +39,7 @@ Todo se hace desde el **portal de Azure** y **Azure Cloud Shell** (la terminal q
 | Tareas programadas (alertas, Telegram, reportes de turno, preventivas, km del GPS) | **Un solo proceso entre todas las instancias**, elegido con un *advisory lock* de PostgreSQL (`backend/src/scheduler/leader.js`). Si ese proceso se cae, otro toma el relevo en ≤ 1 minuto. |
 | Archivos subidos | Azure Files, compartido por todas las instancias y persistente entre despliegues (`UPLOADS_DIR`). |
 | Permisos | Cada proceso los vuelve a leer de la base cada minuto. |
-| Conexiones a la base | Pool por proceso (`DB_POOL_MAX`) con timeouts; las peticiones de más esperan turno en vez de fallar. |
+| Conexiones a la base | Pool por proceso (`DB_POOL_MAX`) con timeouts y keep-alive de TCP; las peticiones de más esperan turno en vez de fallar. Estado visible en `/health` (`pool`: en uso, libres, en espera). |
 | Reinicios y escalado | Apagado ordenado con SIGTERM: termina las peticiones en curso, suelta el liderazgo y cierra el pool. Health check en `/health`. |
 | Migraciones | `backend/scripts/migrate.mjs`: registra en `schema_migrations` cuáles se aplicaron y corre solo las pendientes, con lock para que dos instancias no migren a la vez. |
 
@@ -88,7 +88,7 @@ az group create -n $RG -l $LOC
 ### 4.1 PostgreSQL
 ```bash
 az postgres flexible-server create -g $RG -n $PG -l $LOC \
-  --tier Burstable --sku-name Standard_B2s --version 17 --storage-size 32 \
+  --tier Burstable --sku-name Standard_B1ms --version 17 --storage-size 32 \
   --admin-user $PG_ADMIN --admin-password "$PG_PASS" \
   --public-access 0.0.0.0 --backup-retention 14
 
@@ -130,7 +130,7 @@ La imagen se construye **en Azure** (unos 5–8 minutos) con el `Dockerfile` de 
 
 ### 4.4 App Service
 ```bash
-az appservice plan create -g $RG -n $PLAN --is-linux --sku P1v3
+az appservice plan create -g $RG -n $PLAN --is-linux --sku B2
 
 az webapp create -g $RG -p $PLAN -n $APP --container-image-name $ACR.azurecr.io/fullpetro:latest
 
@@ -167,7 +167,7 @@ az webapp config appsettings set -g $RG -n $APP --settings \
   DB_HOST=$PG.postgres.database.azure.com DB_PORT=5432 DB_NAME=fullpetro \
   DB_USER=fullpetro_app DB_PASSWORD="$APP_DB_PASS" DB_SSL=true \
   MIGRATION_DB_USER=$PG_ADMIN MIGRATION_DB_PASSWORD="$PG_PASS" \
-  DB_POOL_MAX=8 DB_STATEMENT_TIMEOUT_MS=30000 \
+  DB_POOL_MAX=6 DB_STATEMENT_TIMEOUT_MS=30000 \
   COOKIE_SECURE=true \
   FRONTEND_URL=https://$APP.azurewebsites.net \
   SECRET="$(openssl rand -hex 32)" JWT_SECRET="$(openssl rand -hex 32)" \
@@ -246,9 +246,11 @@ Las migraciones nuevas se aplican solas al arrancar (`RUN_MIGRATIONS_ON_START=tr
 
 ## 9. Escalar y conexiones a la base
 
-- **Más procesos por instancia:** `WEB_CONCURRENCY` (por defecto 2, uno por vCPU del plan P1v3).
-- **Más instancias:** Portal → la app → **Scale out**. Regla sugerida: CPU > 70 % durante 10 min → +1 instancia, máximo 3.
-- **Conexiones:** total = `DB_POOL_MAX × WEB_CONCURRENCY × instancias + 2` (líder y migraciones). Con 8 × 2 × 3 = 48, lejos del `max_connections` de un B2s. Si se sube a más instancias, recalcula contra el `max_connections` del servidor (paso 4.1).
+- **Tamaño de arranque recomendado (08/10/2026):** App Service **B2** (2 vCPU, 3,5 GB) + PostgreSQL **B1ms** (1 vCPU, 2 GB). Alcanza de sobra para el uso actual: en la prueba de carga un solo proceso con 6 conexiones atendió 300 peticiones simultáneas sin errores.
+- **Más procesos por instancia:** `WEB_CONCURRENCY` (por defecto 2, uno por vCPU del plan).
+- **Más instancias:** Portal → la app → **Scale out** (manual en B2, hasta 3; automático solo desde los planes Premium como P1v3).
+- **Conexiones:** total = `DB_POOL_MAX × WEB_CONCURRENCY × instancias + 2` (el proceso líder y las migraciones al arrancar). Con B1ms (unas 50 conexiones): **6 × 2 × 3 + 2 = 38**, alcanza para 3 instancias. Por eso `DB_POOL_MAX=6`. Si se sube a más instancias o a P1v3 con autoescalado, pasar la base a **B2s** (cientos de conexiones) y recalcular contra su `max_connections` (Portal → servidor → *Server parameters*).
+- **Cómo saber si faltan conexiones:** `/health` muestra el pool de la instancia que respondió. Si `waiting` aparece seguido por encima de 0 sin que haya carga fuera de lo normal, faltan conexiones; si `inUse` se queda en el máximo sin actividad, algo no las devuelve.
 - **Tareas programadas:** no importa cuántas instancias haya; siempre corren en una sola.
 
 ---
@@ -265,13 +267,16 @@ az webapp config appsettings set -g $RG -n $APP --settings FRONTEND_URL=https://
 
 ## 11. Costos aproximados (USD/mes, octubre 2026; confirmar en la calculadora de Azure)
 
-| Recurso | Arranque recomendado | Mínimo para probar |
+| Recurso | Arranque recomendado | Si el uso crece |
 |---|---|---|
-| App Service | P1v3 (2 vCPU, 8 GB, autoescalado) ≈ 115 | B2 (2 vCPU, 3,5 GB, sin autoescalado) ≈ 26 |
-| PostgreSQL Flexible | B2s + 32 GB ≈ 30 | B1ms ≈ 15 (max_connections bajo: bajar `DB_POOL_MAX` a 4) |
-| Azure Files 100 GB | ≈ 6 | ≈ 6 |
+| App Service | **B2** (2 vCPU, 3,5 GB) ≈ 26 | P1v3 (2 vCPU, 8 GB, autoescalado) ≈ 115 |
+| PostgreSQL Flexible | **B1ms** + 32 GB + respaldos 14 días ≈ 16 | B2s + 32 GB ≈ 30 |
+| Azure Files | ≈ 1–3 (se paga lo usado) | ≈ 6 |
 | Container Registry Basic | ≈ 5 | ≈ 5 |
-| **Total** | **≈ 155** | **≈ 52** |
+| Tráfico y monitoreo | ≈ 0–3 (primeros 100 GB de salida y 5 GB de registros gratis) | ≈ 5 |
+| **Total** | **≈ 50–55** | **≈ 160** |
+
+Subir de tamaño es un cambio en el portal y unos minutos de reinicio; no hay que reinstalar nada.
 
 ---
 

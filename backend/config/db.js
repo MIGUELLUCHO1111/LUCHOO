@@ -48,6 +48,12 @@ const dbConfig = {
   statement_timeout: intEnv('DB_STATEMENT_TIMEOUT_MS', 0) || undefined,
   application_name: process.env.DB_APPLICATION_NAME || 'fullpetro-backend',
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined,
+  // Keep-alive de TCP (08/10/2026): entre la app y la base en Azure hay
+  // equipos de red que cortan en silencio las conexiones inactivas; sin esto,
+  // una conexión "muerta" solo se descubre al usarla (y esa petición falla).
+  // Con keep-alive el sistema operativo la sondea y la detecta antes.
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
 };
 
 const pool = new Pool(dbConfig);

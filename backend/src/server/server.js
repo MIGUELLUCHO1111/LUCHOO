@@ -136,6 +136,16 @@ class Server {
           db: 'ok',
           dbMs: Date.now() - started,
           scheduler: process.env.SCHEDULER_ENABLED === 'false' ? 'disabled' : schedulerIsLeader() ? 'leader' : 'follower',
+          // Estado del pool de ESTE proceso (08/10/2026): si "waiting" sube
+          // seguido, faltan conexiones (subir DB_POOL_MAX o la base); si
+          // "inUse" se queda en el máximo sin carga, algo no las devuelve.
+          pool: {
+            max: pool.options.max,
+            total: pool.totalCount,
+            inUse: pool.totalCount - pool.idleCount,
+            idle: pool.idleCount,
+            waiting: pool.waitingCount,
+          },
           uptimeS: Math.round(process.uptime()),
         });
       } catch (err) {
