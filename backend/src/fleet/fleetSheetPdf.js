@@ -20,7 +20,7 @@ const STATUS = {
   DISPONIBLE: { label: 'Disponible', bg: '#EA580C' },
   FUERA_DE_SERVICIO: { label: 'Fuera de servicio', bg: '#DC2626' },
 };
-const FLOTA = { LIVIANA: 'Flota Liviana', PESADA: 'Flota Pesada', AMBAS: 'Flota Liviana y Pesada' };
+const FLOTA = { LIVIANA: 'Flota Liviana', PESADA: 'Flota Pesada', ESTATICO: 'Equipos Estáticos', AMBAS: 'Flota Liviana y Pesada' };
 const DOC_ALERT_DAYS = 30;
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -57,12 +57,12 @@ const estadoDoc = (expires, daysLeft, { tieneArchivo = true, sinFecha = 'Cargado
   return { txt: 'Vigente', cls: 'ok' };
 };
 
-const CSS = (pesada) => `
+const CSS = (pesada, metal = false) => `
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; color: #0f172a; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .page { width: 210mm; min-height: 297mm; padding: 0 0 14mm; position: relative; }
-  .hero { background: ${pesada ? `linear-gradient(135deg, #FFD84D, ${CAT} 55%, #E6B400)` : `linear-gradient(135deg, ${NAVY}, #1d4466)`}; color: ${pesada ? '#0f172a' : '#fff'}; padding: 9mm 12mm 8mm; display: flex; gap: 8mm; align-items: center; position: relative; overflow: hidden; }
+  .hero { background: ${metal ? 'linear-gradient(135deg, #ffffff, #e2e8f0 45%, #cbd5e1 70%, #f1f5f9)' : pesada ? `linear-gradient(135deg, #FFD84D, ${CAT} 55%, #E6B400)` : `linear-gradient(135deg, ${NAVY}, #1d4466)`}; color: ${pesada || metal ? '#0f172a' : '#fff'};${metal ? ' border-bottom: .6mm solid #94a3b8;' : ''} padding: 9mm 12mm 8mm; display: flex; gap: 8mm; align-items: center; position: relative; overflow: hidden; }
   .hero::after { content: ''; position: absolute; right: -30mm; top: -30mm; width: 80mm; height: 80mm; border-radius: 50%; background: rgba(255,255,255,.12); }
   .kicker { font-size: 9px; letter-spacing: .22em; font-weight: 800; opacity: .8; text-transform: uppercase; }
   .title { font-size: 26px; font-weight: 900; line-height: 1.1; margin: 1.5mm 0; font-family: Cambria, Georgia, serif; }
@@ -107,12 +107,13 @@ const CSS = (pesada) => `
 
 const kv = (label, value, full = false) => `<div${full ? ' class="full"' : ''}><span>${esc(label)}</span><b${value ? '' : ' class="empty"'}>${value ? esc(value) : '—'}</b></div>`;
 const st = (e) => `<span class="st ${e.cls}">${esc(e.txt)}</span>`;
-const doc = (title, body, pesada, foot) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${CSS(pesada)}</style></head><body><div class="page">${body}<div class="foot"><span><span class="brand">FULL PETRO</span> · Flota · ${esc(title)}</span><span>${esc(foot)}</span></div></div></body></html>`;
+const doc = (title, body, pesada, foot, metal = false) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${CSS(pesada, metal)}</style></head><body><div class="page">${body}<div class="foot"><span><span class="brand">FULL PETRO</span> · Flota · ${esc(title)}</span><span>${esc(foot)}</span></div></div></body></html>`;
 
 // ---------------- Ficha de la unidad ----------------
 export async function buildUnitSheetHtml(u, { generadoPor } = {}) {
   const p = u.profile || {};
   const pesada = u.fleet_type === 'PESADA';
+  const estatico = u.fleet_type === 'ESTATICO';
   const status = STATUS[p.operational_status] || STATUS.DISPONIBLE;
   const propia = await imagenDataUri(p.photo_url);
   const foto = propia || (await imagenDataUri(u.model_photo));
@@ -138,7 +139,7 @@ export async function buildUnitSheetHtml(u, { generadoPor } = {}) {
       <div class="kicker">Ficha del vehículo · ${esc(FLOTA[u.fleet_type] || 'Flota sin clasificar')}</div>
       <div class="title">${esc(u.code)}</div>
       <div class="sub">${esc([marcaModelo, u.version_name, p.model_year].filter(Boolean).join(' · ') || u.name || '')}</div>
-      ${u.plate ? `<div class="plate"><small>REPÚBLICA BOLIVARIANA DE VENEZUELA</small><b>${esc(u.plate)}</b></div>` : ''}
+      ${estatico ? '<div class="plate" style="color:#475569;border-style:dashed"><small>EQUIPO ESTÁTICO</small><b style="font-size:13px">SIN PLACA</b></div>' : u.plate ? `<div class="plate"><small>REPÚBLICA BOLIVARIANA DE VENEZUELA</small><b>${esc(u.plate)}</b></div>` : ''}
       <div class="pills">
         <span class="pill" style="background:${status.bg}; color:#fff">${esc(status.label)}${p.operational_status === 'FUERA_DE_SERVICIO' && p.status_cause ? ` · ${esc(p.status_cause)}` : ''}</span>
         ${u.frente ? `<span class="pill">Frente: ${esc(u.frente.frente)}</span>` : ''}
@@ -182,7 +183,7 @@ export async function buildUnitSheetHtml(u, { generadoPor } = {}) {
       ${u.eventos.slice(0, 8).map((e) => `<li><span><b>${esc(e.title)}</b>${e.detail ? ` <span class="muted">· ${esc(e.detail)}</span>` : ''}</span><span class="muted">${esc(fechaHora(e.created_at))}</span></li>`).join('')}
     </ul></div>` : ''}
   </div>`;
-  return doc(`Ficha ${u.code}`, body, pesada, `Generado el ${fechaHora(new Date())}${generadoPor ? ` por ${generadoPor}` : ''}`);
+  return doc(`Ficha ${u.code}`, body, pesada, `Generado el ${fechaHora(new Date())}${generadoPor ? ` por ${generadoPor}` : ''}`, estatico);
 }
 
 // ---------------- Ficha del conductor ----------------

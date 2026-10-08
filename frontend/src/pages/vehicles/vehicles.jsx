@@ -219,6 +219,7 @@ const Vehicles = () => {
                     >
                       <option value="LIVIANA">Liviana</option>
                       <option value="PESADA">Pesada</option>
+                      <option value="ESTATICO">Equipo estático</option>
                     </select>
                   </div>
 
@@ -285,8 +286,8 @@ const Vehicles = () => {
                   <TableCell className="text-sm">{v.plate || "-"}</TableCell>
                   <TableCell className="text-sm">{v.tank_capacity_liters ? `${v.tank_capacity_liters}L` : "-"}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "PESADA" ? "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold" : "bg-brand-navy/10 text-brand-navy dark:text-white"}`}>
-                      {v.fleet_type === "PESADA" ? "Pesada" : "Liviana"}
+                    <span className={`px-2 py-1 rounded-full text-[11px] font-bold ${v.fleet_type === "ESTATICO" ? "bg-gradient-to-r from-white to-slate-300 text-slate-700 ring-1 ring-slate-300" : v.fleet_type === "PESADA" ? "bg-brand-gold/10 text-brand-gold-dark dark:text-brand-gold" : "bg-brand-navy/10 text-brand-navy dark:text-white"}`}>
+                      {v.fleet_type === "ESTATICO" ? "Estático" : v.fleet_type === "PESADA" ? "Pesada" : "Liviana"}
                     </span>
                   </TableCell>
                   <TableCell>

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { X, Plus, AlertTriangle } from "lucide-react";
 import { fleetService } from "@/services";
 import { Button } from "@/components/ui/button";
-import { VehicleIcon, PlateBadge, inputCls } from "./fleetParts";
+import { VehicleIcon, PlateBadge, inputCls, METAL_GRAD } from "./fleetParts";
 
 // Alta manual de una unidad (pedido de Lguerra, 05/10/2026): Flota -> Fichas
 // de Vehiculos es el UNICO lugar donde se crean unidades a mano (Combustible,
@@ -14,6 +14,8 @@ import { VehicleIcon, PlateBadge, inputCls } from "./fleetParts";
 const FLOTAS = [
   ["LIVIANA", "Flota Liviana", "Camionetas, pickups y vehículos de pasajeros", "from-[#1f4a6e] via-brand-navy to-[#0b2236] text-white"],
   ["PESADA", "Flota Pesada", "Grúas, montacargas, camiones y equipos del contrato", "from-[#FFD84D] via-[#FFCD11] to-[#E6B400] text-slate-900"],
+  // Equipos estaticos (08/10/2026): blanco metalizado, sin placa.
+  ["ESTATICO", "Equipos Estáticos", "Vacuum, máquinas de soldar y compresores · sin placa", `${METAL_GRAD} text-slate-800 ring-1 ring-slate-300 shadow-[inset_0_1px_0_#fff]`],
 ];
 
 const NewUnitModal = ({ defaultFleet = "", onClose }) => {
@@ -22,15 +24,16 @@ const NewUnitModal = ({ defaultFleet = "", onClose }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const estatico = form.fleet_type === "ESTATICO";
 
   const save = async (e) => {
     e.preventDefault();
-    if (!form.fleet_type) return setError({ message: "Elige si la unidad es de Flota Liviana o Pesada." });
+    if (!form.fleet_type) return setError({ message: "Elige si la unidad es de Flota Liviana, Flota Pesada o Equipos Estáticos." });
     if (!form.code.trim()) return setError({ message: "Indica el código de la unidad." });
     setSaving(true);
     setError(null);
     try {
-      const nueva = await fleetService.crearUnidad(form);
+      const nueva = await fleetService.crearUnidad(estatico ? { ...form, plate: "" } : form);
       onClose();
       navigate(`/fleet/${nueva.id}`);
     } catch (err) {
@@ -59,7 +62,7 @@ const NewUnitModal = ({ defaultFleet = "", onClose }) => {
         <p className="text-xs text-slate-500 mb-5">Aquí se registran a mano todas las unidades de la flota. Las que aparecen en el GPS se registran solas. Después de crearla se abre su ficha para completar el resto (modelo, documentos, foto…).</p>
 
         <p className="text-[11px] font-extrabold uppercase tracking-widest text-brand-navy dark:text-sky-200 mb-2">1 · Tipo de flota *</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           {FLOTAS.map(([v, title, desc, grad]) => (
             <motion.button key={v} type="button" whileTap={{ scale: 0.98 }} onClick={() => set("fleet_type", v)}
               className={`relative overflow-hidden text-left rounded-2xl p-4 bg-gradient-to-br ${grad} transition-all ${form.fleet_type === v ? "ring-4 ring-emerald-500 shadow-lg" : form.fleet_type ? "opacity-50 hover:opacity-80" : "hover:shadow-lg"}`}>
@@ -77,12 +80,19 @@ const NewUnitModal = ({ defaultFleet = "", onClose }) => {
             <input autoFocus value={form.code} onChange={(e) => set("code", e.target.value.toUpperCase())} placeholder="Ej. FP-GT.03" className={`${inputCls} mt-1 font-mono`} />
             <span className="block text-[10px] font-medium text-slate-400 mt-0.5">El mismo nombre que tiene (o tendrá) en el GPS.</span>
           </label>
-          <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Placa
-            <input value={form.plate} onChange={(e) => set("plate", e.target.value.toUpperCase())} placeholder="Ej. A47DC3J (vacía si no tiene)" className={`${inputCls} mt-1 font-mono`} />
-            <span className="block text-[10px] font-medium text-slate-400 mt-0.5">Con la placa, el GPS la reconoce y le pone su ubicación.</span>
-          </label>
+          {estatico ? (
+            <div className="text-xs font-bold text-slate-600 dark:text-slate-300">Placa
+              <div className={`mt-1 h-[38px] rounded-xl border border-slate-300 bg-gradient-to-br ${METAL_GRAD} flex items-center px-3 text-slate-600 font-black tracking-widest text-[11px]`}>SIN PLACA · EQUIPO ESTÁTICO</div>
+              <span className="block text-[10px] font-medium text-slate-400 mt-0.5">No lleva placa. Si tiene GPS, el sistema la reconoce por su código.</span>
+            </div>
+          ) : (
+            <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Placa
+              <input value={form.plate} onChange={(e) => set("plate", e.target.value.toUpperCase())} placeholder="Ej. A47DC3J (vacía si no tiene)" className={`${inputCls} mt-1 font-mono`} />
+              <span className="block text-[10px] font-medium text-slate-400 mt-0.5">Con la placa, el GPS la reconoce y le pone su ubicación.</span>
+            </label>
+          )}
           <label className="text-xs font-bold text-slate-600 dark:text-slate-300 sm:col-span-2">Nombre / descripción
-            <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ej. Grúa telescópica 50 t" className={`${inputCls} mt-1`} />
+            <input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder={estatico ? "Ej. Compresor de aire 185 CFM" : "Ej. Grúa telescópica 50 t"} className={`${inputCls} mt-1`} />
           </label>
           <label className="text-xs font-bold text-slate-600 dark:text-slate-300">Conductor
             <input value={form.driver_name} onChange={(e) => set("driver_name", e.target.value)} placeholder="ROTATIVO si no tiene fijo" className={`${inputCls} mt-1`} />
@@ -94,7 +104,7 @@ const NewUnitModal = ({ defaultFleet = "", onClose }) => {
 
         {(form.code || form.plate) && (
           <div className="mt-5 flex items-center gap-4 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 p-3">
-            <PlateBadge plate={form.plate || null} size="sm" />
+            <PlateBadge plate={form.plate || null} size="sm" fleetType={form.fleet_type} />
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Así se verá</p>
               <p className="font-display text-lg text-brand-navy dark:text-white truncate">{form.code || "—"}</p>

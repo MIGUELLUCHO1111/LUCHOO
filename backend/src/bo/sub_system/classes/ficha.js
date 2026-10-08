@@ -24,6 +24,8 @@ const PROFILE_FIELDS = {
   order_date: 'date', registration_date: 'date', cancellation_date: 'date', first_contract_date: 'date',
   hp_tax: 'num', catalog_value: 'num', purchase_value: 'num', residual_value: 'num', tags: 'text',
 };
+// Equipos estaticos (vacuum, maquinas de soldar, compresores; 069, 08/10/2026).
+const FLEET_TYPES = ['LIVIANA', 'PESADA', 'ESTATICO'];
 const UNIT_FIELDS = ['driver_name', 'fleet_type', 'name', 'tank_capacity_liters'];
 // Condicion operativa de la politica FP-MTTO-PO-01 §4.1 (047_fleet_policy_states.sql).
 // La cambiara Mantenimiento al abrir/cerrar una OT; mientras tanto, solo un admin.
@@ -247,7 +249,7 @@ class Ficha {
     if (!codigo) throw badRequest('Indica el código de la unidad (ej. FP-GT.03).');
     if (codigo.length > 40) throw badRequest('El código es demasiado largo.');
     const placa = String(plate || '').trim().toUpperCase() || null;
-    const tipo = ['LIVIANA', 'PESADA'].includes(fleet_type) ? fleet_type : null;
+    const tipo = FLEET_TYPES.includes(fleet_type) ? fleet_type : null;
     if (!tipo) throw badRequest('Elige si la unidad es de Flota Liviana o Pesada.');
 
     const [mismoCodigo] = await this.query('fleetFindUnitByCode', { code: codigo });
@@ -298,7 +300,7 @@ class Ficha {
     if (patch.operational_status === 'FUERA_DE_SERVICIO' && !(patch.status_cause ?? prev.status_cause)) throw badRequest('Indica la causa de Fuera de servicio (ej. En reparación, Sin componente mayor).');
 
     if (cambiosUnidad) {
-      const fleetType = campos.fleet_type !== undefined ? (['LIVIANA', 'PESADA'].includes(campos.fleet_type) ? campos.fleet_type : null) : actual.fleet_type;
+      const fleetType = campos.fleet_type !== undefined ? (FLEET_TYPES.includes(campos.fleet_type) ? campos.fleet_type : null) : actual.fleet_type;
       await this.query('fleetUpdateUnitBasics', {
         id,
         driver_name: campos.driver_name !== undefined ? clean(campos.driver_name, 'text') : actual.driver_name,

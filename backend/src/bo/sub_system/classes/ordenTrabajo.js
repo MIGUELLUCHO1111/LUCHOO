@@ -336,7 +336,7 @@ class OrdenTrabajo extends MntBase {
     // Lectura del medidor al cerrar -> historial de lecturas de la ficha (source MANTENIMIENTO).
     const lectura = amount(close_meter_value, 'La lectura del medidor');
     if (lectura != null) {
-      const meter = wo.meter || (wo.unit_fleet_type === 'PESADA' ? 'HORAS' : 'KM');
+      const meter = wo.meter || (['PESADA', 'ESTATICO'].includes(wo.unit_fleet_type) ? 'HORAS' : 'KM');
       const { ultima } = await this.lectura.ultimaDeSerie(wo.unit_id, meter);
       if (ultima && lectura < Number(ultima.value)) throw badRequest(`La lectura de cierre (${lectura}) es menor que la última registrada de la unidad (${Number(ultima.value)}). Revisa el ${meter === 'KM' ? 'odómetro' : 'horómetro'}.`);
       await this.query('fleetInsertReading', { unit_id: Number(wo.unit_id), meter, value: String(lectura), read_at: new Date().toISOString(), source: 'MANTENIMIENTO', note: `Cierre de ${wo.number}`, created_by: caller_user || null });

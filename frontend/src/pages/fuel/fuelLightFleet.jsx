@@ -111,7 +111,7 @@ const FuelLightFleet = () => {
   };
 
   const lightVehicles = useMemo(
-    () => vehicles.filter((v) => v.fleet_type !== "PESADA"),
+    () => vehicles.filter((v) => v.fleet_type !== "PESADA" && v.fleet_type !== "ESTATICO"),
     [vehicles],
   );
 

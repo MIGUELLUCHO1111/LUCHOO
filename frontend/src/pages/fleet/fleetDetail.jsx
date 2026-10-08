@@ -347,7 +347,7 @@ const EditDrawer = ({ unit, full, onClose, onSaved }) => {
     if (t === "fleet")
       return (
         <select value={form[k] || ""} onChange={(e) => set(e.target.value)} className={inputCls}>
-          <option value="">Sin clasificar</option><option value="LIVIANA">Liviana</option><option value="PESADA">Pesada</option>
+          <option value="">Sin clasificar</option><option value="LIVIANA">Liviana</option><option value="PESADA">Pesada</option><option value="ESTATICO">Equipo estático</option>
         </select>
       );
     if (t === "engine")
@@ -720,6 +720,7 @@ const FleetDetail = () => {
   const st = statusOf(unit);
   const full = isFullSheet(unit);
   const pesada = unit.fleet_type === "PESADA";
+  const estatico = unit.fleet_type === "ESTATICO";
   const gps = unit.gps_v3 || {};
   const odo = unit.odometro;
   const interval = Number(unit.maint_interval_effective) || null;
@@ -736,14 +737,14 @@ const FleetDetail = () => {
           <UnitPhoto unit={unit} onChanged={load} />
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-3 mb-2">
-              <PlateBadge plate={unit.plate} />
+              <PlateBadge plate={unit.plate} fleetType={unit.fleet_type} />
               <div>
                 <p className="font-display text-2xl text-slate-900 dark:text-white leading-tight flex items-center gap-2">{unit.code}{p.short_code && <span title="Código de la política" className="font-mono text-xs font-black rounded-md bg-brand-gold/20 text-amber-800 dark:text-brand-gold px-2 py-0.5">{p.short_code}</span>}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{modelo || unit.name || "Ficha técnica pendiente de completar"}</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-3">
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${pesada ? "bg-orange-500/10 text-orange-700 dark:text-orange-400" : "bg-sky-500/10 text-sky-600 dark:text-sky-400"}`}>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${estatico ? "bg-gradient-to-r from-white to-slate-300 text-slate-700 ring-1 ring-slate-300 shadow-sm" : pesada ? "bg-orange-500/10 text-orange-700 dark:text-orange-400" : "bg-sky-500/10 text-sky-600 dark:text-sky-400"}`}>
                 {FLEET_LABEL[unit.fleet_type] || "Flota sin clasificar"}
               </span>
               <span title={full ? "Equipo del contrato PDVSA-Chevron" : "Documentos, km y encargado"} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${full ? "bg-brand-navy text-white" : "bg-slate-500/10 text-slate-600 dark:text-slate-300"}`}>{full ? "Ficha completa · contrato" : "Ficha básica"}</span>
@@ -886,7 +887,7 @@ const FleetDetail = () => {
                 </div>
               </div>
 
-              {!pesada && (
+              {!pesada && !estatico && (
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <div className="flex items-center gap-3 rounded-2xl bg-sky-500/5 border border-sky-500/15 p-3">
                     <span className="h-10 w-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-sky-600/20"><Fuel size={16} /></span>

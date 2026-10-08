@@ -116,7 +116,7 @@ export default function Criticality() {
                 {shown.map((r) => (
                   <tr key={r.unit_id} className="border-b border-slate-100 dark:border-white/5">
                     <td className="px-4 py-2.5"><b>{r.code}</b>{r.plate && r.plate !== r.code && <span className="text-slate-400"> · {r.plate}</span>}</td>
-                    <td className="px-2 text-slate-500">{r.fleet_type === "PESADA" ? "Pesada" : r.fleet_type === "LIVIANA" ? "Liviana" : "—"}</td>
+                    <td className="px-2 text-slate-500">{r.fleet_type === "PESADA" ? "Pesada" : r.fleet_type === "LIVIANA" ? "Liviana" : r.fleet_type === "ESTATICO" ? "Estático" : "—"}</td>
                     <td className="px-2"><Chip map={CRIT} value={r.level} /></td>
                     <td className="px-2 text-xs text-slate-500">{r.source === "MANUAL" ? `Ajustada${r.updated_by ? ` por ${r.updated_by}` : ""} · ${fmtDate(r.updated_at)}` : "Por categoría"}</td>
                     <td className="px-2 pr-4">

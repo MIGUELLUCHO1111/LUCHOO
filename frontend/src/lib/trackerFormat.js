@@ -32,9 +32,10 @@ export const statusLabel = (status) => STATUS_LABELS[status] || status;
 export const FLEET_TYPE_STYLES = {
   LIVIANA: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
   PESADA: "bg-orange-500/10 text-orange-700 dark:text-orange-400",
+  ESTATICO: "bg-gradient-to-r from-white to-slate-300 text-slate-700 ring-1 ring-slate-300",
 };
 
-export const fleetTypeLabel = (fleetType) => fleetType || "SIN CLASIFICAR";
+export const fleetTypeLabel = (fleetType) => (fleetType === "ESTATICO" ? "ESTÁTICO" : fleetType || "SIN CLASIFICAR");
 export const fleetTypeBadgeClass = (fleetType) => FLEET_TYPE_STYLES[fleetType] || "bg-slate-500/10 text-slate-500";
 
 // Horas transcurridas desde la ultima posicion conocida hasta ahora -- para

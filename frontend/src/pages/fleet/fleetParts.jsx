@@ -33,7 +33,11 @@ export const CONTRACT_FAMILIES = ["GT", "BA", "MT", "CF", "CC"];
 export const unitFamily = (u) => u?.model_category || (String(u?.code || "").toUpperCase().match(/^FP-?([A-Z]+)/) || [])[1] || "OTRO";
 export const isFullSheet = (u) => CONTRACT_FAMILIES.includes(unitFamily(u));
 
-export const FLEET_LABEL = { PESADA: "Flota Pesada", LIVIANA: "Flota Liviana" };
+export const FLEET_LABEL = { PESADA: "Flota Pesada", LIVIANA: "Flota Liviana", ESTATICO: "Equipos Estáticos" };
+// Equipos estaticos (pedido de Lguerra, 08/10/2026): vacuum, maquinas de
+// soldar y compresores. Sin placa; color blanco metalizado.
+export const METAL_GRAD = "from-white via-slate-200 to-slate-400";
+export const isStatic = (u) => u?.fleet_type === "ESTATICO";
 
 // Estado que reporta el GPS (ultima lectura del Tracker).
 export const gpsState = (gps) => {
@@ -128,9 +132,19 @@ const PLATE_SIZE = {
   sm: { box: "w-[124px] h-[60px] rounded-lg border-2", top: "text-[5px] pt-[7px]", num: "text-[19px]", hole: "w-2.5 h-1" },
 };
 
-export const PlateBadge = ({ plate, size = "lg" }) => {
+export const PlateBadge = ({ plate, size = "lg", fleetType }) => {
   const z = PLATE_SIZE[size] || PLATE_SIZE.lg;
   const real = isRealPlate(plate);
+  // Equipo estatico: placa metalica sin numero (no circula, no lleva placa).
+  if (fleetType === "ESTATICO") {
+    return (
+      <div title="Equipo estático: no lleva placa" className={`relative inline-flex flex-col items-center justify-center overflow-hidden border-slate-300 bg-gradient-to-br ${METAL_GRAD} shadow-[inset_0_1px_0_#fff,0_3px_8px_rgba(15,23,42,0.18)] shrink-0 ${z.box}`}>
+        <span className="absolute inset-y-0 -left-1/2 w-1/2 bg-gradient-to-r from-transparent via-white/80 to-transparent skew-x-[-20deg] animate-[metalshine_3.5s_ease-in-out_infinite]" />
+        <span className={`relative font-black uppercase tracking-[0.2em] text-slate-500 ${size === "lg" ? "text-[9px]" : "text-[6px]"}`}>Equipo estático</span>
+        <span className={`relative font-display font-black tracking-wide text-slate-700 leading-none ${size === "lg" ? "text-xl mt-1" : "text-[13px] mt-0.5"}`} style={{ textShadow: "0 1px 0 #fff" }}>SIN PLACA</span>
+      </div>
+    );
+  }
   const holes = (
     <>
       <span className={`absolute left-1/2 -translate-x-1/2 top-[3px] rounded-full bg-slate-300/80 ${z.hole}`} />
@@ -174,9 +188,19 @@ export const PlateBadge = ({ plate, size = "lg" }) => {
   );
 };
 
-/** Silueta minimalista: camion para Pesada, pickup para Liviana. */
+/** Silueta minimalista: camion para Pesada, pickup para Liviana, equipo sobre patin para Estaticos. */
 export const VehicleIcon = ({ fleetType, className = "w-16 h-16" }) =>
-  fleetType === "PESADA" ? (
+  fleetType === "ESTATICO" ? (
+    <svg viewBox="0 0 64 40" className={className} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="8" y="10" width="40" height="20" rx="2" />
+      <circle cx="20" cy="20" r="5" fill="currentColor" fillOpacity="0.12" />
+      <path d="M20 20l3-2" />
+      <path d="M30 15h12M30 20h12M30 25h12" opacity="0.4" />
+      <path d="M48 16h6v10h-6" />
+      <path d="M12 10V6h10v4" />
+      <path d="M4 34h56M8 30v4M48 30v4" />
+    </svg>
+  ) : fleetType === "PESADA" ? (
     <svg viewBox="0 0 64 40" className={className} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 29V9a2 2 0 0 1 2-2h29a2 2 0 0 1 2 2v20" />
       <path d="M36 14h11l8 9v6" />

@@ -74,7 +74,8 @@ class Alerta {
         // flota liviana. Sin clasificar (unidad no registrada o sin
         // fleet_type) se trata como liviana, para no esconder una alerta
         // real por falta de dato.
-        shouldNotify: s.fleet_type !== 'PESADA',
+        // Pesada y equipos estaticos: se guardan pero no van a Telegram.
+        shouldNotify: !['PESADA', 'ESTATICO'].includes(s.fleet_type),
         // Un solo momento (el de la deteccion, "ahora") para fecha y hora --
         // antes se mezclaba con la hora del ultimo reporte del GPS
         // (s.last_report_at), que casi nunca coincide con el momento real

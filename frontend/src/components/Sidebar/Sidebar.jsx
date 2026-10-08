@@ -184,6 +184,7 @@ export const Sidebar = () => {
         { title: "Fichas de Vehículos", url: "/fleet" },
         { title: "Flota Liviana", url: "/fleet?flota=liviana" },
         { title: "Flota Pesada", url: "/fleet?flota=pesada" },
+        { title: "Equipos Estáticos", url: "/fleet?flota=estaticos" },
         { title: "Catálogo de Modelos", url: "/fleet/catalog" },
         { title: "Conductores", url: "/fleet/drivers" },
       ],

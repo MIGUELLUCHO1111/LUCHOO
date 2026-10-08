@@ -474,7 +474,7 @@ const ModelDrawer = ({ model, brands, categories, units, onClose, onChanged, onM
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {model.units.map((u) => (
                       <div key={u.id} className="group flex items-center gap-3 rounded-2xl border border-slate-100 dark:border-white/5 px-3 py-2.5">
-                        <PlateBadge plate={u.plate} size="sm" />
+                        <PlateBadge plate={u.plate} size="sm" fleetType={u.fleet_type} />
                         <button onClick={() => navigate(`/fleet/${u.id}`)} className="flex-1 min-w-0 text-left">
                           <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{u.code}</p>
                           <p className="text-[10px] text-slate-400 flex items-center gap-1">Abrir ficha <ArrowUpRight size={10} /></p>

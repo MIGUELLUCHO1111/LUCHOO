@@ -109,7 +109,7 @@ const UnitCard = ({ u, onOpen, i }) => {
       <span className={`absolute left-0 top-0 h-full w-1.5 rounded-l-3xl ${st.bar}`} />
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <PlateBadge plate={u.plate} size="sm" />
+          <PlateBadge plate={u.plate} size="sm" fleetType={u.fleet_type} />
           <p className="mt-2 font-display text-lg text-brand-navy dark:text-white truncate">{u.code}</p>
           <p className={`text-xs truncate ${modelo || u.name ? "text-slate-600 dark:text-slate-300 font-semibold" : "text-amber-600 font-bold"}`}>{modelo || u.name || "Ficha técnica pendiente"}</p>
         </div>
@@ -165,6 +165,7 @@ const UnitCard = ({ u, onOpen, i }) => {
 const FLEETS = {
   // Colores (pedido de Lguerra, 05/10/2026): Liviana azul marino, Pesada amarillo Caterpillar.
   liviana: { type: "LIVIANA", title: "Flota Liviana", desc: "Camionetas, pickups y vehículos de pasajeros", grad: "from-[#1f4a6e] via-brand-navy to-[#0b2236]", glow: "shadow-brand-navy/30", text: "text-white", sub: "text-sky-100/80", contrato: "bg-emerald-600 text-white", disp: "bg-orange-500 text-white", soft: "bg-white/15", dark: "bg-black/25" },
+  estaticos: { type: "ESTATICO", title: "Equipos Estáticos", desc: "Vacuum, máquinas de soldar y compresores", grad: "from-white via-slate-200 to-slate-400", glow: "shadow-slate-400/50", text: "text-slate-800", sub: "text-slate-600", contrato: "bg-emerald-600 text-white", disp: "bg-orange-500 text-white", soft: "bg-white/60", dark: "bg-slate-800/10", metal: true },
   pesada: { type: "PESADA", title: "Flota Pesada", desc: "Grúas, montacargas, camiones y equipos del contrato", grad: "from-[#FFD84D] via-[#FFCD11] to-[#E6B400]", glow: "shadow-amber-400/40", text: "text-slate-900", sub: "text-slate-900/70", contrato: "bg-emerald-600 text-white", disp: "bg-orange-500 text-white", soft: "bg-black/10", dark: "bg-black/15" },
 };
 const fleetStats = (list) => ({
@@ -195,9 +196,10 @@ const Chip = ({ cls, onGo, title, children }) => (
   </motion.span>
 );
 
+const PORTAL_ORDER = ["liviana", "pesada", "estaticos"];
 const FleetPortal = ({ units, onOpen }) => (
-  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-    {Object.entries(FLEETS).map(([key, f], i) => {
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+    {PORTAL_ORDER.map((key) => [key, FLEETS[key]]).map(([key, f], i) => {
       const list = units.filter((u) => u.fleet_type === f.type);
       const s = fleetStats(list);
       return (
@@ -210,8 +212,13 @@ const FleetPortal = ({ units, onOpen }) => (
           transition={{ delay: i * 0.08 }}
           whileHover={{ y: -4 }}
           whileTap={{ scale: 0.99 }}
-          className={`group relative overflow-hidden text-left rounded-3xl bg-gradient-to-br ${f.grad} ${f.text} p-6 shadow-xl ${f.glow}`}
+          className={`group relative overflow-hidden text-left rounded-3xl bg-gradient-to-br ${f.grad} ${f.text} p-6 shadow-xl ${f.glow} ${f.metal ? "ring-1 ring-slate-300 shadow-[inset_0_1px_0_#fff]" : ""}`}
         >
+          {/* Brillo metalico que recorre la tarjeta de equipos estaticos */}
+          {f.metal && (
+            <motion.span aria-hidden className="absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/90 to-transparent skew-x-[-20deg] pointer-events-none"
+              animate={{ x: ["0%", "420%"] }} transition={{ duration: 2.6, repeat: Infinity, repeatDelay: 2.4, ease: "easeInOut" }} />
+          )}
           <span className="absolute -right-6 -bottom-8 opacity-20 group-hover:opacity-30 group-hover:-translate-x-2 transition-all duration-500">
             <VehicleIcon fleetType={f.type} className={`w-64 h-40 ${f.text}`} />
           </span>
@@ -353,14 +360,14 @@ const FleetList = () => {
               <VehicleIcon fleetType={fleet} className={`w-8 h-5 ${FLEETS[flotaKey].text}`} /> {FLEETS[flotaKey].title} · {scoped.length} unidades
             </div>
           )}
-          {fleet === "NONE" && <p className="text-sm text-slate-600 dark:text-slate-300">Estas unidades no tienen tipo de flota: ábrelas y elige <b>Liviana</b> o <b>Pesada</b> en "Editar ficha".</p>}
+          {fleet === "NONE" && <p className="text-sm text-slate-600 dark:text-slate-300">Estas unidades no tienen tipo de flota: ábrelas y elige <b>Liviana</b>, <b>Pesada</b> o <b>Equipos Estáticos</b> en "Editar ficha".</p>}
         </div>
       ) : (
         <>
           <FleetPortal units={units} onOpen={(key, extra = {}) => setParams({ flota: key, ...extra })} />
           {sinClasificar > 0 && (
             <button type="button" onClick={() => setFleet("NONE")} className="mb-5 w-full flex items-center gap-2 rounded-2xl border border-dashed border-amber-400/60 bg-amber-500/[0.06] px-4 py-2.5 text-left text-sm font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10">
-              <AlertTriangle size={16} /> {sinClasificar} unidad(es) sin tipo de flota (ni Liviana ni Pesada) · Ver y clasificar <ArrowRight size={14} className="ml-auto" />
+              <AlertTriangle size={16} /> {sinClasificar} unidad(es) sin tipo de flota (ni Liviana, ni Pesada, ni Estáticos) · Ver y clasificar <ArrowRight size={14} className="ml-auto" />
             </button>
           )}
         </>
@@ -409,10 +416,10 @@ const FleetList = () => {
 
         <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 ${isAdmin ? "xl:grid-cols-[1.9fr_1fr_1.9fr_1.4fr_1fr_1.15fr_1.25fr]" : "xl:grid-cols-[2fr_1fr_2fr_1fr_1.15fr]"}`}>
           <div className="col-span-2 md:col-span-1 flex h-11 p-1 rounded-xl bg-slate-100 dark:bg-white/5">
-            {[["", "Todas"], ["LIVIANA", "Liviana"], ["PESADA", "Pesada"]].map(([v, l]) => {
+            {[["", "Todas"], ["LIVIANA", "Liviana"], ["PESADA", "Pesada"], ["ESTATICO", "Estáticos"]].map(([v, l]) => {
               const n = v ? units.filter((u) => u.fleet_type === v).length : units.length;
               return (
-                <button key={v} onClick={() => setFleet(v)} className={`relative flex-1 px-2 rounded-lg text-sm font-extrabold whitespace-nowrap transition-colors ${fleet === v ? "text-white" : "text-slate-600 dark:text-slate-300 hover:text-brand-navy"}`}>
+                <button key={v} onClick={() => setFleet(v)} className={`relative flex-1 px-1.5 rounded-lg text-[13px] font-extrabold whitespace-nowrap transition-colors ${fleet === v ? "text-white" : "text-slate-600 dark:text-slate-300 hover:text-brand-navy"}`}>
                   {fleet === v && <motion.span layoutId="fleet-type" className="absolute inset-0 rounded-lg bg-brand-navy shadow-md shadow-brand-navy/20" transition={{ type: "spring", stiffness: 400, damping: 32 }} />}
                   <span className="relative">{l} <span className="opacity-70 text-xs">{n}</span></span>
                 </button>
@@ -487,7 +494,7 @@ const FleetList = () => {
       )}
 
       <AnimatePresence>{showAjustes && <AjustesModal onClose={(saved) => { setShowAjustes(false); if (saved) load(); }} />}</AnimatePresence>
-      <AnimatePresence>{showNew && <NewUnitModal defaultFleet={fleet === "LIVIANA" || fleet === "PESADA" ? fleet : ""} onClose={() => setShowNew(false)} />}</AnimatePresence>
+      <AnimatePresence>{showNew && <NewUnitModal defaultFleet={["LIVIANA", "PESADA", "ESTATICO"].includes(fleet) ? fleet : ""} onClose={() => setShowNew(false)} />}</AnimatePresence>
       <AnimatePresence>{showAssign && <AssignManagersModal units={units} onClose={() => setShowAssign(false)} onDone={() => { setShowAssign(false); load(); }} />}</AnimatePresence>
     </PageLayout>
   );

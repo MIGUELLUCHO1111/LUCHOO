@@ -121,7 +121,7 @@ export default function WorkOrderDetail({ id, onClose, onChanged }) {
   const partsTotal = (wo.repuestos || []).reduce((s, p) => s + Number(p.quantity) * Number(p.unit_cost_usd || 0), 0);
   const emergencyPending = wo.kind === "EMERGENCIA" && !wo.regularized_at && !["RECHAZADA", "ANULADA"].includes(wo.status);
   const emergencyLate = emergencyPending && wo.regularize_due_at && new Date() > new Date(wo.regularize_due_at);
-  const meterLabel = (wo.meter || (wo.unit_fleet_type === "PESADA" ? "HORAS" : "KM")) === "HORAS" ? "horómetro" : "odómetro";
+  const meterLabel = (wo.meter || (["PESADA", "ESTATICO"].includes(wo.unit_fleet_type) ? "HORAS" : "KM")) === "HORAS" ? "horómetro" : "odómetro";
 
   return (
     <Modal wide icon={ClipboardList} onClose={onClose} title={<span className="flex flex-wrap items-center gap-2">{wo.number} <span className="text-slate-400 font-sans text-base">· {wo.unit_code}</span></span>}>

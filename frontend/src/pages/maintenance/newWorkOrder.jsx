@@ -54,7 +54,7 @@ export default function NewWorkOrder({ onClose, onCreated, presetUnitId, presetI
   }, [f.unit_id]);
 
   useEffect(() => {
-    if (unit && !f.meter) set("meter", unit.fleet_type === "PESADA" ? "HORAS" : "KM");
+    if (unit && !f.meter) set("meter", ["PESADA", "ESTATICO"].includes(unit.fleet_type) ? "HORAS" : "KM");
   }, [unit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lvl = f.kind === "CORRECTIVA" && unit ? previewLevel({ criticality: unit.criticality, cost: f.estimated_cost_usd, special: f.special_purchase, threshold }) : null;
@@ -102,7 +102,7 @@ export default function NewWorkOrder({ onClose, onCreated, presetUnitId, presetI
           <SearchableSelect items={units} getValue={(u) => Number(u.id)} getLabel={unitLabel} value={f.unit_id} onChange={(id) => { set("unit_id", id); setIncSel([]); }} placeholder="Buscar por código o placa..." emptyMessage="Sin unidades" />
           {unit && (
             <span className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <Chip map={CRIT} value={unit.criticality} /> {unit.fleet_type === "PESADA" ? "Flota pesada" : unit.fleet_type === "LIVIANA" ? "Flota liviana" : "Sin tipo de flota"}
+              <Chip map={CRIT} value={unit.criticality} /> {unit.fleet_type === "PESADA" ? "Flota pesada" : unit.fleet_type === "LIVIANA" ? "Flota liviana" : unit.fleet_type === "ESTATICO" ? "Equipo estático" : "Sin tipo de flota"}
               {unit.open_orders > 0 && <span className="font-bold text-amber-700">· ya tiene {unit.open_orders} OT abierta(s)</span>}
             </span>
           )}

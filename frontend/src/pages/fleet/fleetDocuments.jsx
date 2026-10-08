@@ -42,6 +42,8 @@ export const EXTRA_RULES = [
 ];
 const familyOfUnit = (unit) => unit.model_category || categoryOf(unit.code);
 export const requiredFor = (unit) => {
+  // Equipos estaticos: no circulan ni llevan placa -> sin documentos de vehiculo.
+  if (unit?.fleet_type === "ESTATICO") return [];
   const fam = familyOfUnit(unit);
   const list = NO_VEHICLE_DOCS.includes(fam) ? [] : [...VEHICLE_DOCS];
   EXTRA_RULES.filter((r) => r.families.includes(fam)).forEach((r) => r.docs.forEach((d) => !list.includes(d) && list.push(d)));

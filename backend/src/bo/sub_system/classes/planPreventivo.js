@@ -135,7 +135,7 @@ class PlanPreventivo extends MntBase {
     if (!nombre) throw badRequest('Escribe el nombre del servicio del plan.');
     const fams = text(families, 100);
     const flota = fleet_type ? String(fleet_type).toUpperCase() : null;
-    if (flota && !['LIVIANA', 'PESADA'].includes(flota)) throw badRequest('Tipo de flota inválido.');
+    if (flota && !['LIVIANA', 'PESADA', 'ESTATICO'].includes(flota)) throw badRequest('Tipo de flota inválido.');
     if (!fams && !flota) throw badRequest('Indica a qué equipos aplica: familias (ej. GT, MT) o un tipo de flota.');
     const med = meter ? String(meter).toUpperCase() : null;
     if (med && !['KM', 'HORAS'].includes(med)) throw badRequest('Medidor inválido (KM u HORAS).');

@@ -225,3 +225,6 @@
 [data-readonly="true"] [data-write] {
   display: none !important;
 }
+
+/* Placa metalica de equipos estaticos (fleetParts.jsx PlateBadge, 08/10/2026) */
+@keyframes metalshine { 0%, 60% { transform: translateX(0) skewX(-20deg); } 100% { transform: translateX(400%) skewX(-20deg); } }

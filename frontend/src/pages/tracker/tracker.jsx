@@ -229,6 +229,7 @@ const Tracker = () => {
           <option value="">Toda la flota</option>
           <option value="LIVIANA">Liviana</option>
           <option value="PESADA">Pesada</option>
+          <option value="ESTATICO">Estáticos</option>
         </select>
         <select
           value={f.category}
@@ -554,6 +555,7 @@ const Tracker = () => {
                   <option value="">Toda la flota</option>
                   <option value="LIVIANA">Liviana</option>
                   <option value="PESADA">Pesada</option>
+                  <option value="ESTATICO">Estáticos</option>
                 </select>
                 {hasActiveFilter(filters.unidades) && (
                   <button
@@ -626,6 +628,7 @@ const Tracker = () => {
                       <option value="">Sin clasificar</option>
                       <option value="LIVIANA">Liviana</option>
                       <option value="PESADA">Pesada</option>
+                      <option value="ESTATICO">Equipo estático</option>
                     </select>
                   </div>
                   <div className="md:col-span-4 flex justify-end gap-3">

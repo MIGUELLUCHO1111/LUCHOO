@@ -76,7 +76,7 @@ const PlanModal = ({ plan, onClose, onSaved }) => {
         <label className="col-span-2 flex flex-col gap-1.5"><span className={labelCls}>Servicio *</span><input className={inputCls} value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Ej. Cambio de aceite de motor y filtros" /></label>
         <label className="flex flex-col gap-1.5"><span className={labelCls}>Familias (prefijo del código)</span><input className={inputCls} value={f.families} onChange={(e) => set("families", e.target.value)} placeholder="Ej. GT o BA,CBA" /></label>
         <label className="flex flex-col gap-1.5"><span className={labelCls}>Tipo de flota</span>
-          <select className={inputCls} value={f.fleet_type} onChange={(e) => set("fleet_type", e.target.value)}><option value="">Cualquiera</option><option value="PESADA">Pesada</option><option value="LIVIANA">Liviana</option></select>
+          <select className={inputCls} value={f.fleet_type} onChange={(e) => set("fleet_type", e.target.value)}><option value="">Cualquiera</option><option value="PESADA">Pesada</option><option value="LIVIANA">Liviana</option><option value="ESTATICO">Equipos estáticos</option></select>
         </label>
         <label className="flex flex-col gap-1.5"><span className={labelCls}>Por medidor</span>
           <select className={inputCls} value={f.meter} onChange={(e) => set("meter", e.target.value)}><option value="">Solo por fecha</option><option value="HORAS">Horómetro (horas)</option><option value="KM">Odómetro (km)</option></select>
@@ -229,7 +229,7 @@ export default function PreventivePlan() {
                   <tbody>
                     {plans.map((p) => (
                       <tr key={p.id} className={`border-b border-slate-100 dark:border-white/5 ${p.active ? "" : "opacity-50"}`}>
-                        <td className="px-4 py-2.5 font-bold whitespace-nowrap">{p.families || (p.fleet_type === "LIVIANA" ? "Flota liviana" : p.fleet_type === "PESADA" ? "Flota pesada" : "Todas")}</td>
+                        <td className="px-4 py-2.5 font-bold whitespace-nowrap">{p.families || (p.fleet_type === "LIVIANA" ? "Flota liviana" : p.fleet_type === "PESADA" ? "Flota pesada" : p.fleet_type === "ESTATICO" ? "Equipos estáticos" : "Todas")}</td>
                         <td className="px-2">{p.name}{p.tasks && <span className="block text-xs text-slate-400">{p.tasks.split("\n").join(" · ")}</span>}</td>
                         <td className="px-2 whitespace-nowrap"><Gauge size={13} className="inline mr-1 text-slate-400" />{intervalTxt(p)}</td>
                         <td className="px-2 text-xs text-slate-500">{p.reference || "—"}</td>

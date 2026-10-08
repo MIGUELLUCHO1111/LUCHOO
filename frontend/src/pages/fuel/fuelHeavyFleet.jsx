@@ -87,7 +87,7 @@ const FuelHeavyFleet = () => {
     try {
       const res = await fuelService.getAllVehicles();
       const list = Array.isArray(res) ? res : [];
-      setHeavyVehicles(list.filter((v) => v.fleet_type === "PESADA"));
+      setHeavyVehicles(list.filter((v) => v.fleet_type === "PESADA" || v.fleet_type === "ESTATICO")); // + equipos estaticos (08/10/2026)
     } catch (err) {
       console.warn("Unidades no disponibles:", err);
     }
