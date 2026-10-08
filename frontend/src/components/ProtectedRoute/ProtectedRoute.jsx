@@ -3,6 +3,7 @@ import { useNavigate, Outlet, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "@/context";
 import { AlertMessage } from "@/components";
 import { LowTankAlert } from "@/components/LowTankAlert/LowTankAlert";
+import { IdleSessionGuard } from "@/components/IdleSessionGuard/IdleSessionGuard";
 
 const DETAIL_ROUTES = [[/^\/fleet\/\d+$/, "/fleet"], [/^\/fleet\/drivers\/\d+$/, "/fleet/drivers"]];
 
@@ -86,6 +87,7 @@ export const ProtectedRoute = () => {
     <>
       <Outlet />
       <LowTankAlert />
+      <IdleSessionGuard />
     </>
   );
 };

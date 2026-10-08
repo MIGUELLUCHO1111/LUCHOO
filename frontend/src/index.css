@@ -218,3 +218,10 @@
 .dark .leaflet-control-attribution a {
   color: #cbd5e1;
 }
+
+/* Sección en "solo ver" (065): PageLayout pone data-readonly="true" y
+   todo lo marcado con data-write (crear, editar, eliminar, guardar) se
+   esconde. El backend igual rechaza cualquier escritura con 403. */
+[data-readonly="true"] [data-write] {
+  display: none !important;
+}

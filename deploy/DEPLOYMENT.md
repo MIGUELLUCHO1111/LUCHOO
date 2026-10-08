@@ -1,5 +1,7 @@
 # Guía de despliegue — Fullpetro (servidor 24/7)
 
+> **08/10/2026: el despliegue se hace en Azure — ver [`DEPLOY_AZURE.md`](../DEPLOY_AZURE.md) en la raíz.** Esta guía (servidor propio con NGINX + PM2) queda como referencia por si algún día se vuelve a un servidor físico.
+
 Esta guía asume un servidor Ubuntu 22.04+ (VPS o físico) al que tienes acceso
 por SSH como usuario con permisos `sudo`. No importa el proveedor (DigitalOcean,
 Hetzner, Linode, AWS Lightsail, o el servidor físico R730xd de la empresa) —

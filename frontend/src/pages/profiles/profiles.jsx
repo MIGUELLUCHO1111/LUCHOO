@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldCheck, Plus, X, Pencil, Trash2, UserCog, Save } from "lucide-react";
+import { ShieldCheck, Plus, X, Pencil, Trash2, UserCog, Save, Eye } from "lucide-react";
 import { profileService, userService, optionService } from "@/services";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +70,10 @@ const Profiles = () => {
   const [sections, setSections] = useState([]);
   const [selectedSectionIds, setSelectedSectionIds] = useState({});
   const [previousSectionIds, setPreviousSectionIds] = useState([]);
+  // Secciones en "solo ver" (065): { [option_id]: true } y cómo estaban al
+  // abrir el rol, para mandar solo los cambios.
+  const [readOnlyIds, setReadOnlyIds] = useState({});
+  const [previousReadOnlyIds, setPreviousReadOnlyIds] = useState({});
 
   const [assigningId, setAssigningId] = useState("");
   const [assigningSel, setAssigningSel] = useState({});
@@ -136,6 +140,8 @@ const Profiles = () => {
     setError(null);
     setSelectedSectionIds({});
     setPreviousSectionIds([]);
+    setReadOnlyIds({});
+    setPreviousReadOnlyIds({});
   };
 
   const handleSubmit = async (e) => {
@@ -196,6 +202,19 @@ const Profiles = () => {
         }
       }
 
+      // Solo ver: se manda para las secciones nuevas marcadas así y para las
+      // que ya estaban y cambiaron de modo. Un error aquí sí se muestra:
+      // dejar a alguien con acceso completo por un fallo silencioso no es
+      // aceptable.
+      for (const optionId of currentSectionIds) {
+        const wantRO = !!readOnlyIds[optionId];
+        const hadRO = !!previousReadOnlyIds[optionId];
+        const isNew = addedSections.includes(optionId);
+        if ((isNew && wantRO) || (!isNew && wantRO !== hadRO)) {
+          await optionService.setReadOnly(optionId, row.id, wantRO);
+        }
+      }
+
       resetForm();
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Error al guardar");
@@ -215,17 +234,25 @@ const Profiles = () => {
     setError(null);
 
     try {
-      const assigned = await optionService.getByProfile(r.id);
-      const ids = (Array.isArray(assigned) ? assigned : []).map((o) => o.option_id ?? o.id);
+      const res = await optionService.getByProfile(r.id);
+      const assigned = Array.isArray(res) ? res : [];
+      const ids = assigned.map((o) => o.option_id ?? o.id);
       setPreviousSectionIds(ids);
       const sel = {};
-      ids.forEach((id) => {
+      const ro = {};
+      assigned.forEach((o) => {
+        const id = o.option_id ?? o.id;
         sel[id] = true;
+        if (o.read_only) ro[id] = true;
       });
       setSelectedSectionIds(sel);
+      setReadOnlyIds(ro);
+      setPreviousReadOnlyIds(ro);
     } catch (_) {
       setPreviousSectionIds([]);
       setSelectedSectionIds({});
+      setReadOnlyIds({});
+      setPreviousReadOnlyIds({});
     }
   };
 
@@ -395,24 +422,50 @@ const Profiles = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {sections.map((s) => {
                             const optionId = s.option_id ?? s.id;
+                            const checked = !!selectedSectionIds[optionId];
+                            const ro = checked && !!readOnlyIds[optionId];
                             return (
-                              <label
+                              <div
                                 key={optionId}
-                                className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-brand-navy/40 dark:hover:border-brand-navy-light/40 cursor-pointer text-sm"
+                                className={`flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl border text-sm ${
+                                  ro
+                                    ? "border-amber-300 dark:border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/5"
+                                    : "border-slate-200 dark:border-slate-700 hover:border-brand-navy/40 dark:hover:border-brand-navy-light/40"
+                                }`}
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={!!selectedSectionIds[optionId]}
-                                  onChange={(e) =>
-                                    setSelectedSectionIds({
-                                      ...selectedSectionIds,
-                                      [optionId]: e.target.checked,
-                                    })
-                                  }
-                                  className="accent-brand-navy h-4 w-4"
-                                />
-                                {s.description || s.name}
-                              </label>
+                                <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer py-0.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => {
+                                      setSelectedSectionIds({ ...selectedSectionIds, [optionId]: e.target.checked });
+                                      if (!e.target.checked) setReadOnlyIds({ ...readOnlyIds, [optionId]: false });
+                                    }}
+                                    className="accent-brand-navy h-4 w-4 shrink-0"
+                                  />
+                                  <span className="truncate">{s.description || s.name}</span>
+                                </label>
+                                {checked && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReadOnlyIds({ ...readOnlyIds, [optionId]: !ro })}
+                                    title={
+                                      ro
+                                        ? "Solo puede ver esta sección (no crear, editar ni eliminar). Clic para dar acceso completo."
+                                        : "Acceso completo. Clic para que solo pueda ver esta sección."
+                                    }
+                                    aria-pressed={ro}
+                                    className={`shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold transition-colors ${
+                                      ro
+                                        ? "bg-amber-500 text-white hover:bg-amber-600"
+                                        : "text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-white/10"
+                                    }`}
+                                  >
+                                    <span className="inline-flex"><Eye size={12} /></span>
+                                    Solo ver
+                                  </button>
+                                )}
+                              </div>
                             );
                           })}
                         </div>

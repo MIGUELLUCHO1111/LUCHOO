@@ -12,6 +12,10 @@ export const AuthProvider = ({ children }) => {
   // null = todavía no se resolvió; se trata como "sin restricción" para no
   // bloquear el menú/rutas mientras carga.
   const [allowedSections, setAllowedSections] = useState(null);
+  // Secciones que el perfil tiene en "solo ver" (065): las ve pero no puede
+  // crear, editar ni eliminar (el backend ya se lo impide; esto es para que la
+  // pantalla lo muestre y esconda los botones).
+  const [readOnlySections, setReadOnlySections] = useState([]);
 
   const loadAllowedSections = async (userData) => {
     const profileId = userData?.profiles?.[0]?.id;
@@ -21,8 +25,9 @@ export const AuthProvider = ({ children }) => {
     }
     try {
       const opts = await optionService.getByProfile(profileId);
-      const routes = (Array.isArray(opts) ? opts : []).map((o) => o.name);
-      setAllowedSections(routes);
+      const list = Array.isArray(opts) ? opts : [];
+      setAllowedSections(list.map((o) => o.name));
+      setReadOnlySections(list.filter((o) => o.read_only).map((o) => o.name));
     } catch {
       setAllowedSections([]);
     }
@@ -80,11 +85,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async (navigate) => {
+  const logout = async (navigate, reason) => {
     try {
-      await authService.logout();
+      await authService.logout(reason);
       setUser(null);
       setAllowedSections(null);
+      setReadOnlySections([]);
       if (navigate) {
         navigate("/login", { replace: true });
       }
@@ -136,6 +142,7 @@ export const AuthProvider = ({ children }) => {
         user,
         loading,
         allowedSections,
+        readOnlySections,
         isSubmitting,
         authError,
         login,

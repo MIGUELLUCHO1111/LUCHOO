@@ -3,6 +3,7 @@ import Carga from './classes/carga.js';
 import Pesada from './classes/pesada.js';
 import Tanque from './classes/tanque.js';
 import Reporte from './classes/fuelReporte.js';
+import Transferencia from './classes/transferencia.js';
 
 export class Fuel {
   constructor() {
@@ -11,6 +12,7 @@ export class Fuel {
     this.Pesada = Pesada;
     this.Tanque = Tanque;
     this.Reporte = Reporte;
+    this.Transferencia = Transferencia;
   }
 }
 

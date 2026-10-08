@@ -42,6 +42,12 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Security', class_name: 'Option', method_name: 'getOptionsByProfile' },
     { sub_system: 'Security', class_name: 'Option', method_name: 'assignOptionToProfile' },
     { sub_system: 'Security', class_name: 'Option', method_name: 'removeOptionFromProfile' },
+    { sub_system: 'Security', class_name: 'Option', method_name: 'setOptionReadOnly' },
+  ],
+  // Actividad de usuarios (066, 08/10/2026): solo consulta.
+  '/security/activity': [
+    { sub_system: 'Security', class_name: 'Actividad', method_name: 'listarActividadUsuarios' },
+    { sub_system: 'Security', class_name: 'Actividad', method_name: 'obtenerActividadUsuario' },
   ],
   '/fuel': [
     { sub_system: 'Fuel', class_name: 'Vehiculo', method_name: 'createVehiculo' },
@@ -62,6 +68,15 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Fuel', class_name: 'Pesada', method_name: 'getAllPesada' },
     { sub_system: 'Fuel', class_name: 'Pesada', method_name: 'updatePesada' },
     { sub_system: 'Fuel', class_name: 'Pesada', method_name: 'deletePesada' },
+  ],
+  // Transferencias de combustible entre unidades (064, 07/10/2026).
+  '/fuel/transfers': [
+    { sub_system: 'Fuel', class_name: 'Transferencia', method_name: 'createTransferencia' },
+    { sub_system: 'Fuel', class_name: 'Transferencia', method_name: 'getAllTransferencias' },
+    { sub_system: 'Fuel', class_name: 'Transferencia', method_name: 'getTransferenciaById' },
+    { sub_system: 'Fuel', class_name: 'Transferencia', method_name: 'updateTransferencia' },
+    { sub_system: 'Fuel', class_name: 'Transferencia', method_name: 'deleteTransferencia' },
+    { sub_system: 'Fuel', class_name: 'Transferencia', method_name: 'getPrecioTransferencia' },
   ],
   '/fuel/tank': [
     { sub_system: 'Fuel', class_name: 'Tanque', method_name: 'createTank' },
@@ -149,6 +164,49 @@ const SECTION_PERMISSIONS = {
     { sub_system: 'Flota', class_name: 'Catalogo', method_name: 'quitarUnidad' },
     { sub_system: 'Flota', class_name: 'Catalogo', method_name: 'proponerModelo' },
   ],
+  // Mantenimiento (062, 07/10/2026). Una sección da el trabajo de operador
+  // (crear, ejecutar, tareas, repuestos); firmar, cerrar, regularizar y
+  // anular siguen siendo de los perfiles supervisor_mantenimiento/gerencia
+  // (permission.csv), además de que el backend valida el perfil en cada una.
+  '/maintenance': [
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'listarOrdenes' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'obtenerOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'crearOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'actualizarOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'iniciarOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'pausarOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'reanudarOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'ejecutarOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'agregarTareaOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'marcarTareaOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'eliminarTareaOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'agregarRepuestoOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'OrdenTrabajo', method_name: 'eliminarRepuestoOrden' },
+    { sub_system: 'Mantenimiento', class_name: 'Incidencia', method_name: 'listarIncidencias' },
+    { sub_system: 'Mantenimiento', class_name: 'Incidencia', method_name: 'listarUnidadesMnt' },
+    { sub_system: 'Mantenimiento', class_name: 'Criticidad', method_name: 'getAjustesMantenimiento' },
+    { sub_system: 'Mantenimiento', class_name: 'CatalogoMnt', method_name: 'listarServiciosMnt' },
+    { sub_system: 'Mantenimiento', class_name: 'CatalogoMnt', method_name: 'listarProveedoresMnt' },
+  ],
+  '/maintenance/plan': [
+    { sub_system: 'Mantenimiento', class_name: 'PlanPreventivo', method_name: 'listarVencimientos' },
+    { sub_system: 'Mantenimiento', class_name: 'PlanPreventivo', method_name: 'listarPlanes' },
+    { sub_system: 'Mantenimiento', class_name: 'PlanPreventivo', method_name: 'crearOrdenPreventiva' },
+  ],
+  '/maintenance/catalogs': [
+    { sub_system: 'Mantenimiento', class_name: 'CatalogoMnt', method_name: 'listarServiciosMnt' },
+    { sub_system: 'Mantenimiento', class_name: 'CatalogoMnt', method_name: 'listarProveedoresMnt' },
+  ],
+  '/maintenance/incidents': [
+    { sub_system: 'Mantenimiento', class_name: 'Incidencia', method_name: 'listarIncidencias' },
+    { sub_system: 'Mantenimiento', class_name: 'Incidencia', method_name: 'crearIncidencia' },
+    { sub_system: 'Mantenimiento', class_name: 'Incidencia', method_name: 'actualizarIncidencia' },
+    { sub_system: 'Mantenimiento', class_name: 'Incidencia', method_name: 'listarUnidadesMnt' },
+  ],
+  '/maintenance/criticality': [
+    { sub_system: 'Mantenimiento', class_name: 'Criticidad', method_name: 'listarCriticidad' },
+    { sub_system: 'Mantenimiento', class_name: 'Criticidad', method_name: 'getAjustesMantenimiento' },
+  ],
   '/hours': [
     { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getProyectosByEmpresa' },
     { sub_system: 'Horas', class_name: 'Proyecto', method_name: 'getEquiposAsignados' },
@@ -189,6 +247,21 @@ const SECTION_PERMISSIONS = {
 };
 
 /**
+ * Solo lectura por sección (065, 08/10/2026): ¿la función solo consulta?
+ * Por convención de nombres del proyecto, las de lectura empiezan con get,
+ * listar u obtener; READ_EXTRA son las de lectura con otro nombre. Todo lo
+ * demás (create, update, delete, guardar, registrar, asignar, syncNow,
+ * archivarAhora, notificar...) se considera escritura y una sección en
+ * solo lectura NO lo concede.
+ */
+const READ_EXTRA = new Set(['ruta', 'generarReporte']);
+export const isReadMethod = (methodName) =>
+  /^(get|listar|obtener)/.test(methodName) || READ_EXTRA.has(methodName);
+
+const methodsForMode = (optionName, readOnly) =>
+  (SECTION_PERMISSIONS[optionName] || []).filter((m) => !readOnly || isReadMethod(m.method_name));
+
+/**
  * Al arrancar el backend: a cada perfil le agrega las funciones que le faltan
  * según las secciones que tiene asignadas (SECTION_PERMISSIONS). Así, si una
  * pantalla empieza a usar una función nueva, los perfiles que ya tenían esa
@@ -202,8 +275,9 @@ const SECTION_PERMISSIONS = {
 export async function resyncSectionPermissions(dbms) {
   const rows = (await dbms.executeNamedQuery({ nameQuery: 'getOptionProfileNames', params: {} }))?.rows || [];
   let added = 0;
-  for (const { option_name, profile_name } of rows) {
-    for (const perm of SECTION_PERMISSIONS[option_name] || []) {
+  for (const { option_name, profile_name, read_only } of rows) {
+    // Sección en solo lectura: solo sus funciones de consulta.
+    for (const perm of methodsForMode(option_name, read_only)) {
       const res = await dbms.executeNamedQuery({
         nameQuery: 'linkExistingMethodToProfile',
         params: { method_name: perm.method_name, profile_name },
@@ -279,6 +353,45 @@ export class Option {
     return { statusCode: STATUS_CODES.OK, message: 'Sección removida del perfil' };
   };
 
+  // Solo lectura por sección (065). read_only = true: el perfil sigue viendo
+  // la sección y consultando, pero pierde las funciones de escritura de esa
+  // sección (salvo las que le dé OTRA sección con acceso completo). false:
+  // vuelve a tener todas.
+  setOptionReadOnly = async ({ option_id, profile_id, read_only }) => {
+    await this.dbmsReady;
+
+    if (!option_id || !profile_id || typeof read_only !== 'boolean') {
+      throw new Error(JSON.stringify({ message: "Campos requeridos: 'option_id', 'profile_id', 'read_only' (true/false)", statusCode: STATUS_CODES.BAD_REQUEST }));
+    }
+
+    const profileName = await this.getProfileName(profile_id);
+    // admin recibe todo directo de permission.csv (se re-sincroniza cada
+    // minuto), así que marcarle solo lectura no tendría ningún efecto real.
+    if (profileName === 'admin') {
+      throw new Error(JSON.stringify({ message: 'El perfil admin siempre tiene acceso completo; no se le puede poner solo lectura', statusCode: STATUS_CODES.BAD_REQUEST }));
+    }
+
+    const result = await this.dbms.executeNamedQuery({
+      nameQuery: 'setOptionProfileReadOnly',
+      params: { profile_id, option_id, read_only },
+    });
+    if (!result?.rows?.length) {
+      throw new Error(JSON.stringify({ message: 'Ese perfil no tiene asignada la sección; asígnala primero', statusCode: STATUS_CODES.NOT_FOUND }));
+    }
+
+    if (read_only) {
+      await this.revokeSectionMethods(option_id, profile_id, { onlyWrites: true });
+    } else {
+      await this.grantSectionMethods(option_id, profile_id);
+    }
+
+    return {
+      statusCode: STATUS_CODES.OK,
+      data: result.rows[0],
+      message: read_only ? 'Sección en solo lectura' : 'Sección con acceso completo',
+    };
+  };
+
   // ---------- Otorgar/revocar permisos de método asociados a la sección ----------
 
   getSectionMethods = async (option_id) => {
@@ -306,13 +419,32 @@ export class Option {
     }
   };
 
-  revokeSectionMethods = async (option_id, profile_id) => {
-    const methods = await this.getSectionMethods(option_id);
+  // Quita las funciones de la sección que el perfil NO siga recibiendo por
+  // otra de sus secciones (antes quitaba todas: si dos secciones compartían
+  // una función, p. ej. getAllEmpresas en Control de Horas y en Reportes,
+  // quitar una dejaba la otra rota). onlyWrites: solo las de escritura (pasar
+  // la sección a solo lectura).
+  revokeSectionMethods = async (option_id, profile_id, { onlyWrites = false } = {}) => {
+    const section = (
+      await this.dbms.executeNamedQuery({ nameQuery: 'getOptionById', params: { id: option_id } })
+    )?.rows?.[0];
+    const methods = (SECTION_PERMISSIONS[section?.name] || []).filter(
+      (m) => !onlyWrites || !isReadMethod(m.method_name),
+    );
     if (!methods.length) return;
     const profileName = await this.getProfileName(profile_id);
     if (!profileName) return;
 
-    for (const perm of methods) {
+    const others = (
+      await this.dbms.executeNamedQuery({ nameQuery: 'getOptionsOfProfileWithMode', params: { profile_id } })
+    )?.rows || [];
+    const kept = new Set();
+    for (const o of others) {
+      if (o.option_name === section?.name) continue;
+      for (const m of methodsForMode(o.option_name, o.read_only)) kept.add(m.method_name);
+    }
+
+    for (const perm of methods.filter((m) => !kept.has(m.method_name))) {
       await this.dbms.executeNamedQuery({
         nameQuery: 'delProfileMethod',
         params: { method_name: perm.method_name, profile_name: profileName },

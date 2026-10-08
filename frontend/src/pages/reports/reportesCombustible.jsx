@@ -55,7 +55,7 @@ const FuelReports = () => {
   // Solo los 5 que más gastan tienen su propio segmento; el resto se agrupa
   // en "Otros" (gris) para que la dona siga siendo legible con toda la flota.
   const livianaVehicles = byVehicle
-    .filter((v) => v.fleet_type === "liviana" && v.amount > 0)
+    .filter((v) => v.amount > 0)
     .sort((a, b) => b.amount - a.amount);
   const topVehicles = livianaVehicles.slice(0, TOP_GASTO_VEHICLES);
   const otrosAmount = livianaVehicles
@@ -144,9 +144,10 @@ const FuelReports = () => {
                   </>
                 )}
                 <p className="text-[11px] text-slate-400 text-center">
-                  Solo Flota Liviana: compra combustible por transacción en
-                  estación. Pesada descuenta del tanque propio de la empresa, sin
-                  costo por carga individual.
+                  Flota Liviana compra combustible por transacción en estación.
+                  Pesada descuenta del tanque propio, sin costo por carga; solo
+                  suma gasto si recibió gasolina por una transferencia (el costo
+                  se resta de la unidad que la entregó).
                 </p>
               </CardContent>
             </Card>
@@ -191,6 +192,9 @@ const FuelReports = () => {
                     </TableCell>
                     <TableCell className="font-bold text-slate-900 dark:text-white">
                       {v.fleet_type === "pesada" ? `${v.gallons.toFixed(2)} gal` : `${v.liters.toFixed(2)} L`}
+                      {v.fleet_type === "pesada" && v.gasolina_liters ? <span className="block text-xs font-normal text-slate-500">+ {v.gasolina_liters.toFixed(2)} L de gasolina transferida</span> : null}
+                      {v.transfer_out_liters > 0 && <span className="block text-xs font-normal text-amber-700">− {v.transfer_out_liters.toFixed(2)} L transferidos a otras unidades</span>}
+                      {v.fleet_type === "liviana" && v.transfer_in_liters > 0 && <span className="block text-xs font-normal text-slate-500">incluye {v.transfer_in_liters.toFixed(2)} L recibidos</span>}
                     </TableCell>
                     <TableCell>{v.amount != null ? `$${v.amount.toFixed(2)}` : "-"}</TableCell>
                     <TableCell className="font-bold text-slate-900 dark:text-white">{v.count}</TableCell>

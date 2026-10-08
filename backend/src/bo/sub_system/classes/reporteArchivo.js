@@ -8,12 +8,13 @@ import Reporte from './reporte.js';
 import { buildReportHtml } from '../../../tracker/reportHtml.js';
 import { renderReportOutputs } from '../../../tracker/reportRenderer.js';
 import { motivoSinSenal, ultimoEstado } from '../../../tracker/sinSenal.js';
+import { uploadsPath } from '../../../../config/paths.js';
 
 const config = new Config();
 const STATUS_CODES = config.STATUS_CODES;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPORTS_ROOT = path.resolve(__dirname, '../../../../uploads/tracker/reports');
+const REPORTS_ROOT = uploadsPath('tracker', 'reports');
 
 const formatHora = (iso) => {
   if (!iso) return '-';

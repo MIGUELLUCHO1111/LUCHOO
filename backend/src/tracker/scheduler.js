@@ -31,20 +31,16 @@ import { TURNOS } from '../bo/sub_system/classes/reporte.js';
  *     de comportamiento -- se generan con los botones manuales de la
  *     pantalla de Reportes.
  *
- * IMPORTANTE para producción con PM2 en modo clúster (varios procesos del
- * mismo backend, ver DEPLOYMENT.md): PM2 numera cada proceso con
- * NODE_APP_INSTANCE (0, 1, 2...). Sin este chequeo, cada proceso programaría
- * los mismos cron por separado -- sincronizaría la flota N veces, mandaría
- * el mismo aviso de Telegram N veces, etc. Solo el proceso 0 los programa;
- * en modo single-process (como en desarrollo) NODE_APP_INSTANCE no existe,
- * así que igual corre normal.
+ * IMPORTANTE con varios procesos (PM2 cluster) o varias instancias (Azure):
+ * si cada proceso programara estos cron, se sincronizaría la flota N veces,
+ * se mandaría el mismo aviso de Telegram N veces, etc. Antes se evitaba con
+ * NODE_APP_INSTANCE === '0', que solo sirve dentro de un PM2; desde el
+ * 08/10/2026 lo decide un advisory lock de Postgres compartido por todas las
+ * instancias (src/scheduler/leader.js): solo el líder llama a esta función.
  */
 export function startTrackerScheduler() {
-  const instanceId = process.env.NODE_APP_INSTANCE;
-  if (instanceId !== undefined && instanceId !== '0') {
-    console.log(`[Tracker] Cron del Tracker omitido en esta instancia (NODE_APP_INSTANCE=${instanceId}, solo corre en la 0)`);
-    return;
-  }
+  // Solo lo llama el proceso líder (src/scheduler/leader.js, runAsLeader en
+  // server.init): en Azure puede haber varias instancias y PM2 por instancia.
 
   // Suscriptores del bot de Telegram: independiente de TRACKER_AUTO_SYNC
   // (es sobre gente escribiéndole al bot, no sobre la flota) -- revisa cada

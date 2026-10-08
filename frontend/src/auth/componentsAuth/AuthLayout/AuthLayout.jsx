@@ -1,4 +1,20 @@
 import { useState } from "react";
+import { SESSION_END_REASON_KEY } from "@/services/api";
+
+// Por qué se cerró la sesión anterior (cierre por inactividad, 08/10/2026).
+const END_REASONS = {
+  idle: "Tu sesión se cerró por inactividad. Vuelve a iniciar sesión para continuar.",
+  expired: "Tu sesión expiró. Vuelve a iniciar sesión para continuar.",
+};
+const readEndReason = () => {
+  try {
+    const reason = sessionStorage.getItem(SESSION_END_REASON_KEY);
+    sessionStorage.removeItem(SESSION_END_REASON_KEY);
+    return END_REASONS[reason] || null;
+  } catch {
+    return null;
+  }
+};
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +36,7 @@ export const AuthLayout = () => {
   const { login } = useAuth();
   const [loadingLocal, setLoadingLocal] = useState(false);
   const [toast, setToast] = useState({ message: "", type: "" });
+  const [endReason] = useState(readEndReason);
 
   const {
     register,
@@ -72,6 +89,14 @@ export const AuthLayout = () => {
         animate="visible"
         variants={containerVariants}
       >
+        {endReason && (
+          <div
+            role="status"
+            className="mb-4 px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300 text-xs font-medium"
+          >
+            {endReason}
+          </div>
+        )}
         <form onSubmit={handleSubmit(onSubmit)}>
           <FieldSet>
             <motion.div className="text-center mb-6" variants={itemVariants}>

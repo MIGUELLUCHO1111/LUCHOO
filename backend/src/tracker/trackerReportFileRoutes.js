@@ -6,6 +6,8 @@ import Security from '../security/security.js';
 import Reporte from '../bo/sub_system/classes/reporte.js';
 import { buildModeloInternoWorkbook, buildModeloInternoHtml, modeloInternoFileName } from './modeloInterno.js';
 import { renderReportOutputs } from './reportRenderer.js';
+import { uploadsPath } from '../../config/paths.js';
+import { userCanAny, denyFile } from '../security/fileAccess.js';
 
 // Ruta aparte del dispatcher JSON (mismo espíritu que trackerAttachmentRoutes.js):
 // descarga del Excel de un Reporte de Turno ya generado y guardado por
@@ -17,13 +19,15 @@ const config = new Config();
 const { STATUS_CODES } = config;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPORTS_ROOT = path.resolve(__dirname, '../../uploads/tracker/reports');
+const REPORTS_ROOT = uploadsPath('tracker', 'reports');
 
 const SAFE_SEGMENT = /^[a-zA-Z0-9._-]+$/;
 const SAFE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // GET /tracker/reports/file/:fecha/:filename — descarga (requiere sesión).
 router.get('/reports/file/:fecha/:filename', async (req, res) => {
+  // Seguridad (08/10/2026): además de la sesión, permiso de Reportes de Turno.
+  if (req.user && !userCanAny(req, [{ sub_system: 'Tracker', class: 'Reporte', methods: ['generarReporte'] }, { sub_system: 'Tracker', class: 'ReporteArchivo', methods: ['listar'] }])) return denyFile(req, res);
   if (!req.user) {
     return res.status(STATUS_CODES.UNAUTHORIZED).json({
       statusCode: STATUS_CODES.UNAUTHORIZED,

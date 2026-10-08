@@ -10,6 +10,7 @@ import {
   Radio,
   Clock,
   Truck,
+  Wrench,
 } from "lucide-react";
 import { useAuth } from "@/context";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -152,6 +153,7 @@ export const Sidebar = () => {
         { title: "Personas", url: "/security/persons" },
         { title: "Usuarios", url: "/security/users" },
         { title: "Perfiles", url: "/security/profiles" },
+        { title: "Actividad", url: "/security/activity" },
       ],
     },
     {
@@ -161,6 +163,7 @@ export const Sidebar = () => {
         { title: "Liviana", url: "/fuel" },
         { title: "Pesada", url: "/fuel/heavy" },
         { title: "Tanque", url: "/fuel/tank" },
+        { title: "Transferencias", url: "/fuel/transfers" },
         { title: "Unidades", url: "/fuel/vehicles" },
       ],
     },
@@ -183,6 +186,17 @@ export const Sidebar = () => {
         { title: "Flota Pesada", url: "/fleet?flota=pesada" },
         { title: "Catálogo de Modelos", url: "/fleet/catalog" },
         { title: "Conductores", url: "/fleet/drivers" },
+      ],
+    },
+    {
+      icon: Wrench,
+      label: "Mantenimiento",
+      children: [
+        { title: "Órdenes de Trabajo", url: "/maintenance" },
+        { title: "Plan preventivo", url: "/maintenance/plan" },
+        { title: "Incidencias", url: "/maintenance/incidents" },
+        { title: "Servicios y proveedores", url: "/maintenance/catalogs" },
+        { title: "Criticidad y ajustes", url: "/maintenance/criticality" },
       ],
     },
     {

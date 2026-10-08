@@ -508,7 +508,7 @@ const FuelHeavyFleet = () => {
         <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
           Registro de Cargas · Pesada
         </h3>
-        <Button
+        <Button data-write
           onClick={() => {
             resetForm();
             setShowForm(!showForm);
@@ -810,7 +810,7 @@ const FuelHeavyFleet = () => {
                       >
                         <Eye size={14} />
                       </Button>
-                      <Button
+                      <Button data-write
                         variant="outline"
                         size="icon"
                         onClick={() => handleEdit(r)}
@@ -819,7 +819,7 @@ const FuelHeavyFleet = () => {
                       >
                         <Pencil size={14} />
                       </Button>
-                      <Button
+                      <Button data-write
                         variant="outline"
                         size="icon"
                         onClick={() => handleDelete(r)}

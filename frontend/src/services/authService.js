@@ -17,6 +17,10 @@ const authService = {
     if (data.user) {
       localStorage.setItem(USER_KEY, JSON.stringify(data.user));
     }
+    // Minutos sin actividad antes de cerrar la sesión (los define el servidor).
+    if (data.session_idle_minutes) {
+      localStorage.setItem("session_idle_minutes", String(data.session_idle_minutes));
+    }
 
     return data;
   },
@@ -24,9 +28,10 @@ const authService = {
   /**
    * Logout: limpia estado local y destruye sesión server-side.
    */
-  async logout() {
+  async logout(reason) {
     try {
-      await api.post("/user/logout");
+      // reason "idle": cierre por inactividad (queda así en la auditoría).
+      await api.post("/user/logout", reason ? { reason } : {});
     } catch (_) {
       // silently ignore — la sesión puede haber expirado
     }
@@ -42,6 +47,9 @@ const authService = {
     try {
       const { data } = await api.get("/user/me");
       localStorage.setItem(USER_KEY, JSON.stringify(data));
+      if (data?.session_idle_minutes) {
+        localStorage.setItem("session_idle_minutes", String(data.session_idle_minutes));
+      }
       return data;
     } catch {
       localStorage.removeItem(TOKEN_KEY);

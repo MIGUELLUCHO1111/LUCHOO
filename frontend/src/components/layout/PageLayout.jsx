@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { LogOut, Sun, Moon } from "lucide-react";
+import { LogOut, Sun, Moon, Eye } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth, useTheme } from "@/context";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/Sidebar/Sidebar";
 import { BackButton } from "./BackButton";
+import { useReadOnly } from "@/lib/useReadOnly";
 
 import logoDark from "@/assets/img/fullpetro-dark.png";
 import logoWhite from "@/assets/img/fullpetro-white.png";
@@ -37,6 +38,9 @@ export const PageLayout = ({
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  // Sección en "solo ver" (065): etiqueta junto al título y data-readonly en
+  // el contenido, que esconde todo lo marcado con data-write (index.css).
+  const readOnly = useReadOnly();
 
   const handleLogout = () => logout(navigate);
 
@@ -59,6 +63,7 @@ export const PageLayout = ({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className={`relative z-10 w-full ${maxWidth} flex flex-col`}
+          data-readonly={readOnly ? "true" : undefined}
         >
           <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
             <div className="flex items-center gap-5">
@@ -73,6 +78,15 @@ export const PageLayout = ({
                 <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-[10px]">
                   {subtitle || `PANEL DE FULLPETRO • ${new Date().toLocaleDateString()}`}
                 </p>
+                {readOnly && (
+                  <span
+                    title="Tu acceso a esta sección es solo para consultar: no puedes crear, editar ni eliminar."
+                    className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+                  >
+                    <span className="inline-flex"><Eye size={11} /></span>
+                    Solo lectura
+                  </span>
+                )}
               </div>
             </div>
 

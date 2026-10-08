@@ -473,7 +473,7 @@ const FuelLightFleet = () => {
         <h3 className="text-sm font-black uppercase tracking-widest text-slate-900 dark:text-white">
           Registro de Llenados
         </h3>
-        <Button
+        <Button data-write
           onClick={() => {
             resetForm();
             setShowForm(!showForm);
@@ -819,7 +819,7 @@ const FuelLightFleet = () => {
                       >
                         <Eye size={14} />
                       </Button>
-                      <Button
+                      <Button data-write
                         variant="outline"
                         size="icon"
                         onClick={() => handleEdit(r)}
@@ -828,7 +828,7 @@ const FuelLightFleet = () => {
                       >
                         <Pencil size={14} />
                       </Button>
-                      <Button
+                      <Button data-write
                         variant="outline"
                         size="icon"
                         onClick={() => handleDelete(r.id, r.vehicle_code)}

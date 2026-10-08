@@ -63,7 +63,9 @@ export async function renderReportOutputs(html, { width = 1000 } = {}) {
   const browser = await puppeteer.launch({
     executablePath,
     headless: true,
-    args: ['--no-sandbox', '--disable-gpu'],
+    // --disable-dev-shm-usage: en contenedores (Azure) /dev/shm es mínimo y
+    // Chrome se cae al dibujar reportes largos; así usa /tmp.
+    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
   });
 
   try {

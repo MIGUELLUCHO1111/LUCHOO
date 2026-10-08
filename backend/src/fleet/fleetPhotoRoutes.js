@@ -8,6 +8,8 @@ import DBMS from '../dbms/dbms.js';
 import Config from '../../config/config.js';
 import Security from '../security/security.js';
 import { canEditUnit } from '../bo/sub_system/classes/fleetAccess.js';
+import { uploadsPath } from '../../config/paths.js';
+import { userCanAny, denyFile } from '../security/fileAccess.js';
 
 // Foto de cada modelo del Catalogo de Flota. Ruta aparte del dispatcher
 // JSON (igual que fuel/fuelPhotoRoutes.js): la subida necesita multipart.
@@ -19,7 +21,22 @@ const security = new Security();
 const { STATUS_CODES } = config;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOADS_ROOT = path.resolve(__dirname, '../../uploads/fleet/models');
+// Quién puede descargar cada tipo de archivo (seguridad 08/10/2026, ver
+// security/fileAccess.js): las funciones de la app que muestran ese archivo.
+const FICHA_READ = { sub_system: 'Flota', class: 'Ficha', methods: ['obtener', 'listarFichas'] };
+const CAN_SEE = {
+  models: [{ sub_system: 'Flota', class: 'Catalogo', methods: ['listarCatalogo'] }, FICHA_READ],
+  documents: [FICHA_READ],
+  units: [FICHA_READ],
+  // La foto del conductor también sale en el mapa del Tracker.
+  drivers: [
+    { sub_system: 'Flota', class: 'Conductor', methods: ['listarConductores', 'obtenerConductor'] },
+    FICHA_READ,
+    { sub_system: 'Tracker', class: 'Snapshot', methods: ['getLatestSnapshots'] },
+  ],
+};
+
+const UPLOADS_ROOT = uploadsPath('fleet', 'models');
 const MIME_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
 const SAFE_SEGMENT = /^[a-zA-Z0-9._-]+$/;
 
@@ -79,7 +96,7 @@ router.post('/models/photo', (req, res) => {
 
 // GET /fleet/models/file/:modelId/:filename — solo con sesion.
 router.get('/models/file/:modelId/:filename', async (req, res) => {
-  if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+  if (!userCanAny(req, CAN_SEE.models)) return denyFile(req, res);
   const { modelId, filename } = req.params;
   if (!SAFE_SEGMENT.test(modelId) || !SAFE_SEGMENT.test(filename)) return fail(res, STATUS_CODES.BAD_REQUEST, 'Ruta de archivo inválida');
   const filePath = path.resolve(UPLOADS_ROOT, modelId, filename);
@@ -90,7 +107,7 @@ router.get('/models/file/:modelId/:filename', async (req, res) => {
 });
 
 // ---------- Archivo de cada documento de la ficha (PDF o foto) ----------
-const DOCS_ROOT = path.resolve(__dirname, '../../uploads/fleet/documents');
+const DOCS_ROOT = uploadsPath('fleet', 'documents');
 // Documentos: solo PDF (pedido de Lguerra, 05/10/2026).
 const isPdfUpload = (file) => (file.mimetype === 'application/pdf' || /.pdf$/i.test(file.originalname || ''));
 const uploadDoc = multer({
@@ -148,7 +165,7 @@ router.post('/documents/file', (req, res) => {
 
 // GET /fleet/documents/file/:docId/:filename — solo con sesion.
 router.get('/documents/file/:docId/:filename', async (req, res) => {
-  if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+  if (!userCanAny(req, CAN_SEE.documents)) return denyFile(req, res);
   const { docId, filename } = req.params;
   if (!SAFE_SEGMENT.test(docId) || !SAFE_SEGMENT.test(filename)) return fail(res, STATUS_CODES.BAD_REQUEST, 'Ruta de archivo inválida');
   const filePath = path.resolve(DOCS_ROOT, docId, filename);
@@ -162,7 +179,7 @@ router.get('/documents/file/:docId/:filename', async (req, res) => {
 // Pedido de Lguerra (05/10/2026): cada ficha con su foto, cargada desde el
 // encabezado. Solo queda la mas reciente; la anterior se borra. La sube un
 // admin o el encargado de esa unidad (mismo criterio que los documentos).
-const UNITS_ROOT = path.resolve(__dirname, '../../uploads/fleet/units');
+const UNITS_ROOT = uploadsPath('fleet', 'units');
 
 const callerName = (req) => req.user?.username || req.user?.name || null;
 
@@ -234,7 +251,7 @@ router.delete('/units/photo', async (req, res) => {
 
 // GET /fleet/units/file/:unitId/:filename — solo con sesion.
 router.get('/units/file/:unitId/:filename', async (req, res) => {
-  if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+  if (!userCanAny(req, CAN_SEE.units)) return denyFile(req, res);
   const { unitId, filename } = req.params;
   if (!SAFE_SEGMENT.test(unitId) || !SAFE_SEGMENT.test(filename)) return fail(res, STATUS_CODES.BAD_REQUEST, 'Ruta de archivo inválida');
   const filePath = path.resolve(UNITS_ROOT, unitId, filename);
@@ -245,7 +262,7 @@ router.get('/units/file/:unitId/:filename', async (req, res) => {
 });
 
 // ---------- Foto de cada conductor (058) ----------
-const DRIVERS_ROOT = path.resolve(__dirname, '../../uploads/fleet/drivers');
+const DRIVERS_ROOT = uploadsPath('fleet', 'drivers');
 
 // POST /fleet/drivers/photo — campos: driver_id, profile, photo. Solo admin.
 router.post('/drivers/photo', (req, res) => {
@@ -339,7 +356,7 @@ router.post('/drivers/document', (req, res) => {
 
 // GET /fleet/drivers/file/:driverId/:filename — solo con sesion.
 router.get('/drivers/file/:driverId/:filename', async (req, res) => {
-  if (!req.user) return fail(res, STATUS_CODES.UNAUTHORIZED, config.getMessage('es', 'session_required'));
+  if (!userCanAny(req, CAN_SEE.drivers)) return denyFile(req, res);
   const { driverId, filename } = req.params;
   if (!SAFE_SEGMENT.test(driverId) || !SAFE_SEGMENT.test(filename)) return fail(res, STATUS_CODES.BAD_REQUEST, 'Ruta de archivo inválida');
   const filePath = path.resolve(DRIVERS_ROOT, driverId, filename);

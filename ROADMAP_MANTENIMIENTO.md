@@ -1,14 +1,56 @@
 # Roadmap — Sección Mantenimiento de Flota
 
 > **Fecha:** 30/09/2026
-> **Estado:** borrador de arquitectura — **sin código todavía**. Es para
-> pensar y decidir antes de desarrollar.
+> **Estado (07/10/2026):** primera y segunda entrega **construidas**. Ver
+> §0 justo abajo; el resto del documento es el diseño original.
 > **Fuente principal:** `POLITICA MANTENIMIENTO FULLPETRO.docx`
 > (FP-MTTO-PO-01, v01, 31/08/2026, Gerencia de Mantenimiento y
 > Confiabilidad). La política ya define casi todo el proceso; esta sección
 > es básicamente **su versión digital** (la política la llama "CMMS").
 > **Depende de:** `ROADMAP_FLOTA_DETALLE.md` (ficha técnica y horómetro),
 > que se desarrolla en paralelo.
+
+---
+
+## 0. Lo construido (07/10/2026)
+
+**Decisiones de Julio:**
+- Entra toda la flota.
+- Niveles de aprobación de la política desde ya.
+- Perfiles `mantenimiento`, `supervisor_mantenimiento` y `gerencia`. La correctiva mayor necesita dos firmas de gerencia de personas distintas.
+- Umbral USD menor/mayor configurable, todavía sin valor.
+- Las OT reemplazan el "historial de servicios" de la ficha de Flota.
+
+**Primera entrega** (`062_maintenance.sql`, transacciones 250-276, subsistema `Mantenimiento`):
+- **OT:** preventiva, correctiva menor/mayor y emergencia, con su ciclo de estados y las firmas de §9.4. Emergencia con regularización en 48 h.
+- **Tareas y repuestos** dentro de cada OT.
+- **Efecto en la ficha de Flota:**
+  - Condición operativa automática: "En mantenimiento (OT-xx)".
+  - Lectura de cierre en el historial de lecturas (source MANTENIMIENTO).
+  - Eventos en el historial de la unidad.
+- **Incidencias** que se agrupan en una OT.
+- **Criticidad** por unidad (base §5.2) y **ajustes**.
+- **Pantallas:** `/maintenance` (incluye la hoja de vida con `?unit=`), `/maintenance/incidents` y `/maintenance/criticality`.
+
+**Segunda entrega** (`063_maintenance_plan.sql`, transacciones 277-288):
+- **Plan preventivo** sembrado de §7 (25 servicios por familia + flota liviana), con semáforo "lo que ocurra primero": vencido, próximo, al día, sin base y sin lectura.
+- **Medidor estimado:** última lectura (ficha o Combustible) + horas de Control de Horas desde esa fecha.
+- **OT preventiva** con un clic. Opcional: generación automática diaria (`MNT_AUTO_PREVENTIVA`, apagada por defecto; cron `MNT_PREVENTIVA_CRON`, 6:00).
+- Al cerrar la preventiva se actualiza la base del plan.
+- **Catálogos** de servicios (15 sembrados) y proveedores.
+- **Evidencias** (fotos y PDF, 10 MB) por `/maintenance/files`.
+- **Tiempos de parada:** diagnóstico, espera de repuesto y reparación.
+- **Indicadores:** días medios de cierre y horas medias de reparación (90 días); unidades sin lectura.
+
+**Pendiente:**
+- KPIs completos de §11 (disponibilidad, MTBF, cumplimiento del plan).
+- RCA y Pareto de fallas.
+- Matriz de criticidad con puntaje (Anexo D).
+- Hoja de vida en PDF para auditoría.
+- Predictivo.
+- Avisos por Telegram.
+- Incidencias desde Informes.
+- Que Luis quite `registrarServicio` (tx 172-173) y muestre la hoja de vida en la ficha.
 
 ---
 

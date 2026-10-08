@@ -13,7 +13,7 @@ const unwrap = (res) => {
 
 /**
  * Servicio de Secciones (Security/Option): qué páginas puede ver cada perfil.
- * Transacciones: getAll: 101 / getByProfile: 102 / assign: 103 / remove: 104
+ * Transacciones: getAll: 101 / getByProfile: 102 / assign: 103 / remove: 104 / setReadOnly: 194
  */
 const optionService = {
   getAll() {
@@ -30,6 +30,11 @@ const optionService = {
 
   removeFromProfile(option_id, profile_id) {
     return executeTransaction(104, { option_id, profile_id }).then(unwrap);
+  },
+
+  // Solo lectura por sección (065): read_only true = solo puede ver.
+  setReadOnly(option_id, profile_id, read_only) {
+    return executeTransaction(194, { option_id, profile_id, read_only }).then(unwrap);
   },
 };
 

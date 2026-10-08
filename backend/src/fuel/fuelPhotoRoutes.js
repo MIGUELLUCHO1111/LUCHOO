@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 import DBMS from '../dbms/dbms.js';
 import Config from '../../config/config.js';
 import Security from '../security/security.js';
+import { uploadsPath } from '../../config/paths.js';
+import { userCanAny, denyFile } from '../security/fileAccess.js';
 
 // Ruta aparte del dispatcher JSON (mismo espíritu que src/session/sessionRoutes.js):
 // la subida de fotos necesita multipart/form-data real, no encaja en el
@@ -18,7 +20,7 @@ const security = new Security();
 const { STATUS_CODES } = config;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOADS_ROOT = path.resolve(__dirname, '../../uploads/fuel');
+const UPLOADS_ROOT = uploadsPath('fuel');
 
 const MIME_EXT = {
   'image/jpeg': '.jpg',
@@ -39,9 +41,11 @@ const upload = multer({
   },
 });
 
-const CREATE_METHOD = { carga: 'createCarga', pesada: 'createPesada' };
-const UPDATE_METHOD = { carga: 'updateCarga', pesada: 'updatePesada' };
-const CLASS_NAME = { carga: 'Carga', pesada: 'Pesada' };
+// transfer: fotos opcionales de Combustible > Transferencias (064).
+const CREATE_METHOD = { carga: 'createCarga', pesada: 'createPesada', transfer: 'createTransferencia' };
+const UPDATE_METHOD = { carga: 'updateCarga', pesada: 'updatePesada', transfer: 'updateTransferencia' };
+const CLASS_NAME = { carga: 'Carga', pesada: 'Pesada', transfer: 'Transferencia' };
+const CHECK_QUERY = { carga: 'checkCargaExists', pesada: 'checkPesadaExists', transfer: 'checkTransferExists' };
 
 const getDbms = async () => {
   const dbms = new DBMS();
@@ -74,7 +78,7 @@ router.post('/photos', (req, res) => {
       if (!CREATE_METHOD[targetType] || !targetId || !profile) {
         return res.status(STATUS_CODES.BAD_REQUEST).json({
           statusCode: STATUS_CODES.BAD_REQUEST,
-          message: "Campos requeridos: 'target_type' ('carga'|'pesada'), 'target_id', 'profile'",
+          message: "Campos requeridos: 'target_type' ('carga'|'pesada'|'transfer'), 'target_id', 'profile'",
         });
       }
       if (!req.file) {
@@ -108,7 +112,7 @@ router.post('/photos', (req, res) => {
       }
 
       const dbms = await getDbms();
-      const checkQuery = targetType === 'carga' ? 'checkCargaExists' : 'checkPesadaExists';
+      const checkQuery = CHECK_QUERY[targetType];
       const existsResult = await dbms.executeNamedQuery({
         nameQuery: checkQuery,
         params: { id: targetIdNum },
@@ -132,6 +136,7 @@ router.post('/photos', (req, res) => {
         params: {
           refuel_id: targetType === 'carga' ? targetIdNum : null,
           pesada_id: targetType === 'pesada' ? targetIdNum : null,
+          transfer_id: targetType === 'transfer' ? targetIdNum : null,
           url,
           thumbnail_url: null,
           mime_type: req.file.mimetype,
@@ -184,7 +189,7 @@ router.delete('/photos/:id', async (req, res) => {
       });
     }
 
-    const targetType = foto.refuel_id != null ? 'carga' : 'pesada';
+    const targetType = foto.refuel_id != null ? 'carga' : foto.pesada_id != null ? 'pesada' : 'transfer';
 
     if (
       !security.hasUserProfile(req.user.id, profile) ||
@@ -235,7 +240,7 @@ router.get('/photos/file/:targetType/:targetId/:filename', async (req, res) => {
 
   const { targetType, targetId, filename } = req.params;
   if (
-    !['carga', 'pesada'].includes(targetType) ||
+    !['carga', 'pesada', 'transfer'].includes(targetType) ||
     !SAFE_SEGMENT.test(targetId) ||
     !SAFE_SEGMENT.test(filename)
   ) {
@@ -244,6 +249,15 @@ router.get('/photos/file/:targetType/:targetId/:filename', async (req, res) => {
       message: 'Ruta de archivo inválida',
     });
   }
+
+  // Seguridad (08/10/2026): no basta con tener sesión; hace falta poder ver
+  // esa sección (Flota Liviana, Pesada o Transferencias).
+  const CAN_SEE = {
+    carga: [{ sub_system: 'Fuel', class: 'Carga', methods: ['getAllCargas', 'getCargaById', 'getCargasByVehiculo'] }],
+    pesada: [{ sub_system: 'Fuel', class: 'Pesada', methods: ['getAllPesada', 'getPesadaById'] }],
+    transfer: [{ sub_system: 'Fuel', class: 'Transferencia', methods: ['getAllTransferencias', 'getTransferenciaById'] }],
+  };
+  if (!userCanAny(req, CAN_SEE[targetType])) return denyFile(req, res);
 
   const filePath = path.resolve(UPLOADS_ROOT, targetType, targetId, filename);
   if (filePath !== UPLOADS_ROOT && !filePath.startsWith(UPLOADS_ROOT + path.sep)) {
